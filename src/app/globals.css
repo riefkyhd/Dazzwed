@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+/* Theme tokens. Overridden at runtime from events.theme (see Phase 2). */
+:root {
+  --bg: #0b0a09;
+  --surface: #17140f;
+  --fg: #f3ecdc;
+  --muted: #a89f8a;
+  --accent: #c9a24b;
+  --accent-fg: #14110a;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --font-sans: var(--font-sans-body);
+  --font-serif: var(--font-serif-head);
+}
+
+html {
+  color-scheme: dark;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans-body), system-ui, sans-serif;
+  /* respect notches / home indicator */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
