@@ -1,7 +1,6 @@
 import "server-only";
 import { Readable } from "node:stream";
-import { getDriveClient } from "./client";
-import { serverEnv } from "@/env";
+import { getDriveClient, resolveDriveTokens } from "./client";
 
 export interface DriveHealthResult {
   ok: boolean;
@@ -23,8 +22,9 @@ export interface DriveHealthResult {
  * 2. Uploads and immediately deletes a tiny 1-byte test file in the root folder.
  */
 export async function checkDriveHealth(): Promise<DriveHealthResult> {
-  const env = serverEnv();
-  if (!env.GOOGLE_REFRESH_TOKEN || !env.DRIVE_ROOT_FOLDER_ID) {
+  const { refreshToken, rootFolderId } = await resolveDriveTokens();
+
+  if (!refreshToken || !rootFolderId) {
     return {
       ok: false,
       testUploadOk: false,
@@ -33,7 +33,7 @@ export async function checkDriveHealth(): Promise<DriveHealthResult> {
   }
 
   try {
-    const drive = getDriveClient();
+    const drive = getDriveClient(refreshToken);
 
     // 1. Check about & quota
     const aboutRes = await drive.about.get({
@@ -60,7 +60,7 @@ export async function checkDriveHealth(): Promise<DriveHealthResult> {
       const testRes = await drive.files.create({
         requestBody: {
           name: `.test-health-${Date.now()}.tmp`,
-          parents: [env.DRIVE_ROOT_FOLDER_ID],
+          parents: [rootFolderId],
         },
         media: {
           mimeType: "text/plain",

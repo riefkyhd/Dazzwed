@@ -48,10 +48,13 @@ export async function GET(req: Request) {
     // 3. Create root folder in Google Drive
     const rootFolderId = await createRootFolder(drive, event.couple_names);
 
-    // 4. Cache drive_root_folder_id on event
+    // 4. Cache drive_root_folder_id and google_refresh_token on event
     await sb
       .from("events")
-      .update({ drive_root_folder_id: rootFolderId })
+      .update({
+        drive_root_folder_id: rootFolderId,
+        google_refresh_token: refreshToken,
+      })
       .eq("id", event.id);
 
     // Redirect to connect-drive page with details

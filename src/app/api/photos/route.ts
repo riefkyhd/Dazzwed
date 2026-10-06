@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getDriveClient } from "@/lib/drive/client";
+import { getDriveClient, resolveDriveTokens } from "@/lib/drive/client";
 import { ensureGuestFolder } from "@/lib/drive/folders";
 import { uploadPhotoToDrive } from "@/lib/drive/upload";
 import { getEventBySlug } from "@/lib/event-server";
@@ -161,7 +161,8 @@ export async function POST(req: Request) {
     // 7. Upload to Google Drive into per-guest folder
     let drive;
     try {
-      drive = getDriveClient();
+      const { refreshToken } = await resolveDriveTokens();
+      drive = getDriveClient(refreshToken || undefined);
     } catch (e) {
       // Missing refresh token or Drive config -> release reservation and 503
       await sb.rpc("release_shot", { p_shot_id: shotId });

@@ -1,7 +1,6 @@
 import "server-only";
 import type { drive_v3 } from "googleapis";
-import { getDriveClient } from "./client";
-import { serverEnv } from "@/env";
+import { getDriveClient, resolveDriveTokens } from "./client";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
@@ -46,7 +45,7 @@ export async function ensureHiddenFolder(
  */
 export async function hidePhoto(photoId: string): Promise<void> {
   const sb = supabaseAdmin();
-  const env = serverEnv();
+  const { refreshToken, rootFolderId } = await resolveDriveTokens();
 
   const { data: photo, error: fetchErr } = await sb
     .from("photos")
@@ -59,10 +58,10 @@ export async function hidePhoto(photoId: string): Promise<void> {
   }
 
   // If photo has a Google Drive file, move it to Hidden Photos
-  if (photo.drive_file_id && env.DRIVE_ROOT_FOLDER_ID && env.GOOGLE_REFRESH_TOKEN) {
+  if (photo.drive_file_id && rootFolderId && refreshToken) {
     try {
-      const drive = getDriveClient();
-      const hiddenFolderId = await ensureHiddenFolder(drive, env.DRIVE_ROOT_FOLDER_ID);
+      const drive = getDriveClient(refreshToken);
+      const hiddenFolderId = await ensureHiddenFolder(drive, rootFolderId);
 
       const fileMeta = await drive.files.get({
         fileId: photo.drive_file_id,
@@ -98,7 +97,7 @@ export async function hidePhoto(photoId: string): Promise<void> {
  */
 export async function unhidePhoto(photoId: string): Promise<void> {
   const sb = supabaseAdmin();
-  const env = serverEnv();
+  const { refreshToken, rootFolderId } = await resolveDriveTokens();
 
   const { data: photo, error: fetchErr } = await sb
     .from("photos")
@@ -110,13 +109,12 @@ export async function unhidePhoto(photoId: string): Promise<void> {
     throw new Error(`Photo not found: ${fetchErr?.message || photoId}`);
   }
 
-  if (photo.drive_file_id && env.DRIVE_ROOT_FOLDER_ID && env.GOOGLE_REFRESH_TOKEN) {
+  if (photo.drive_file_id && rootFolderId && refreshToken) {
     try {
-      const drive = getDriveClient();
-      // Target folder is the guest folder if cached, otherwise root folder
+      const drive = getDriveClient(refreshToken);
       const targetFolderId =
         (photo as unknown as { guests?: { drive_folder_id?: string | null } })?.guests?.drive_folder_id ||
-        env.DRIVE_ROOT_FOLDER_ID;
+        rootFolderId;
 
       const fileMeta = await drive.files.get({
         fileId: photo.drive_file_id,
@@ -150,7 +148,7 @@ export async function unhidePhoto(photoId: string): Promise<void> {
  */
 export async function deletePhoto(photoId: string): Promise<void> {
   const sb = supabaseAdmin();
-  const env = serverEnv();
+  const { refreshToken } = await resolveDriveTokens();
 
   const { data: photo, error: fetchErr } = await sb
     .from("photos")
@@ -162,9 +160,9 @@ export async function deletePhoto(photoId: string): Promise<void> {
     throw new Error(`Photo not found: ${fetchErr?.message || photoId}`);
   }
 
-  if (photo.drive_file_id && env.GOOGLE_REFRESH_TOKEN) {
+  if (photo.drive_file_id && refreshToken) {
     try {
-      const drive = getDriveClient();
+      const drive = getDriveClient(refreshToken);
       await drive.files.delete({ fileId: photo.drive_file_id });
     } catch (driveErr) {
       console.error(`Failed to delete file ${photo.drive_file_id} from Drive:`, driveErr);
