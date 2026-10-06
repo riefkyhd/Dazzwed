@@ -230,6 +230,59 @@ export async function renderShot(
   return blob;
 }
 
+/**
+ * Composite a GPU-processed WebGL canvas or image blob with 2D film extras
+ * (date stamps, instant frames, light leaks, and couple names).
+ */
+export async function compositeProcessed2D(
+  processedSource: ImageBitmap | HTMLCanvasElement | Blob,
+  options: {
+    look?: LookRecipe;
+    seed?: number;
+    dateStampDate?: Date;
+    coupleNames?: string;
+    quality?: number;
+  } = {}
+): Promise<Blob> {
+  let imgBitmap: ImageBitmap;
+  if (processedSource instanceof Blob) {
+    imgBitmap = await createImageBitmap(processedSource);
+  } else if (processedSource instanceof HTMLCanvasElement) {
+    imgBitmap = await createImageBitmap(processedSource);
+  } else {
+    imgBitmap = processedSource;
+  }
+
+  const w = imgBitmap.width;
+  const h = imgBitmap.height;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Could not acquire 2D canvas context");
+
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(imgBitmap, 0, 0);
+
+  const look = options.look ?? DISPOSABLE_400_LOOK;
+  const seed = options.seed ?? 42;
+
+  drawEmulsionExtras(ctx, w, h, look, seed);
+  if (look.dateStamp.enabled) {
+    drawDateStamp(ctx, w, h, look, options.dateStampDate);
+  }
+  if (look.frame.type === "instant") {
+    drawInstantFrame(ctx, w, h, look, options.coupleNames);
+  }
+
+  const outBlob = await toBlob(canvas, options.quality ?? 0.95);
+  canvas.width = canvas.height = 0;
+  if ("close" in imgBitmap && processedSource !== imgBitmap) {
+    imgBitmap.close();
+  }
+  return outBlob;
+}
+
 /** Decode a file from the OS camera/picker, honouring EXIF orientation. */
 export async function decodeFile(file: Blob): Promise<ImageBitmap | HTMLImageElement> {
   try {
