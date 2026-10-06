@@ -113,19 +113,48 @@ class UploadQueue {
       let nextWakeupMs: number | null = null;
 
       // Filter shots ready to process
-      const candidates: ShotRecord[] = [];
+      const candidates: { item: ShotRecord; type: "primary" | "original" }[] = [];
       for (const item of pending) {
         if (this.inFlight.has(item.shotId)) continue;
 
-        if (item.nextAttemptAt > now) {
-          const waitTime = item.nextAttemptAt - now;
-          if (nextWakeupMs === null || waitTime < nextWakeupMs) {
-            nextWakeupMs = waitTime;
-          }
+        const needsPrimary = item.status !== "synced";
+        const needsOriginal = item.originalStatus && item.originalStatus !== "none" && item.originalStatus !== "synced";
+
+        // Self-heal: If marked pending but neither blob is present or needs work, clean up to avoid zombie queue
+        if (!needsPrimary && !needsOriginal) {
           continue;
         }
 
-        candidates.push(item);
+        if (needsPrimary) {
+          if (!item.blob) {
+            // No blob for primary: cannot upload, mark synced to unblock
+            void updateShot(item.shotId, { status: "synced" });
+            continue;
+          }
+          if (item.nextAttemptAt > now) {
+            const waitTime = item.nextAttemptAt - now;
+            if (nextWakeupMs === null || waitTime < nextWakeupMs) {
+              nextWakeupMs = waitTime;
+            }
+            continue;
+          }
+          candidates.push({ item, type: "primary" });
+        } else if (needsOriginal) {
+          if (!item.originalBlob) {
+            // No blob for original: cannot upload, mark synced to unblock
+            void updateShot(item.shotId, { originalStatus: "synced" });
+            continue;
+          }
+          const origNextAttempt = item.originalNextAttemptAt || 0;
+          if (origNextAttempt > now) {
+            const waitTime = origNextAttempt - now;
+            if (nextWakeupMs === null || waitTime < nextWakeupMs) {
+              nextWakeupMs = waitTime;
+            }
+            continue;
+          }
+          candidates.push({ item, type: "original" });
+        }
       }
 
       // Schedule next wakeup if any items are waiting on backoff timer
@@ -135,15 +164,22 @@ class UploadQueue {
 
       // Fill available concurrency slots (up to MAX_CONCURRENT)
       while (this.activeCount < MAX_CONCURRENT && candidates.length > 0) {
-        const item = candidates.shift()!;
+        const { item, type } = candidates.shift()!;
         this.activeCount++;
         this.inFlight.add(item.shotId);
 
-        // Mark as uploading in DB
-        void updateShot(item.shotId, { status: "uploading" });
+        const uploadTask =
+          type === "primary"
+            ? (async () => {
+                void updateShot(item.shotId, { status: "uploading" });
+                await this.uploadItem(item);
+              })()
+            : (async () => {
+                await this.uploadOriginalItem(item);
+              })();
 
         // Dispatch upload task asynchronously without blocking loop
-        void this.uploadItem(item).finally(() => {
+        void uploadTask.finally(() => {
           this.activeCount--;
           this.inFlight.delete(item.shotId);
           // Re-trigger queue loop as a slot just freed up
@@ -364,6 +400,14 @@ class UploadQueue {
       });
 
       if (!initRes.ok) {
+        if (initRes.status === 403 || initRes.status === 404 || initRes.status === 507) {
+          console.warn(`Server rejected original photo init (${initRes.status}). Dropping original.`);
+          await updateShot(item.shotId, { originalStatus: "synced", originalBlob: null });
+          const remaining = await getPendingShots();
+          this.notify(remaining.length);
+          return;
+        }
+
         const delay = this.calculateBackoff(item.originalAttempts || 0);
         await updateShot(item.shotId, {
           originalStatus: "queued",
@@ -374,6 +418,14 @@ class UploadQueue {
       }
 
       const initData = await initRes.json();
+      if (initData.duplicate && initData.driveFileId) {
+        // Original already uploaded
+        await updateShot(item.shotId, { originalStatus: "synced", originalBlob: null });
+        const remaining = await getPendingShots();
+        this.notify(remaining.length);
+        return;
+      }
+
       const sessionUri = initData.sessionUri;
       if (!sessionUri) throw new Error("No sessionUri returned for original");
 

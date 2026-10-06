@@ -30,4 +30,14 @@ describe("camera constraints & error classification", () => {
     // @ts-expect-error video constraint inspect
     expect(ladder[0].video.deviceId).toEqual({ exact: "lens-123" });
   });
+
+  it("builds user/front camera ladder without falling back to bare video: true", () => {
+    const ladder = constraintLadder({ facing: "user" });
+    expect(ladder.length).toBeGreaterThanOrEqual(3);
+    // Rung 0 requests exact user facing
+    // @ts-expect-error video constraint inspect
+    expect(ladder[0].video.facingMode).toEqual({ exact: "user" });
+    // Must NOT end with bare video: true (which would open the rear camera on mobile)
+    expect(ladder[ladder.length - 1]).not.toEqual({ audio: false, video: true });
+  });
 });

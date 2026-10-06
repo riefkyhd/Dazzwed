@@ -169,4 +169,48 @@ describe("Upload Queue Engine", () => {
     const pending = await getPendingShots(guestId);
     expect(pending.length).toBe(0);
   });
+
+  it("processes clean original photo when primary is synced and original is queued", async () => {
+    const fetchMock = vi.fn().mockImplementation(async (url: string, init: any) => {
+      const body = JSON.parse(init.body);
+      if (body.isOriginal) {
+        return new Response(JSON.stringify({ ok: true, duplicate: true, driveFileId: "orig-drive-456" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, duplicate: true, driveFileId: "filt-drive-123" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    });
+    global.fetch = fetchMock;
+
+    const blob = new Blob(["filtered-bytes"], { type: "image/jpeg" });
+    const originalBlob = new Blob(["clean-original-bytes"], { type: "image/jpeg" });
+    await addShot({
+      shotId: "dual-shot-1",
+      eventSlug: slug,
+      guestId,
+      blob,
+      originalBlob,
+    });
+
+    // 1. First drain uploads primary photo
+    uploadQueue.drain();
+    await new Promise((r) => setTimeout(r, 60));
+
+    // 2. Next cycle uploads clean original photo
+    uploadQueue.drain();
+    await new Promise((r) => setTimeout(r, 60));
+
+    const shot = await getShot("dual-shot-1");
+    expect(shot?.status).toBe("synced");
+    expect(shot?.originalStatus).toBe("synced");
+    expect(shot?.blob).toBeNull();
+    expect(shot?.originalBlob).toBeNull();
+
+    const pending = await getPendingShots(guestId);
+    expect(pending.length).toBe(0);
+  });
 });

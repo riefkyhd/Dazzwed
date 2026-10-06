@@ -107,7 +107,13 @@ export async function POST(req: Request) {
 
     // Initiate Google Drive Resumable Upload Session
     const { refreshToken } = await resolveDriveTokens();
-    const drive = getDriveClient(refreshToken || undefined);
+    if (!refreshToken) {
+      return NextResponse.json(
+        { error: "Google Drive is not connected. Please connect Drive in Admin Settings." },
+        { status: 503 }
+      );
+    }
+    const drive = getDriveClient(refreshToken);
     const guestFolderId = await ensureGuestFolder(drive, rootFolderId, guest.id, guest.display_name);
 
     let targetParentFolderId = guestFolderId;
@@ -121,12 +127,17 @@ export async function POST(req: Request) {
       // Verify the parent photo exists
       const { data: existingPhoto } = await sb
         .from("photos")
-        .select("id, shots_used:guests(shots_per_guest)")
+        .select("id, original_drive_file_id, shots_used:guests(shots_per_guest)")
         .eq("shot_id", shotIdParsed.data)
         .maybeSingle();
 
       if (!existingPhoto) {
         return NextResponse.json({ error: "Parent photo record not found" }, { status: 404 });
+      }
+
+      // If original is already uploaded and recorded, return duplicate immediately
+      if (existingPhoto.original_drive_file_id) {
+        return NextResponse.json({ ok: true, duplicate: true, driveFileId: existingPhoto.original_drive_file_id });
       }
     } else {
       // Filtered main photo: Server-side atomic shot reservation

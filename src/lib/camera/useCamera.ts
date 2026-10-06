@@ -89,8 +89,12 @@ export function useCamera(enabled: boolean) {
       } else {
         setStarting(true);
       }
-      stopStream(streamRef.current);
-      streamRef.current = null;
+      if (streamRef.current) {
+        stopStream(streamRef.current);
+        streamRef.current = null;
+        // Small delay to allow mobile camera hardware daemon (AVFoundation / Camera2) to release sensor
+        await new Promise((r) => setTimeout(r, 150));
+      }
       try {
         let s = await openStream({ deviceId: lensChoice, facing });
         if (cancelled) return stopStream(s);
@@ -133,13 +137,18 @@ export function useCamera(enabled: boolean) {
         setTorchOn(false);
 
         // Apply track exposure compensation (-0.5 EV) to protect highlights if supported
-        const ec = readExposureCompRange(track);
-        setExposureCompRange(ec);
-        if (ec) {
-          const targetEV = Math.max(ec.min, Math.min(ec.max, -0.5));
-          void applyExposureCompensation(track, targetEV);
-          setExposureCompValue(targetEV);
-        } else {
+        try {
+          const ec = readExposureCompRange(track);
+          setExposureCompRange(ec);
+          if (ec) {
+            const targetEV = Math.max(ec.min, Math.min(ec.max, -0.5));
+            void applyExposureCompensation(track, targetEV).catch(() => {});
+            setExposureCompValue(targetEV);
+          } else {
+            setExposureCompValue(0);
+          }
+        } catch {
+          setExposureCompRange(null);
           setExposureCompValue(0);
         }
 
@@ -325,9 +334,6 @@ export function useCamera(enabled: boolean) {
 
   const setActiveLook = useCallback((look: LookRecipe) => {
     setActiveLookState(look);
-    if (look.aspectRatio) {
-      setCameraAspect(look.aspectRatio as CameraAspect);
-    }
   }, []);
 
   const capture = useCallback(

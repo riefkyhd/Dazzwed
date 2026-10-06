@@ -43,15 +43,57 @@ export interface OpenOptions {
 
 /** Constraint sets from most to least specific. Handles OverconstrainedError by walking down. */
 export function constraintLadder({ deviceId, facing }: OpenOptions): MediaStreamConstraints[] {
-  const size = { width: { ideal: 1920 }, height: { ideal: 1080 } };
-  const base: MediaTrackConstraints = deviceId
-    ? { deviceId: { exact: deviceId } }
-    : { facingMode: { ideal: facing } };
-  const ladder: MediaStreamConstraints[] = [
-    { audio: false, video: { ...base, ...size } },
-    { audio: false, video: base },
-  ];
-  if (deviceId) ladder.push({ audio: false, video: { facingMode: { ideal: facing } } });
+  const ladder: MediaStreamConstraints[] = [];
+
+  if (deviceId) {
+    // Specific device requested
+    ladder.push({
+      audio: false,
+      video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    });
+    ladder.push({
+      audio: false,
+      video: { deviceId: { exact: deviceId } },
+    });
+    ladder.push({
+      audio: false,
+      video: { facingMode: { ideal: facing } },
+    });
+  } else if (facing === "user") {
+    // Front selfie camera:
+    // Some mobile devices reject 1080p landscape on front camera or fail exact matching.
+    // Try exact "user" first, then ideal "user" with 720p, then bare "user" constraint.
+    // NEVER fall back to { video: true } which defaults to the rear camera on mobile.
+    ladder.push({
+      audio: false,
+      video: { facingMode: { exact: "user" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    });
+    ladder.push({
+      audio: false,
+      video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+    });
+    ladder.push({
+      audio: false,
+      video: { facingMode: { ideal: "user" } },
+    });
+    ladder.push({
+      audio: false,
+      video: { facingMode: "user" },
+    });
+    return ladder;
+  } else {
+    // Rear environment camera
+    ladder.push({
+      audio: false,
+      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    });
+    ladder.push({
+      audio: false,
+      video: { facingMode: { ideal: "environment" } },
+    });
+  }
+
+  // Bare video fallback only for environment or specific device
   ladder.push({ audio: false, video: true });
   return ladder;
 }
