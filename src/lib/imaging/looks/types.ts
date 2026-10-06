@@ -109,4 +109,8 @@ export interface LookRecipe {
   // 2D Post-Process
   dateStamp: DateStampConfig;
   frame: FrameConfig;
+
+  // Recalibration & Blend Controls
+  intensity?: number; // 0.0 (original) to 1.0 (full look), default 1.0
+  whiteProtect?: boolean; // Pull tint towards neutral for luma > 0.9, default true
 }

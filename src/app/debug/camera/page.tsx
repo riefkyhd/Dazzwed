@@ -24,6 +24,8 @@ export default function CameraDebugPage() {
   const [webglInfo, setWebglInfo] = useState<{ version: string; maxTextureSize: number } | null>(null);
   const [testCaptureResult, setTestCaptureResult] = useState<{ sizeKB: number; width: number; height: number } | null>(null);
   const [testingCapture, setTestingCapture] = useState(false);
+  const [debugStage, setDebugStage] = useState<number>(0);
+  const [debugOverlay, setDebugOverlay] = useState<boolean>(false);
 
   const [ua] = useState(() => (typeof navigator !== "undefined" ? navigator.userAgent : ""));
   const [isSecure] = useState(() => (typeof window !== "undefined" ? window.isSecureContext : true));
@@ -223,10 +225,39 @@ export default function CameraDebugPage() {
             <button
               onClick={() => void runTestCapture()}
               disabled={testingCapture}
-              className="px-3 py-1.5 rounded bg-accent text-accent-fg font-bold disabled:opacity-50"
+              className="px-3 py-1.5 rounded bg-accent text-accent-fg font-bold disabled:opacity-50 cursor-pointer"
             >
               {testingCapture ? "Processing Shot…" : "Run Test Capture"}
             </button>
+
+            {/* Stage bisect & overlay diagnostics */}
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="text-zinc-500">Stage:</span>
+              <select
+                value={debugStage}
+                onChange={(e) => setDebugStage(parseInt(e.target.value, 10))}
+                className="bg-black border border-zinc-700 text-amber-300 rounded px-2 py-1 text-xs"
+              >
+                <option value={0}>All Stages</option>
+                <option value={1}>1. Sharpen</option>
+                <option value={2}>2. Exposure & Flash</option>
+                <option value={3}>3. Filmic Curve</option>
+                <option value={4}>4. Lift/Gamma/Gain</option>
+                <option value={5}>5. Split Tone & White Protect</option>
+                <option value={6}>6. Grain</option>
+                <option value={7}>7. Vignette</option>
+              </select>
+
+              <label className="flex items-center gap-1.5 text-zinc-300 cursor-pointer ml-2">
+                <input
+                  type="checkbox"
+                  checked={debugOverlay}
+                  onChange={(e) => setDebugOverlay(e.target.checked)}
+                  className="accent-amber-400"
+                />
+                <span>NaN/Cyan Overlay</span>
+              </label>
+            </div>
 
             {/* @ts-expect-error zoom inspection */}
             {trackCapabilities?.zoom && (

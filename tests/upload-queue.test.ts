@@ -19,7 +19,7 @@ describe("Upload Queue Engine", () => {
 
   it("uploads queued shots and drops blob after confirmation", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ ok: true, status: "confirmed", driveFileId: "drive-123" }), {
+      new Response(JSON.stringify({ ok: true, duplicate: true, driveFileId: "drive-123" }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       }),
@@ -56,7 +56,10 @@ describe("Upload Queue Engine", () => {
       // Simulate network latency
       await new Promise((r) => setTimeout(r, 40));
       activeFetches--;
-      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      return new Response(JSON.stringify({ ok: true, duplicate: true, driveFileId: "drive-123" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     });
     global.fetch = fetchMock;
 
@@ -112,7 +115,12 @@ describe("Upload Queue Engine", () => {
       if (!networkOnline) {
         return Promise.reject(new TypeError("Failed to fetch (offline)"));
       }
-      return Promise.resolve(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+      return Promise.resolve(
+        new Response(JSON.stringify({ ok: true, duplicate: true, driveFileId: "drive-123" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
     });
     global.fetch = fetchMock;
 

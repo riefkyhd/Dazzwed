@@ -141,10 +141,14 @@ export async function renderShot(
     }
   }
 
-  // 1. Run WebGL2 Look Engine pipeline
+  // 1. Run WebGL2 Look Engine pipeline on a dedicated GL canvas
+  const glCanvas = document.createElement("canvas");
+  glCanvas.width = out.width;
+  glCanvas.height = out.height;
+
   let rendered = false;
   try {
-    const pipeline = new LookEnginePipeline(canvas);
+    const pipeline = new LookEnginePipeline(glCanvas);
     rendered = pipeline.render(sourceToRender, look, {
       width: out.width,
       height: out.height,
@@ -160,28 +164,30 @@ export async function renderShot(
     interCanvas.width = interCanvas.height = 0;
   }
 
-  // Fallback 2D if WebGL unavailable
-  if (!rendered) {
-    const ctx = canvas.getContext("2d");
-    if (ctx) {
-      ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-      applyFilmLook(ctx, out.width, out.height);
-    }
-  }
-
-  // 2. Post-shader 2D extras pass (Light leaks, dust, date stamp, instant frame)
+  // 2. Composite onto 2D canvas to support post-shader 2D extras
   const ctx2d = canvas.getContext("2d");
-  if (ctx2d) {
-    drawEmulsionExtras(ctx2d, out.width, out.height, look, seed);
-    if (look.dateStamp.enabled) {
-      drawDateStamp(ctx2d, out.width, out.height, look, dateStampDate);
-    }
-    if (look.frame.type === "instant") {
-      drawInstantFrame(ctx2d, out.width, out.height, look, coupleNames);
-    }
+  if (!ctx2d) throw new Error("Could not acquire 2D canvas context");
+  ctx2d.imageSmoothingQuality = "high";
+
+  if (rendered) {
+    ctx2d.drawImage(glCanvas, 0, 0);
+  } else {
+    // Fallback 2D if WebGL unavailable
+    ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+    applyFilmLook(ctx2d, out.width, out.height);
+  }
+  glCanvas.width = glCanvas.height = 0; // free WebGL memory
+
+  // 3. Post-shader 2D extras pass (Light leaks, dust, date stamp, instant frame)
+  drawEmulsionExtras(ctx2d, out.width, out.height, look, seed);
+  if (look.dateStamp.enabled) {
+    drawDateStamp(ctx2d, out.width, out.height, look, dateStampDate);
+  }
+  if (look.frame.type === "instant") {
+    drawInstantFrame(ctx2d, out.width, out.height, look, coupleNames);
   }
 
+  // Read back immediately in the same task
   const blob = await toBlob(canvas, quality);
   canvas.width = canvas.height = 0; // free memory
   return blob;

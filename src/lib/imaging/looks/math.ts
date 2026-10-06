@@ -11,21 +11,24 @@ export function evaluateToneCurve(x: number, curve: ToneCurve): number {
   const clamped = Math.max(0, Math.min(1, x));
 
   // 1. Toe lift
-  let val = curve.toe + clamped * (1 - curve.toe);
+  const toe = Math.max(0, Math.min(0.5, curve.toe));
+  let val = Math.max(0, Math.min(1, toe + clamped * (1 - toe)));
 
   // 2. Contrast around pivot
   const pivot = Math.max(0.01, Math.min(0.99, curve.pivot));
+  const contrast = Math.max(0.1, curve.contrast);
   if (val <= pivot) {
-    val = pivot * Math.pow(val / pivot, curve.contrast);
+    val = pivot * Math.pow(Math.max(1e-4, val / pivot), contrast);
   } else {
-    val = 1 - (1 - pivot) * Math.pow((1 - val) / (1 - pivot), curve.contrast);
+    const highBase = Math.max(0, Math.min(1, (1 - val) / Math.max(1e-4, 1 - pivot)));
+    val = 1 - (1 - pivot) * Math.pow(Math.max(1e-4, highBase), contrast);
   }
 
   // 3. Shoulder rolloff
   if (curve.shoulder < 0.99) {
     const s = Math.max(0.1, curve.shoulder);
     if (val > s) {
-      const over = (val - s) / (1 - s);
+      const over = (val - s) / Math.max(1e-4, 1 - s);
       val = s + (1 - s) * (1 - Math.exp(-over * 1.5));
     }
   }

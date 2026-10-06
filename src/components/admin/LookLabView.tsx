@@ -11,7 +11,9 @@ export function LookLabView() {
   const [currentRecipe, setCurrentRecipe] = useState<LookRecipe>(() =>
     JSON.parse(JSON.stringify(getLookById("disposable-400")))
   );
-  const [sourceType, setSourceType] = useState<"chart" | "camera">("chart");
+  const [sourceType, setSourceType] = useState<"chart" | "fixture" | "camera">("chart");
+  const [debugStage, setDebugStage] = useState<number>(0);
+  const [debugOverlay, setDebugOverlay] = useState<boolean>(false);
   const [fps, setFps] = useState<number>(30);
   const [showJson, setShowJson] = useState<boolean>(false);
   const [jsonText, setJsonText] = useState<string>("");
@@ -20,11 +22,26 @@ export function LookLabView() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const chartCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const fixtureImgRef = useRef<HTMLImageElement | null>(null);
   const pipelineRef = useRef<LookEnginePipeline | null>(null);
   const animRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Generate built-in calibration chart (grayscale ramp, saturated patches, skin tones, smooth sky gradient)
+  // Preload stress fixture photo
+  useEffect(() => {
+    const img = new Image();
+    img.src = "/stress-monitor-lamp.jpg";
+    img.onload = () => {
+      fixtureImgRef.current = img;
+    };
+  }, []);
+
+  // Generate extended calibration chart:
+  // 1. Smooth 0..1 ramp + float overshoot zone
+  // 2. High-contrast bright ceiling lamp disk on dark background
+  // 3. Specular highlights & blown window
+  // 4. Fine high-contrast metal edge
+  // 5. 11-step grayscale ramp + skin tones + saturated patches
   const getTestChart = () => {
     if (chartCanvasRef.current) return chartCanvasRef.current;
     const w = 960;
@@ -34,17 +51,38 @@ export function LookLabView() {
     c.height = h;
     const ctx = c.getContext("2d")!;
 
-    // 1. Smooth Sky Gradient (top 35%)
-    const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.35);
-    skyGrad.addColorStop(0, "#2c5282");
-    skyGrad.addColorStop(0.5, "#4299e1");
-    skyGrad.addColorStop(1, "#bee3f8");
-    ctx.fillStyle = skyGrad;
-    ctx.fillRect(0, 0, w, h * 0.35);
+    // Background dark room
+    ctx.fillStyle = "#121214";
+    ctx.fillRect(0, 0, w, h);
 
-    // 2. Grayscale 11-step ramp (y: 35% to 55%)
-    const rampY = h * 0.35;
-    const rampH = h * 0.2;
+    // 1. Smooth Sky / Ceiling Gradient (top 25%)
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.25);
+    skyGrad.addColorStop(0, "#101e30");
+    skyGrad.addColorStop(0.5, "#2a5c90");
+    skyGrad.addColorStop(1, "#cce8ff");
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, w, h * 0.25);
+
+    // 2. Ceiling Lamp Disk (Center of top bar, bright specular white 255)
+    const lampGrad = ctx.createRadialGradient(w * 0.5, h * 0.12, 5, w * 0.5, h * 0.12, 60);
+    lampGrad.addColorStop(0, "#ffffff");
+    lampGrad.addColorStop(0.3, "#ffffff");
+    lampGrad.addColorStop(0.7, "#fff5dd");
+    lampGrad.addColorStop(1, "rgba(255, 230, 180, 0)");
+    ctx.fillStyle = lampGrad;
+    ctx.beginPath();
+    ctx.arc(w * 0.5, h * 0.12, 60, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Specular highlight points & high-contrast metal clip on the right
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(w * 0.82, h * 0.05, 3, 40); // 3px bright wire
+    ctx.fillRect(w * 0.86, h * 0.08, 4, 4);  // tiny specular point
+    ctx.fillRect(w * 0.89, h * 0.11, 2, 2);  // 1-2px specular star
+
+    // 3. Grayscale 11-step ramp (y: 25% to 45%)
+    const rampY = h * 0.25;
+    const rampH = h * 0.20;
     const steps = 11;
     const stepW = w / steps;
     for (let i = 0; i < steps; i++) {
@@ -53,9 +91,9 @@ export function LookLabView() {
       ctx.fillRect(i * stepW, rampY, stepW, rampH);
     }
 
-    // 3. Skin tone patches (y: 55% to 75%)
-    const skinY = h * 0.55;
-    const skinH = h * 0.2;
+    // 4. Skin tone patches (y: 45% to 65%)
+    const skinY = h * 0.45;
+    const skinH = h * 0.20;
     const skinTones = [
       "#fbf0ea",
       "#f4d0b5",
@@ -72,15 +110,23 @@ export function LookLabView() {
       ctx.fillRect(idx * skinStepW, skinY, skinStepW, skinH);
     });
 
-    // 4. Primary saturated patches (y: 75% to 100%)
-    const satY = h * 0.75;
-    const satH = h * 0.25;
+    // 5. Primary saturated patches (y: 65% to 85%)
+    const satY = h * 0.65;
+    const satH = h * 0.20;
     const prims = ["#e53e3e", "#dd6b20", "#d69e2e", "#38a169", "#319795", "#3182ce", "#805ad5", "#d53f8c"];
     const primStepW = w / prims.length;
     prims.forEach((color, idx) => {
       ctx.fillStyle = color;
       ctx.fillRect(idx * primStepW, satY, primStepW, satH);
     });
+
+    // 6. Blown white window vs black document desk (bottom 15%)
+    const botY = h * 0.85;
+    const botH = h * 0.15;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, botY, w * 0.5, botH);
+    ctx.fillStyle = "#050505";
+    ctx.fillRect(w * 0.5, botY, w * 0.5, botH);
 
     return (chartCanvasRef.current = c);
   };
@@ -157,6 +203,10 @@ export function LookLabView() {
         src = videoRef.current;
         w = videoRef.current.videoWidth || 960;
         h = videoRef.current.videoHeight || 720;
+      } else if (sourceType === "fixture" && fixtureImgRef.current && fixtureImgRef.current.complete) {
+        src = fixtureImgRef.current;
+        w = fixtureImgRef.current.naturalWidth || 960;
+        h = fixtureImgRef.current.naturalHeight || 720;
       } else {
         src = getTestChart();
         w = 960;
@@ -169,19 +219,11 @@ export function LookLabView() {
           height: h,
           isCapture: false,
           time: now * 0.001,
+          intensity: currentRecipe.intensity ?? 1.0,
+          whiteProtect: currentRecipe.whiteProtect ?? true,
+          debugStage,
+          debugOverlay,
         });
-
-        // 2D extras preview
-        const ctx2d = canvas.getContext("2d");
-        if (ctx2d) {
-          drawEmulsionExtras(ctx2d, w, h, currentRecipe, 42);
-          if (currentRecipe.dateStamp.enabled) {
-            drawDateStamp(ctx2d, w, h, currentRecipe);
-          }
-          if (currentRecipe.frame.type === "instant") {
-            drawInstantFrame(ctx2d, w, h, currentRecipe, "Look Lab Preview");
-          }
-        }
       }
 
       animRef.current = requestAnimationFrame(render);
@@ -192,7 +234,7 @@ export function LookLabView() {
     return () => {
       if (animRef.current) cancelAnimationFrame(animRef.current);
     };
-  }, [currentRecipe, sourceType]);
+  }, [currentRecipe, sourceType, debugStage, debugOverlay]);
 
   const updateRecipe = (updater: (prev: LookRecipe) => void) => {
     setCurrentRecipe((prev) => {
@@ -306,6 +348,16 @@ export function LookLabView() {
               </button>
               <button
                 type="button"
+                onClick={() => setSourceType("fixture")}
+                className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
+                  sourceType === "fixture" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+                title="Stress fixture photo (Lamp & Monitor)"
+              >
+                Fixture
+              </button>
+              <button
+                type="button"
                 onClick={() => setSourceType("camera")}
                 className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
                   sourceType === "camera" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
@@ -315,13 +367,78 @@ export function LookLabView() {
               </button>
             </div>
           </div>
+
+          {/* Diagnostic Controls: Stage Bisection & NaN / Out-of-Range Overlay */}
+          <div className="p-3 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-2.5 text-xs font-mono">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <span className="text-zinc-400 font-bold uppercase tracking-wider text-[11px]">
+                Debug Stage Bisect:
+              </span>
+              <select
+                value={debugStage}
+                onChange={(e) => setDebugStage(parseInt(e.target.value, 10))}
+                className="bg-black border border-zinc-700 text-amber-300 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-amber-400 w-full sm:w-auto"
+              >
+                <option value={0}>Full Pipeline (All Stages)</option>
+                <option value={1}>1. Mild Sharpen Only</option>
+                <option value={2}>2. Linear Exposure & Flash</option>
+                <option value={3}>3. Filmic Tone Curve</option>
+                <option value={4}>4. Lift / Gamma / Gain</option>
+                <option value={5}>5. Split-Toning & White Protect</option>
+                <option value={6}>6. Film Grain</option>
+                <option value={7}>7. Vignette</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-4 pt-1 border-t border-zinc-800/80">
+              <label className="flex items-center gap-2 cursor-pointer text-zinc-300">
+                <input
+                  type="checkbox"
+                  checked={debugOverlay}
+                  onChange={(e) => setDebugOverlay(e.target.checked)}
+                  className="w-3.5 h-3.5 accent-amber-400 rounded"
+                />
+                <span>Overlay: Magenta = NaN/Inf, Cyan = Out-of-Range</span>
+              </label>
+            </div>
+          </div>
         </div>
 
         {/* Right Column: Param Sliders (5 cols) */}
         <div className="lg:col-span-5 bg-zinc-950 p-4 sm:p-5 rounded-2xl border border-zinc-800 shadow-xl space-y-5 max-h-[520px] lg:max-h-[720px] overflow-y-auto">
-          <h2 className="text-sm font-mono uppercase tracking-wider text-amber-400 font-semibold pb-2 border-b border-zinc-900">
-            Shader Parameters
-          </h2>
+          <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
+            <h2 className="text-sm font-mono uppercase tracking-wider text-amber-400 font-semibold">
+              Shader Parameters
+            </h2>
+            <div className="flex items-center gap-2">
+              <label className="flex items-center gap-1.5 text-xs font-mono text-zinc-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={currentRecipe.whiteProtect ?? true}
+                  onChange={(e) => updateRecipe((r) => (r.whiteProtect = e.target.checked))}
+                  className="w-3.5 h-3.5 accent-amber-400 rounded"
+                />
+                <span>White Protect</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Look Intensity Blend */}
+          <div className="space-y-1 pb-3 border-b border-zinc-900">
+            <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+              <span>Look Intensity</span>
+              <span className="font-bold text-amber-300">{Math.round((currentRecipe.intensity ?? 1.0) * 100)}%</span>
+            </div>
+            <input
+              type="range"
+              min="0.0"
+              max="1.0"
+              step="0.05"
+              value={currentRecipe.intensity ?? 1.0}
+              onChange={(e) => updateRecipe((r) => (r.intensity = parseFloat(e.target.value)))}
+              className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+            />
+          </div>
 
           {/* 1. Exposure & Contrast */}
           <div className="space-y-3">
