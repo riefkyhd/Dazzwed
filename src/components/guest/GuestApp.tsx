@@ -170,6 +170,7 @@ export function GuestApp({ event }: GuestAppProps) {
     blob: Blob,
     activeId: string,
     metadata?: {
+      originalBlob?: Blob;
       width?: number;
       height?: number;
       source?: "inapp" | "native";
@@ -200,9 +201,14 @@ export function GuestApp({ event }: GuestAppProps) {
     }
   };
 
-  const handleShotCaptured = async (blob: Blob) => {
+  const handleShotCaptured = async (filteredBlob: Blob, originalBlob?: Blob) => {
     if (!guestId || shotsLeft <= 0) return;
-    await recordShot(blob, guestId, { source: "inapp", tier: "high" });
+    await recordShot(filteredBlob, guestId, {
+      originalBlob,
+      source: "inapp",
+      tier: "high",
+      filtered: true,
+    });
   };
 
   const handleNativePhoto = async (
@@ -256,10 +262,10 @@ export function GuestApp({ event }: GuestAppProps) {
       setNativeProcessingState("saving");
       setNativeProgress(45);
 
-      // Process image off main thread via Web Worker with EXIF correction
+      // Process image off main thread via Web Worker with EXIF correction (keeping full sensor resolution)
       const processed = await processImageOffThread(file, {
-        maxEdge: 4096,
-        quality: 0.92,
+        maxEdge: 8192, // Keep original sensor resolution for native camera
+        quality: 0.95,
         applyFilter: true,
         onProgress: (stage) => {
           if (stage === "decoding") setNativeProgress(30);
@@ -270,12 +276,13 @@ export function GuestApp({ event }: GuestAppProps) {
 
       setNativeProgress(95);
 
-      // Save processed photo to queue and replace the temporary raw entry
+      // Save processed photo to queue with original file attached as clean original
       await recordShot(processed.blob, activeId, {
+        originalBlob: file, // clean original uploaded to "originals" in background
         width: processed.width,
         height: processed.height,
         source: "native",
-        tier: "high",
+        tier: "original",
         filtered: true,
       });
 

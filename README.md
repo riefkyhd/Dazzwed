@@ -67,15 +67,17 @@ Photos are stored directly in the couple's dedicated Google Drive using Google D
      - Production: `https://<your-vercel-domain>.vercel.app/api/auth/google/callback`
    - Copy `Client ID` and `Client Secret` into `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`.
 
-### 2.2 One-Time Authorization & Root Folder Creation
+### 2.2 One-Time Authorization & Dedicated Root Folder Creation
 1. Start your local server (`npm run dev`) or deploy to Vercel.
 2. Navigate to `/admin/connect-drive`.
-3. Click **Authorize Google Account** and sign in with the couple's dedicated Google account.
+3. Click **Authorize Google Account** and sign in with the owner's Google account (using the 400 GB plan).
 4. The callback automatically:
+   - Uses strict `drive.file` scope only so nothing else in your Google Drive is touched.
    - Obtains an offline `GOOGLE_REFRESH_TOKEN`.
-   - Programmatically creates the root folder: `Disposable Cam - <couple_names>` in Google Drive (required since `drive.file` scope can only access app-created files).
+   - Programmatically creates a dedicated root folder: `Disposable Cam - <couple_names>` in Google Drive.
    - Saves `drive_root_folder_id` in Supabase and displays both keys on screen.
 5. Copy `GOOGLE_REFRESH_TOKEN` and `DRIVE_ROOT_FOLDER_ID` into `.env.local` and your Vercel Environment Variables.
+6. **Share with Partner**: Open the created root folder in Google Drive (`https://drive.google.com/drive/folders/<DRIVE_ROOT_FOLDER_ID>`), click **Share**, and add your partner's email with **Editor** permissions. This allows both of you to view, download, and organize guest photos live from both phones.
 
 ---
 

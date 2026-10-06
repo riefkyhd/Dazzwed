@@ -11,13 +11,14 @@ export async function POST(req: Request) {
       shotId?: string;
       driveFileId?: string;
       sizeBytes?: number;
+      isOriginal?: boolean;
     } | null;
 
     if (!body) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { shotId, driveFileId, sizeBytes } = body;
+    const { shotId, driveFileId, sizeBytes, isOriginal = false } = body;
     const shotIdParsed = z.uuid().safeParse(shotId);
     const driveFileIdParsed = z.string().min(5).safeParse(driveFileId);
 
@@ -42,19 +43,34 @@ export async function POST(req: Request) {
 
     const actualSize = fileMeta.data.size ? parseInt(fileMeta.data.size, 10) : sizeBytes || 0;
 
-    // Mark photo confirmed in database
-    const { error: updateErr } = await sb
-      .from("photos")
-      .update({
-        status: "confirmed",
-        drive_file_id: fileMeta.data.id,
-        size_bytes: actualSize,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("shot_id", shotIdParsed.data);
+    if (isOriginal) {
+      // Update original_drive_file_id on the existing photo
+      const { error: updateErr } = await sb
+        .from("photos")
+        .update({
+          original_drive_file_id: fileMeta.data.id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("shot_id", shotIdParsed.data);
 
-    if (updateErr) {
-      return NextResponse.json({ error: "Failed to confirm photo in DB" }, { status: 500 });
+      if (updateErr) {
+        return NextResponse.json({ error: "Failed to link original photo in DB" }, { status: 500 });
+      }
+    } else {
+      // Mark primary filtered photo confirmed in database
+      const { error: updateErr } = await sb
+        .from("photos")
+        .update({
+          status: "confirmed",
+          drive_file_id: fileMeta.data.id,
+          size_bytes: actualSize,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("shot_id", shotIdParsed.data);
+
+      if (updateErr) {
+        return NextResponse.json({ error: "Failed to confirm photo in DB" }, { status: 500 });
+      }
     }
 
     return NextResponse.json({

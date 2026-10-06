@@ -30,6 +30,10 @@ interface DashboardViewProps {
     };
     estimatedPhotosRemaining?: number;
     currentTier?: string;
+    percentUsed?: number;
+    remainingBytes?: number;
+    storageWarning?: boolean;
+    storageMessage?: string;
   };
   recentPhotos: Array<{
     id: string;
@@ -64,13 +68,13 @@ export function DashboardView({
     }
   }
 
-  // Drive quota estimation
+  // Drive quota estimation (400 GB plan)
+  const quotaLimitBytes = 400 * 1024 * 1024 * 1024; // 400 GB
+  const totalGB = (metrics.totalSizeBytes / (1024 * 1024 * 1024)).toFixed(2);
   const totalMB = (metrics.totalSizeBytes / (1024 * 1024)).toFixed(1);
-  const quotaLimitBytes = 15 * 1024 * 1024 * 1024; // 15 GB
-  const quotaPercent = Math.min(
-    100,
-    (metrics.totalSizeBytes / quotaLimitBytes) * 100,
-  ).toFixed(2);
+  const actualPercentUsed = typeof metrics.percentUsed === "number"
+    ? metrics.percentUsed.toFixed(1)
+    : Math.min(100, (metrics.totalSizeBytes / quotaLimitBytes) * 100).toFixed(2);
 
   const isEventOpen =
     !event.manually_closed &&
@@ -79,6 +83,22 @@ export function DashboardView({
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+      {/* 85% Storage Alert Banner */}
+      {metrics.storageWarning && (
+        <div className="mb-6 p-4 rounded-xl bg-amber-950/80 border border-amber-600 text-amber-200 text-xs flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <span className="text-base">⚠️</span>
+            <div>
+              <p className="font-bold text-amber-300">Google Drive Storage Alert (85%+ Full)</p>
+              <p>{metrics.storageMessage || "Drive storage is over 85% full. Uploads will automatically pause at 98%."}</p>
+            </div>
+          </div>
+          <Link href="/admin/connect-drive" className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 font-semibold text-amber-300">
+            Check Quota
+          </Link>
+        </div>
+      )}
+
       {/* Event Header Banner */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-8 border-b border-zinc-800">
         <div>
@@ -157,20 +177,22 @@ export function DashboardView({
         <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-              Drive Usage
+              Drive Usage (400 GB)
             </span>
-            <span className="text-[11px] font-mono text-amber-400">
-              Tier: {metrics.currentTier?.toUpperCase() || "HIGH"}
+            <span className={`text-[11px] font-mono ${Number(actualPercentUsed) >= 85 ? "text-red-400" : "text-emerald-400"}`}>
+              {actualPercentUsed}% used
             </span>
           </div>
           <p className="text-3xl font-serif font-bold text-white mt-1">
-            {totalMB} <span className="text-sm font-sans font-normal text-zinc-400">MB</span>
+            {Number(totalGB) >= 1 ? `${totalGB} GB` : `${totalMB} MB`}
           </p>
           <div className="mt-3">
             <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden">
               <div
-                className="bg-amber-400 h-1.5 rounded-full transition-all duration-500"
-                style={{ width: `${Math.max(1, Number(quotaPercent))}%` }}
+                className={`h-1.5 rounded-full transition-all duration-500 ${
+                  Number(actualPercentUsed) >= 85 ? "bg-red-400" : "bg-amber-400"
+                }`}
+                style={{ width: `${Math.max(1, Number(actualPercentUsed))}%` }}
               />
             </div>
             <div className="flex items-center justify-between text-[10px] text-zinc-400 mt-1 font-mono">

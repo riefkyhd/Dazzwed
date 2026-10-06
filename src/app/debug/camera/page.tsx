@@ -110,7 +110,7 @@ export default function CameraDebugPage() {
     setTestingCapture(true);
     try {
       const { renderShot } = await import("@/lib/imaging/render");
-      const blob = await renderShot(videoRef.current, { maxEdge: 4096, quality: 0.92 });
+      const blob = await renderShot(videoRef.current, { maxEdge: 4096, quality: 0.92, applyFilter: true });
       const bmp = await createImageBitmap(blob);
       setTestCaptureResult({
         sizeKB: Math.round(blob.size / 1024),

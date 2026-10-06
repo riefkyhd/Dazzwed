@@ -82,3 +82,39 @@ export async function ensureGuestFolder(
 
   return folderId;
 }
+
+/**
+ * Ensures an "originals" subfolder exists inside the guest's folder.
+ * Used when SAVE_CLEAN_ORIGINAL is enabled to keep unfiltered files neatly organized.
+ */
+export async function ensureOriginalsFolder(
+  drive: drive_v3.Drive,
+  guestFolderId: string,
+): Promise<string> {
+  // Query if "originals" folder already exists inside guestFolderId
+  const listRes = await drive.files.list({
+    q: `'${guestFolderId}' in parents and name = 'originals' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+    fields: "files(id, name)",
+    spaces: "drive",
+  });
+
+  if (listRes.data.files && listRes.data.files.length > 0 && listRes.data.files[0].id) {
+    return listRes.data.files[0].id;
+  }
+
+  // Create "originals" subfolder
+  const createRes = await drive.files.create({
+    requestBody: {
+      name: "originals",
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [guestFolderId],
+    },
+    fields: "id",
+  });
+
+  const folderId = createRes.data.id;
+  if (!folderId) {
+    throw new Error("Failed to create originals subfolder in Google Drive");
+  }
+  return folderId;
+}

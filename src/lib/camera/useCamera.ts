@@ -278,11 +278,15 @@ export function useCamera(enabled: boolean) {
     }
   }, [torchOn]);
 
-  const capture = useCallback(async (): Promise<Blob> => {
+  const capture = useCallback(async (): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
     const v = videoRef.current;
     if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
     // Native zoom is already in the frames; digital zoom is applied by cropping.
-    return renderShot(v, { zoom: zoomRange ? 1 : digitalZoom });
+    const [filteredBlob, originalBlob] = await Promise.all([
+      renderShot(v, { zoom: zoomRange ? 1 : digitalZoom, applyFilter: true }),
+      renderShot(v, { zoom: zoomRange ? 1 : digitalZoom, applyFilter: false }),
+    ]);
+    return { filteredBlob, originalBlob };
   }, [zoomRange, digitalZoom]);
 
   return {

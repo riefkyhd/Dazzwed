@@ -300,10 +300,16 @@ class UploadQueue {
         });
 
         if (confirmRes.ok) {
-          // Free blob storage!
+          // Free filtered blob storage and mark primary photo synced!
+          // Guest UI immediately reflects "Saved" / counter increments
           await updateShot(item.shotId, { status: "synced", blob: null });
           const remaining = await getPendingShots();
           this.notify(remaining.length);
+
+          // If there is a clean original blob waiting, initiate original upload asynchronously
+          if (item.originalBlob && item.originalStatus !== "synced") {
+            void this.uploadOriginalItem(item);
+          }
           return;
         }
       }
@@ -322,6 +328,154 @@ class UploadQueue {
         status: "queued",
         attempts: item.attempts + 1,
         nextAttemptAt: Date.now() + delay,
+      });
+    }
+  }
+
+  /**
+   * Uploads the clean unfiltered original to the "originals" subfolder in Google Drive.
+   * Runs independently in background so the guest is NEVER blocked.
+   */
+  private async uploadOriginalItem(item: ShotRecord): Promise<void> {
+    if (!item.originalBlob) {
+      await updateShot(item.shotId, { originalStatus: "synced" });
+      return;
+    }
+
+    try {
+      await updateShot(item.shotId, { originalStatus: "uploading" });
+
+      // Step A: Init resumable session for original
+      const initRes = await fetch("/api/photos/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventSlug: item.eventSlug,
+          guestId: item.guestId,
+          shotId: item.shotId,
+          sizeBytes: item.originalBlob.size,
+          width: item.width,
+          height: item.height,
+          source: item.source || "inapp",
+          isOriginal: true,
+        }),
+      });
+
+      if (!initRes.ok) {
+        const delay = this.calculateBackoff(item.originalAttempts || 0);
+        await updateShot(item.shotId, {
+          originalStatus: "queued",
+          originalAttempts: (item.originalAttempts || 0) + 1,
+          originalNextAttemptAt: Date.now() + delay,
+        });
+        return;
+      }
+
+      const initData = await initRes.json();
+      const sessionUri = initData.sessionUri;
+      if (!sessionUri) throw new Error("No sessionUri returned for original");
+
+      // Step B: Upload chunks
+      const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MiB
+      const totalBytes = item.originalBlob.size;
+      let startByte = 0;
+      let driveFileId: string | null = null;
+      let useProxy = false;
+
+      while (startByte < totalBytes) {
+        const endByte = Math.min(startByte + CHUNK_SIZE, totalBytes);
+        const chunk = item.originalBlob.slice(startByte, endByte);
+        const contentRange = `bytes ${startByte}-${endByte - 1}/${totalBytes}`;
+
+        let chunkRes: Response;
+        if (!useProxy) {
+          try {
+            chunkRes = await fetch(sessionUri, {
+              method: "PUT",
+              headers: { "Content-Range": contentRange, "Content-Type": "image/jpeg" },
+              body: chunk,
+            });
+          } catch {
+            useProxy = true;
+            chunkRes = await fetch("/api/photos/chunk", {
+              method: "PUT",
+              headers: {
+                "x-session-uri": sessionUri,
+                "content-range": contentRange,
+                "content-type": "image/jpeg",
+              },
+              body: chunk,
+            });
+          }
+        } else {
+          chunkRes = await fetch("/api/photos/chunk", {
+            method: "PUT",
+            headers: {
+              "x-session-uri": sessionUri,
+              "content-range": contentRange,
+              "content-type": "image/jpeg",
+            },
+            body: chunk,
+          });
+        }
+
+        if (chunkRes.status === 308) {
+          const range = chunkRes.headers.get("range");
+          if (range) {
+            const m = range.match(/bytes=0-(\d+)/);
+            if (m && m[1]) {
+              startByte = parseInt(m[1], 10) + 1;
+              continue;
+            }
+          }
+          startByte = endByte;
+          continue;
+        }
+
+        if (chunkRes.status === 200 || chunkRes.status === 201) {
+          const finishedData = await chunkRes.json().catch(() => null);
+          driveFileId = finishedData?.id || null;
+          break;
+        }
+
+        throw new Error(`Original chunk upload failed: ${chunkRes.status}`);
+      }
+
+      // Step C: Confirm original
+      if (driveFileId) {
+        const confirmRes = await fetch("/api/photos/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shotId: item.shotId,
+            driveFileId,
+            sizeBytes: totalBytes,
+            isOriginal: true,
+          }),
+        });
+
+        if (confirmRes.ok) {
+          // Free original blob storage!
+          await updateShot(item.shotId, { originalStatus: "synced", originalBlob: null });
+          const remaining = await getPendingShots();
+          this.notify(remaining.length);
+          return;
+        }
+      }
+
+      const delay = this.calculateBackoff(item.originalAttempts || 0);
+      await updateShot(item.shotId, {
+        originalStatus: "queued",
+        originalAttempts: (item.originalAttempts || 0) + 1,
+        originalNextAttemptAt: Date.now() + delay,
+      });
+    } catch (err) {
+      console.warn("Background upload of original failed, will retry:", err);
+      const delay = this.calculateBackoff(item.originalAttempts || 0);
+      await updateShot(item.shotId, {
+        originalStatus: "queued",
+        originalAttempts: (item.originalAttempts || 0) + 1,
+        originalNextAttemptAt: Date.now() + delay,
       });
     }
   }

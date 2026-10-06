@@ -22,7 +22,7 @@ interface CameraScreenProps {
   shotsLeft: number;
   pendingCount: number;
   lang: Lang;
-  onShotCaptured: (blob: Blob) => Promise<void>;
+  onShotCaptured: (filteredBlob: Blob, originalBlob?: Blob) => Promise<void>;
   onNativePhoto: (file: File, quickThumb?: string) => void;
 }
 
@@ -61,7 +61,7 @@ export function CameraScreen({
 
   const [isShutterActive, setIsShutterActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [reviewBlob, setReviewBlob] = useState<Blob | null>(null);
+  const [reviewBlobs, setReviewBlobs] = useState<{ filteredBlob: Blob; originalBlob?: Blob } | null>(null);
   const [isAdvancingFilm, setIsAdvancingFilm] = useState(false);
 
   const handleShoot = async () => {
@@ -76,9 +76,9 @@ export function CameraScreen({
 
     try {
       setIsProcessing(true);
-      const blob = await capture();
+      const { filteredBlob, originalBlob } = await capture();
       // Freeze frame and open retro Review Modal (no shot consumed yet)
-      setReviewBlob(blob);
+      setReviewBlobs({ filteredBlob, originalBlob });
     } catch (err) {
       console.error("Capture error:", err);
     } finally {
@@ -87,17 +87,17 @@ export function CameraScreen({
   };
 
   const handleKeepPhoto = async () => {
-    if (!reviewBlob) return;
+    if (!reviewBlobs) return;
     setIsAdvancingFilm(true);
-    const blobToSave = reviewBlob;
-    setReviewBlob(null);
+    const toSave = reviewBlobs;
+    setReviewBlobs(null);
     // Consumes 1 shot server-side & client-side only upon Keep!
-    await onShotCaptured(blobToSave);
+    await onShotCaptured(toSave.filteredBlob, toSave.originalBlob);
   };
 
   const handleRetakePhoto = () => {
     // Discard captured frame without consuming any shot
-    setReviewBlob(null);
+    setReviewBlobs(null);
   };
 
   if (error) {
@@ -275,9 +275,9 @@ export function CameraScreen({
       </footer>
 
       {/* Retro Review & Print Develop Modal (Keep vs Retake) */}
-      {reviewBlob && (
+      {reviewBlobs && (
         <ReviewModal
-          photoBlob={reviewBlob}
+          photoBlob={reviewBlobs.filteredBlob}
           lang={lang}
           onKeep={handleKeepPhoto}
           onRetake={handleRetakePhoto}

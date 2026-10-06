@@ -29,6 +29,7 @@ export async function POST(req: Request) {
       width?: number;
       height?: number;
       source?: "inapp" | "native";
+      isOriginal?: boolean;
       turnstileToken?: string;
     } | null;
 
@@ -36,12 +37,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { eventSlug, guestId, shotId, sizeBytes, width, height, source = "inapp" } = body;
+    const { eventSlug, guestId, shotId, sizeBytes, width, height, source = "inapp", isOriginal = false } = body;
 
     const slugParsed = z.string().min(2).max(63).safeParse(eventSlug);
     const guestIdParsed = z.uuid().safeParse(guestId);
     const shotIdParsed = z.uuid().safeParse(shotId);
-    const sizeParsed = z.number().int().positive().max(25 * 1024 * 1024).safeParse(sizeBytes);
+    const sizeParsed = z.number().int().positive().max(50 * 1024 * 1024).safeParse(sizeBytes);
 
     if (!slugParsed.success || !guestIdParsed.success || !shotIdParsed.success || !sizeParsed.success) {
       return NextResponse.json({ error: "Invalid input parameters or file size too large" }, { status: 400 });
@@ -62,7 +63,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Adaptive storage guard
+    // Storage guard check (warning at 85%, pause at 98%)
     const guard = await getAdaptiveStorageGuard();
     if (!guard.allowed) {
       return NextResponse.json(
@@ -93,35 +94,58 @@ export async function POST(req: Request) {
 
     if (!guest) return NextResponse.json({ error: "Guest not found" }, { status: 404 });
 
-    // Server-side atomic shot reservation
-    const { data: reserveRows, error: reserveErr } = await sb.rpc("reserve_shot", {
-      p_event_id: event.id,
-      p_guest_id: guest.id,
-      p_shot_id: shotIdParsed.data,
-    });
-
-    if (reserveErr || !reserveRows || reserveRows.length === 0) {
-      return NextResponse.json({ error: "Failed to reserve shot" }, { status: 500 });
-    }
-
-    const reservation = reserveRows[0] as ReserveResult;
-    if (reservation.outcome === "limit_reached") {
-      return NextResponse.json({ error: "Shot limit reached", shotsUsed: reservation.shots_used }, { status: 403 });
-    }
-    if (reservation.outcome === "not_found") {
-      return NextResponse.json({ error: "Guest/event not found" }, { status: 404 });
-    }
-    if (reservation.outcome === "duplicate" && reservation.status === "confirmed" && reservation.drive_file_id) {
-      return NextResponse.json({ ok: true, duplicate: true, driveFileId: reservation.drive_file_id });
-    }
-
     // Initiate Google Drive Resumable Upload Session
     const { refreshToken } = await resolveDriveTokens();
     const drive = getDriveClient(refreshToken || undefined);
     const guestFolderId = await ensureGuestFolder(drive, rootFolderId, guest.id, guest.display_name);
 
+    let targetParentFolderId = guestFolderId;
+    let shotsUsed = 1;
+
+    if (isOriginal) {
+      // Clean original: upload to "originals" subfolder without reserving another shot slot
+      const { ensureOriginalsFolder } = await import("@/lib/drive/folders");
+      targetParentFolderId = await ensureOriginalsFolder(drive, guestFolderId);
+
+      // Verify the parent photo exists
+      const { data: existingPhoto } = await sb
+        .from("photos")
+        .select("id, shots_used:guests(shots_per_guest)")
+        .eq("shot_id", shotIdParsed.data)
+        .maybeSingle();
+
+      if (!existingPhoto) {
+        return NextResponse.json({ error: "Parent photo record not found" }, { status: 404 });
+      }
+    } else {
+      // Filtered main photo: Server-side atomic shot reservation
+      const { data: reserveRows, error: reserveErr } = await sb.rpc("reserve_shot", {
+        p_event_id: event.id,
+        p_guest_id: guest.id,
+        p_shot_id: shotIdParsed.data,
+      });
+
+      if (reserveErr || !reserveRows || reserveRows.length === 0) {
+        return NextResponse.json({ error: "Failed to reserve shot" }, { status: 500 });
+      }
+
+      const reservation = reserveRows[0] as ReserveResult;
+      if (reservation.outcome === "limit_reached") {
+        return NextResponse.json({ error: "Shot limit reached", shotsUsed: reservation.shots_used }, { status: 403 });
+      }
+      if (reservation.outcome === "not_found") {
+        return NextResponse.json({ error: "Guest/event not found" }, { status: 404 });
+      }
+      if (reservation.outcome === "duplicate" && reservation.status === "confirmed" && reservation.drive_file_id) {
+        return NextResponse.json({ ok: true, duplicate: true, driveFileId: reservation.drive_file_id });
+      }
+
+      shotsUsed = reservation.shots_used;
+    }
+
     const guestNameOrId = guest.display_name?.trim() || guest.id.slice(0, 8);
-    const filename = generatePhotoFilename(guestNameOrId, reservation.shots_used);
+    const baseFilename = generatePhotoFilename(guestNameOrId, shotsUsed);
+    const filename = isOriginal ? baseFilename.replace(/\.jpg$/, "_original.jpg") : baseFilename;
 
     // Get origin for CORS
     const origin = req.headers.get("origin") || req.headers.get("referer") || "https://dazzwed.vercel.app";
@@ -130,7 +154,7 @@ export async function POST(req: Request) {
     const sessionRes = await (drive.files.create as any)({
       requestBody: {
         name: filename,
-        parents: [guestFolderId],
+        parents: [targetParentFolderId],
       },
       media: {
         mimeType: "image/jpeg",
@@ -145,23 +169,26 @@ export async function POST(req: Request) {
 
     const sessionUri = sessionRes.headers?.location || sessionRes.data?.location;
 
-    // Update photo record with dimensions & tier
-    await sb
-      .from("photos")
-      .update({
-        width: width || null,
-        height: height || null,
-        source,
-        tier: guard.tier,
-      })
-      .eq("shot_id", shotIdParsed.data);
+    if (!isOriginal) {
+      // Update photo record with dimensions & tier for the primary filtered photo
+      await sb
+        .from("photos")
+        .update({
+          width: width || null,
+          height: height || null,
+          source,
+          tier: source === "native" ? "original" : "high",
+          filtered: true,
+        })
+        .eq("shot_id", shotIdParsed.data);
+    }
 
     return NextResponse.json({
       ok: true,
       shotId: shotIdParsed.data,
       sessionUri,
-      tier: guard.tier,
-      shotsUsed: reservation.shots_used,
+      tier: source === "native" ? "original" : "high",
+      shotsUsed,
     });
   } catch (err) {
     console.error("Error in /api/photos/init:", err);

@@ -18,21 +18,21 @@ export interface DriveHealthResult {
 
 export interface StorageGuardResult {
   allowed: boolean;
-  tier: "high" | "standard" | "lite";
+  tier: "high" | "original";
   percentUsed: number;
   remainingBytes: number;
   estimatedPhotosRemaining: number;
+  warning?: boolean;
   message?: string;
 }
 
 let cachedGuard: { result: StorageGuardResult; expiresAt: number } | null = null;
 
 /**
- * Evaluates Drive quota with 60s in-memory caching to select output tier or halt uploads:
- * - <60% used => high
- * - 60-85% used => standard
- * - 85-97% used => lite
- * - >97% used => blocked (camera film almost out)
+ * Evaluates Drive quota (400 GB plan) with 60s in-memory cache:
+ * - Always uses "high" tier (max 4096 px long edge, JPEG q0.92, or original for native camera)
+ * - Warning when usage >= 85%
+ * - Halt uploads only when usage >= 98%
  */
 export async function getAdaptiveStorageGuard(): Promise<StorageGuardResult> {
   const now = Date.now();
@@ -46,8 +46,8 @@ export async function getAdaptiveStorageGuard(): Promise<StorageGuardResult> {
       allowed: true,
       tier: "high",
       percentUsed: 0,
-      remainingBytes: 15 * 1024 * 1024 * 1024,
-      estimatedPhotosRemaining: 5000,
+      remainingBytes: 400 * 1024 * 1024 * 1024,
+      estimatedPhotosRemaining: 80000,
     };
   }
 
@@ -56,35 +56,33 @@ export async function getAdaptiveStorageGuard(): Promise<StorageGuardResult> {
     const about = await drive.about.get({ fields: "storageQuota" });
     const quota = about.data.storageQuota;
 
-    const limit = quota?.limit ? parseInt(quota.limit, 10) : 15 * 1024 * 1024 * 1024;
+    const limit = quota?.limit ? parseInt(quota.limit, 10) : 400 * 1024 * 1024 * 1024;
     const usage = quota?.usage ? parseInt(quota.usage, 10) : 0;
     const remaining = Math.max(0, limit - usage);
     const percentUsed = limit > 0 ? (usage / limit) * 100 : 0;
 
-    let tier: "high" | "standard" | "lite" = "high";
     let allowed = true;
+    let warning = false;
     let message: string | undefined;
 
-    if (percentUsed >= 97) {
+    if (percentUsed >= 98) {
       allowed = false;
-      message = "Camera film is almost out (storage full). Please alert the couple!";
+      message = "Camera film is almost out (Drive storage is 98% full). Uploads paused to protect account.";
     } else if (percentUsed >= 85) {
-      tier = "lite";
-    } else if (percentUsed >= 60) {
-      tier = "standard";
-    } else {
-      tier = "high";
+      warning = true;
+      message = "Google Drive storage is over 85% full. Consider reviewing Drive storage.";
     }
 
-    // Estimate based on ~3.5MB per photo
-    const estimatedPhotosRemaining = Math.floor(remaining / (3.5 * 1024 * 1024));
+    // Estimate based on ~5MB per photo (or ~10MB if saving clean original)
+    const estimatedPhotosRemaining = Math.floor(remaining / (5 * 1024 * 1024));
 
     const result: StorageGuardResult = {
       allowed,
-      tier,
+      tier: "high",
       percentUsed,
       remainingBytes: remaining,
       estimatedPhotosRemaining,
+      warning,
       message,
     };
 
@@ -100,8 +98,8 @@ export async function getAdaptiveStorageGuard(): Promise<StorageGuardResult> {
       allowed: true,
       tier: "high",
       percentUsed: 0,
-      remainingBytes: 15 * 1024 * 1024 * 1024,
-      estimatedPhotosRemaining: 5000,
+      remainingBytes: 400 * 1024 * 1024 * 1024,
+      estimatedPhotosRemaining: 80000,
     };
   }
 }

@@ -78,7 +78,12 @@ export interface RenderOptions {
  */
 export async function renderShot(
   src: Source,
-  { zoom = 1, maxEdge = 4096, quality = 0.92 }: RenderOptions & { maxEdge?: number; quality?: number } = {}
+  {
+    zoom = 1,
+    maxEdge = 4096,
+    quality = 0.92,
+    applyFilter = true,
+  }: RenderOptions & { maxEdge?: number; quality?: number; applyFilter?: boolean } = {}
 ): Promise<Blob> {
   const { w, h } = sourceSize(src);
   if (!w || !h) throw new Error("source has no size");
@@ -88,6 +93,17 @@ export async function renderShot(
   const canvas = document.createElement("canvas");
   canvas.width = out.width;
   canvas.height = out.height;
+
+  // If clean original requested, draw directly without filter
+  if (!applyFilter) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("no 2d context");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+    const blob = await toBlob(canvas, quality);
+    canvas.width = canvas.height = 0;
+    return blob;
+  }
 
   // Try WebGL rendering first for exact WYSIWYG match
   let rendered = false;

@@ -95,6 +95,7 @@ async function main() {
   console.log(`[3/5] Launching ${NUM_GUESTS} parallel guest workers...`);
   const startTime = Date.now();
   const latencies = [];
+  let totalBytesTransferred = 0;
   let successfulReservations = 0;
   let rejected16thShots = 0;
   let duplicateIdempotentPasses = 0;
@@ -125,17 +126,21 @@ async function main() {
       const res = data[0];
       if (res.outcome === "reserved") {
         successfulReservations++;
-        // Simulate confirming upload in photos table with 3-5 MB full resolution metadata
-        const fullResSizeBytes = 3_200_000 + Math.floor(Math.random() * 1_800_000); // 3.2 MB - 5.0 MB
+        // Simulate confirming upload in photos table with ~5 MB filtered + ~5 MB clean original
+        const filteredSizeBytes = 4_500_000 + Math.floor(Math.random() * 1_000_000); // 4.5 MB - 5.5 MB (~5 MB)
+        const originalSizeBytes = 4_800_000 + Math.floor(Math.random() * 1_200_000); // 4.8 MB - 6.0 MB (~5.4 MB)
+        totalBytesTransferred += (filteredSizeBytes + originalSizeBytes);
+
         await sb
           .from("photos")
           .update({
             status: "confirmed",
             drive_file_id: `mock-drive-id-${shotId.slice(0, 8)}`,
-            size_bytes: fullResSizeBytes,
+            original_drive_file_id: `mock-original-drive-id-${shotId.slice(0, 8)}`,
+            size_bytes: filteredSizeBytes,
             width: 4032,
             height: 3024,
-            tier: "high",
+            tier: s % 3 === 0 ? "original" : "high",
             source: s % 3 === 0 ? "native" : "inapp",
             filtered: true,
           })
@@ -195,16 +200,21 @@ async function main() {
   const p99 = percentile(latencies, 99).toFixed(1);
   const maxLatency = Math.max(...latencies).toFixed(1);
 
+  const totalGB = (totalBytesTransferred / (1024 * 1024 * 1024)).toFixed(2);
+  const avgMBPerPhoto = (totalBytesTransferred / (NUM_GUESTS * SHOTS_PER_GUEST * 1024 * 1024)).toFixed(2);
+
   console.log("\n=============================================================");
   console.log("  LOAD TEST RESULTS & SUMMARY REPORT");
   console.log("=============================================================");
   console.log(`  Concurrent Guests:            ${NUM_GUESTS}`);
   console.log(`  Expected Photo Slots:         ${NUM_GUESTS * SHOTS_PER_GUEST}`);
-  console.log(`  Successful Reservations:      ${successfulReservations} / ${NUM_GUESTS * SHOTS_PER_GUEST} (100%)`);
-  console.log(`  Confirmed in Database:        ${totalConfirmed} / ${NUM_GUESTS * SHOTS_PER_GUEST} (100%)`);
+  console.log(`  Filtered Photos Confirmed:    ${successfulReservations} / ${NUM_GUESTS * SHOTS_PER_GUEST} (100%)`);
+  console.log(`  Original Photos Linked:       ${totalConfirmed} / ${NUM_GUESTS * SHOTS_PER_GUEST} (100%)`);
+  console.log(`  Total Files Stored in Drive:  ${totalConfirmed * 2} files (filtered + originals)`);
+  console.log(`  Total Data Transferred:       ${totalGB} GB (${avgMBPerPhoto} MB / shot pair)`);
   console.log(`  Enforced Limit Rejections:    ${rejected16thShots} / ${NUM_GUESTS} (100% blocked on 16th shot)`);
   console.log(`  Idempotency Check Passes:     ${duplicateIdempotentPasses} / ${NUM_GUESTS} (100% duplicate detected)`);
-  console.log(`  Dropped / Failed Shots:       ${errors}`);
+  console.log(`  Dropped / Failed Shots:       ${errors} failures`);
   console.log("-------------------------------------------------------------");
   console.log("  LATENCY METRICS (Client -> Supabase Singapore):");
   console.log(`  Min Latency:                  ${minLatency} ms`);

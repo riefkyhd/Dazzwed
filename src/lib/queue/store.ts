@@ -4,12 +4,14 @@
  * Phase 4 adds the uploader on top of this store.
  */
 export type ShotStatus = "queued" | "uploading" | "synced";
+export type OriginalStatus = "none" | "queued" | "uploading" | "synced";
 
 export interface ShotRecord {
   shotId: string; // client UUID = server idempotency key
   eventSlug: string;
   guestId: string;
-  blob: Blob | null; // dropped after sync to save space
+  blob: Blob | null; // filtered photo blob (dropped after sync)
+  originalBlob?: Blob | null; // clean unfiltered original (dropped after sync)
   size: number;
   width?: number;
   height?: number;
@@ -18,8 +20,11 @@ export interface ShotRecord {
   filtered?: boolean;
   createdAt: number;
   status: ShotStatus;
+  originalStatus?: OriginalStatus;
   attempts: number;
+  originalAttempts?: number;
   nextAttemptAt: number;
+  originalNextAttemptAt?: number;
 }
 
 /** Request durable browser storage so blobs are not evicted on low disk */
@@ -79,6 +84,7 @@ export async function addShot(input: {
   eventSlug: string;
   guestId: string;
   blob: Blob;
+  originalBlob?: Blob;
   width?: number;
   height?: number;
   source?: "inapp" | "native";
@@ -87,11 +93,14 @@ export async function addShot(input: {
 }): Promise<ShotRecord> {
   const rec: ShotRecord = {
     ...input,
-    size: input.blob.size,
+    size: input.blob.size + (input.originalBlob ? input.originalBlob.size : 0),
     createdAt: Date.now(),
     status: "queued",
+    originalStatus: input.originalBlob ? "queued" : "none",
     attempts: 0,
+    originalAttempts: 0,
     nextAttemptAt: 0,
+    originalNextAttemptAt: 0,
   };
   // `add` (not `put`): the same shotId can never be stored twice.
   await tx("readwrite", (s) => s.add(rec));
@@ -118,7 +127,14 @@ export async function getPendingShots(guestId?: string): Promise<ShotRecord[]> {
         if (guestId) {
           results = results.filter((r) => r.guestId === guestId);
         }
-        resolve(results.filter((r) => r.status !== "synced"));
+        // Pending if primary filtered photo is not synced yet, OR original is queued/uploading
+        resolve(
+          results.filter(
+            (r) =>
+              r.status !== "synced" ||
+              (r.originalStatus && r.originalStatus !== "none" && r.originalStatus !== "synced")
+          )
+        );
       };
       req.onerror = () => reject(req.error);
     });

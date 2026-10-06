@@ -143,7 +143,7 @@ function ConnectDriveContent() {
               />
             </div>
 
-            <div className="pt-2">
+            <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-zinc-800/80 mt-2">
               <a
                 href={`https://drive.google.com/drive/folders/${folderId}`}
                 target="_blank"
@@ -152,6 +152,9 @@ function ConnectDriveContent() {
               >
                 Open Root Folder in Google Drive &rarr;
               </a>
+              <span className="text-[11px] text-zinc-400">
+                💡 <b>Partner Tip:</b> Right-click this folder in Drive &rarr; <i>Share</i> with your partner so both can view the photos live.
+              </span>
             </div>
           </div>
         </div>
