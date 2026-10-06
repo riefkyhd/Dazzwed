@@ -42,6 +42,7 @@ const en = {
   limitReached: "You've used all your shots.",
   processing: "Developing…",
   storageError: "Couldn't save the photo on this device. Free up some space and try again.",
+  close: "Close",
   // debug
   debugTitle: "Camera debug",
 } as const;
@@ -91,6 +92,7 @@ const id: Dict = {
   limitReached: "Semua jepretanmu sudah terpakai.",
   processing: "Mencuci foto…",
   storageError: "Foto tidak bisa disimpan di perangkat ini. Kosongkan ruang penyimpanan lalu coba lagi.",
+  close: "Tutup",
   debugTitle: "Debug kamera",
 };
 

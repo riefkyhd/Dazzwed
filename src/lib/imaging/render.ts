@@ -1,9 +1,10 @@
 import {
   MAX_EDGE,
   QUALITY_STEPS,
-  TARGET_BYTES,
   cropForZoom,
   fitLongestEdge,
+  type OutputTier,
+  TIER_CONFIG,
 } from "./geometry";
 
 type Source = HTMLVideoElement | ImageBitmap | HTMLImageElement;
@@ -75,27 +76,63 @@ export interface RenderOptions {
  * Crop → resize (longest edge ≤ 1920) → film look → JPEG (≈0.8, stepped down to stay <~900 KB).
  * Re-encoding through canvas drops all EXIF/GPS metadata.
  */
-export async function renderShot(src: Source, { zoom = 1 }: RenderOptions = {}): Promise<Blob> {
+export async function renderShot(
+  src: Source,
+  { zoom = 1, maxEdge = 4096, quality = 0.92 }: RenderOptions & { maxEdge?: number; quality?: number } = {}
+): Promise<Blob> {
   const { w, h } = sourceSize(src);
   if (!w || !h) throw new Error("source has no size");
   const crop = cropForZoom(w, h, zoom);
-  const out = fitLongestEdge(crop.sw, crop.sh, MAX_EDGE);
+  const out = fitLongestEdge(crop.sw, crop.sh, maxEdge);
+
   const canvas = document.createElement("canvas");
   canvas.width = out.width;
   canvas.height = out.height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("no 2d context");
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-  applyFilmLook(ctx, out.width, out.height);
 
-  let blob: Blob | null = null;
-  for (const q of QUALITY_STEPS) {
-    blob = await toBlob(canvas, q);
-    if (blob.size <= TARGET_BYTES) break;
+  // Try WebGL rendering first for exact WYSIWYG match
+  let rendered = false;
+  try {
+    const { WebGLFilmFilter } = await import("./webgl-filter");
+    const filter = new WebGLFilmFilter(canvas);
+    if (filter.getVersion() !== "none") {
+      // If digital zoom applied, first draw crop to intermediate canvas or bitmap
+      let sourceToRender: TexImageSource = src;
+      let interCanvas: HTMLCanvasElement | null = null;
+      if (zoom > 1) {
+        interCanvas = document.createElement("canvas");
+        interCanvas.width = out.width;
+        interCanvas.height = out.height;
+        const iCtx = interCanvas.getContext("2d");
+        if (iCtx) {
+          iCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+          sourceToRender = interCanvas;
+        }
+      }
+
+      rendered = filter.render(sourceToRender, {
+        width: out.width,
+        height: out.height,
+        isCapture: true,
+        grainIntensity: 0.08,
+      });
+      filter.destroy();
+      if (interCanvas) interCanvas.width = interCanvas.height = 0;
+    }
+  } catch (err) {
+    console.warn("WebGL offscreen render failed, falling back to 2D canvas:", err);
   }
-  canvas.width = canvas.height = 0; // free memory (iOS canvas limits)
-  return blob!;
+
+  if (!rendered) {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("no 2d context");
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+    applyFilmLook(ctx, out.width, out.height);
+  }
+
+  const blob = await toBlob(canvas, quality);
+  canvas.width = canvas.height = 0; // free memory
+  return blob;
 }
 
 /** Decode a file from the OS camera/picker, honouring EXIF orientation. */

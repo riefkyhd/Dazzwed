@@ -11,7 +11,7 @@ interface LandingScreenProps {
   lang: Lang;
   onLanguageChange: (lang: Lang) => void;
   onStartCamera: (name: string | null) => void;
-  onNativePhoto: (file: File, name: string | null) => void;
+  onNativePhoto: (file: File, name: string | null, quickThumb?: string) => void;
 }
 
 export function LandingScreen({
@@ -135,7 +135,7 @@ export function LandingScreen({
         <div className="w-full mt-3">
           <NativeCameraInput
             eventSlug={eventSlug}
-            onFileSelected={(file) => onNativePhoto(file, name.trim() || null)}
+            onFileSelected={(file, quickThumb) => onNativePhoto(file, name.trim() || null, quickThumb)}
             lang={lang}
             variant="secondary"
           />

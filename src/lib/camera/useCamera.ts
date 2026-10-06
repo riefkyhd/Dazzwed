@@ -23,14 +23,20 @@ const stopStream = (s: MediaStream | null) => s?.getTracks().forEach((t) => t.st
  */
 export function useCamera(enabled: boolean) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const runRef = useRef<() => Promise<void>>(async () => {});
   const zoomQueue = useRef<Promise<void>>(Promise.resolve());
+  const webglFilterRef = useRef<any>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const frameTimes = useRef<number[]>([]);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<CameraErrorKind | null>(null);
   const [starting, setStarting] = useState(false);
   const [restarting, setRestarting] = useState(false);
+  const [measuredFps, setMeasuredFps] = useState<number>(30);
+  const [previewTier, setPreviewTier] = useState<"high" | "standard" | "lite">("high");
   const [facing, setFacing] = useState<Facing>("environment");
   const [lensChoice, setLensChoice] = useState<string | undefined>(undefined);
   const [lenses, setLenses] = useState<Lens[]>([]);
@@ -159,21 +165,93 @@ export function useCamera(enabled: boolean) {
     };
   }, [enabled, facing, lensChoice]);
 
-  // Attach stream to <video>
+  // Attach stream to <video> and initialize live WebGL filter on <canvas>
   useEffect(() => {
     const v = videoRef.current;
+    const c = canvasRef.current;
     if (!v) return;
     v.srcObject = stream;
     if (!stream) return;
-    const sync = () => v.videoWidth && v.videoHeight && setAspect(v.videoWidth / v.videoHeight);
+
+    let destroyed = false;
+    let webglFilter: any = null;
+
+    const sync = () => {
+      if (v.videoWidth && v.videoHeight) {
+        setAspect(v.videoWidth / v.videoHeight);
+      }
+    };
     v.addEventListener("loadedmetadata", sync);
     v.addEventListener("resize", sync);
     v.play().catch(() => {});
+
+    // Lazy load and start WebGL viewfinder filter loop
+    if (c) {
+      import("@/lib/imaging/webgl-filter").then(({ WebGLFilmFilter }) => {
+        if (destroyed || !canvasRef.current) return;
+        webglFilter = new WebGLFilmFilter(canvasRef.current);
+        webglFilterRef.current = webglFilter;
+
+        let lastTime = performance.now();
+        const renderLoop = (now: DOMHighResTimeStamp) => {
+          if (destroyed) return;
+
+          // Measure fps over rolling window
+          const delta = now - lastTime;
+          lastTime = now;
+          if (delta > 0) {
+            frameTimes.current.push(1000 / delta);
+            if (frameTimes.current.length > 30) frameTimes.current.shift();
+            const avg = frameTimes.current.reduce((a, b) => a + b, 0) / frameTimes.current.length;
+            setMeasuredFps(Math.round(avg));
+
+            // Adaptive downsampling if slow
+            if (avg < 20 && previewTier === "high") {
+              setPreviewTier("standard");
+            } else if (avg < 15 && previewTier === "standard") {
+              setPreviewTier("lite");
+            }
+          }
+
+          if (v.readyState >= 2 && webglFilter) {
+            const longEdge = previewTier === "high" ? 1280 : previewTier === "standard" ? 960 : 720;
+            const aspectVal = (v.videoWidth && v.videoHeight) ? v.videoWidth / v.videoHeight : 9 / 16;
+            const w = aspectVal >= 1 ? longEdge : Math.round(longEdge * aspectVal);
+            const h = aspectVal >= 1 ? Math.round(longEdge / aspectVal) : longEdge;
+
+            webglFilter.render(v, {
+              width: w,
+              height: h,
+              grainIntensity: previewTier === "lite" ? 0.0 : 0.07,
+              isCapture: false,
+            });
+          }
+
+          // Use requestVideoFrameCallback if available, fallback rAF
+          if ("requestVideoFrameCallback" in v) {
+            (v as any).requestVideoFrameCallback(renderLoop);
+          } else {
+            animFrameRef.current = requestAnimationFrame(renderLoop);
+          }
+        };
+
+        if ("requestVideoFrameCallback" in v) {
+          (v as any).requestVideoFrameCallback(renderLoop);
+        } else {
+          animFrameRef.current = requestAnimationFrame(renderLoop);
+        }
+      });
+    }
+
     return () => {
+      destroyed = true;
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      if (webglFilter) webglFilter.destroy();
+      webglFilterRef.current = null;
       v.removeEventListener("loadedmetadata", sync);
       v.removeEventListener("resize", sync);
     };
-  }, [stream]);
+  }, [stream, previewTier]);
 
   const track = () => streamRef.current?.getVideoTracks()[0];
 
@@ -209,10 +287,13 @@ export function useCamera(enabled: boolean) {
 
   return {
     videoRef,
+    canvasRef,
     live: !!stream && !error,
     error,
     starting,
     restarting,
+    measuredFps,
+    previewTier,
     aspect,
     facing,
     flip: () => {

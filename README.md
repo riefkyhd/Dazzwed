@@ -1,6 +1,6 @@
 # Disposable Cam 📷
 
-A mobile-first wedding web app where guests scan a table QR code, take up to $N$ candid photos with their phone (disposable camera experience: no photo review, vintage film grain and warmth baked in), and photos land privately in the couple's Google Drive.
+A mobile-first wedding web app where guests scan a table QR code, take up to $N$ candid photos with their phone (authentic 90s disposable film experience: WYSIWYG live WebGL viewfinder filter, develop-and-review step with Keep/Retake, and full-resolution resumable uploads), and photos land privately in the couple's Google Drive.
 
 Built with **Next.js (App Router)** + **Supabase (Postgres & Auth in Singapore)** + **Google Drive API v3**, completely on **$0 free tiers**.
 
@@ -10,12 +10,13 @@ Built with **Next.js (App Router)** + **Supabase (Postgres & Auth in Singapore)*
 
 ```mermaid
 flowchart LR
-  P["Guest Phone: Viewfinder / Native Camera, Resize, IndexedDB Queue"] -->|"multipart under 3MB"| R["/api/photos on Vercel (sin1)"]
+  P["Guest Phone: WebGL Viewfinder / Native Camera, Worker Decode, IndexedDB Queue"] -->|"2 MiB chunks, resumable"| R["Direct to Google Drive /api/photos/init"]
   R -->|"rpc reserve_shot, service_role"| S[("Supabase SG (ap-southeast-1)")]
-  R -->|"drive.file scope, OAuth token"| D[("Couple's Dedicated Google Drive")]
+  R -->|"drive.file scope, 2-5 MB photo"| D[("Couple's Dedicated Google Drive")]
+  P -.->|"CORS fallback: 2 MiB proxy"| C["/api/photos/chunk"] --> D
   A["Admin UI (/admin), Supabase Auth"] -->|"RLS, allowlisted email"| S
   A -->|"Move to Hidden / Delete"| D
-  C["Vercel Daily Cron (03:00 UTC)"] --> K["/api/cron/keepalive"] --> S
+  K["Vercel Daily Cron (03:00 UTC)"] --> E["/api/cron/keepalive"] --> S
 ```
 
 ---

@@ -16,6 +16,96 @@ export interface DriveHealthResult {
   error?: string;
 }
 
+export interface StorageGuardResult {
+  allowed: boolean;
+  tier: "high" | "standard" | "lite";
+  percentUsed: number;
+  remainingBytes: number;
+  estimatedPhotosRemaining: number;
+  message?: string;
+}
+
+let cachedGuard: { result: StorageGuardResult; expiresAt: number } | null = null;
+
+/**
+ * Evaluates Drive quota with 60s in-memory caching to select output tier or halt uploads:
+ * - <60% used => high
+ * - 60-85% used => standard
+ * - 85-97% used => lite
+ * - >97% used => blocked (camera film almost out)
+ */
+export async function getAdaptiveStorageGuard(): Promise<StorageGuardResult> {
+  const now = Date.now();
+  if (cachedGuard && cachedGuard.expiresAt > now) {
+    return cachedGuard.result;
+  }
+
+  const { refreshToken } = await resolveDriveTokens();
+  if (!refreshToken) {
+    return {
+      allowed: true,
+      tier: "high",
+      percentUsed: 0,
+      remainingBytes: 15 * 1024 * 1024 * 1024,
+      estimatedPhotosRemaining: 5000,
+    };
+  }
+
+  try {
+    const drive = getDriveClient(refreshToken);
+    const about = await drive.about.get({ fields: "storageQuota" });
+    const quota = about.data.storageQuota;
+
+    const limit = quota?.limit ? parseInt(quota.limit, 10) : 15 * 1024 * 1024 * 1024;
+    const usage = quota?.usage ? parseInt(quota.usage, 10) : 0;
+    const remaining = Math.max(0, limit - usage);
+    const percentUsed = limit > 0 ? (usage / limit) * 100 : 0;
+
+    let tier: "high" | "standard" | "lite" = "high";
+    let allowed = true;
+    let message: string | undefined;
+
+    if (percentUsed >= 97) {
+      allowed = false;
+      message = "Camera film is almost out (storage full). Please alert the couple!";
+    } else if (percentUsed >= 85) {
+      tier = "lite";
+    } else if (percentUsed >= 60) {
+      tier = "standard";
+    } else {
+      tier = "high";
+    }
+
+    // Estimate based on ~3.5MB per photo
+    const estimatedPhotosRemaining = Math.floor(remaining / (3.5 * 1024 * 1024));
+
+    const result: StorageGuardResult = {
+      allowed,
+      tier,
+      percentUsed,
+      remainingBytes: remaining,
+      estimatedPhotosRemaining,
+      message,
+    };
+
+    cachedGuard = {
+      result,
+      expiresAt: now + 60_000, // 60s cache
+    };
+
+    return result;
+  } catch (err) {
+    console.error("Storage guard quota check error, defaulting to high:", err);
+    return {
+      allowed: true,
+      tier: "high",
+      percentUsed: 0,
+      remainingBytes: 15 * 1024 * 1024 * 1024,
+      estimatedPhotosRemaining: 5000,
+    };
+  }
+}
+
 /**
  * Performs a comprehensive health check on Google Drive integration:
  * 1. Checks OAuth refresh token validity and queries storage quota.

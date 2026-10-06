@@ -14,9 +14,11 @@ import {
   addShot,
   countShots,
   newShotId,
+  requestPersistentStorage,
 } from "@/lib/queue/store";
 import { useQueue } from "@/lib/queue/useQueue";
-import { renderFile } from "@/lib/imaging/render";
+import { processImageOffThread } from "@/lib/imaging/worker";
+import { NativeDevelopingModal, type NativeProcessingState } from "./NativeDevelopingModal";
 import { LandingScreen } from "./LandingScreen";
 import { CameraScreen } from "./CameraScreen";
 import { ThankYouScreen } from "./ThankYouScreen";
@@ -152,7 +154,29 @@ export function GuestApp({ event }: GuestAppProps) {
     }
   };
 
-  const recordShot = async (blob: Blob, activeId: string) => {
+  // Native developing modal state
+  const [nativeModalVisible, setNativeModalVisible] = useState(false);
+  const [nativeProcessingState, setNativeProcessingState] = useState<NativeProcessingState>("developing");
+  const [nativeThumbnail, setNativeThumbnail] = useState<string | null>(null);
+  const [nativeProgress, setNativeProgress] = useState(0);
+  const [nativeError, setNativeError] = useState<string | undefined>();
+
+  // Request persistent storage on mount
+  useEffect(() => {
+    void requestPersistentStorage();
+  }, []);
+
+  const recordShot = async (
+    blob: Blob,
+    activeId: string,
+    metadata?: {
+      width?: number;
+      height?: number;
+      source?: "inapp" | "native";
+      tier?: "original" | "high" | "standard" | "lite";
+      filtered?: boolean;
+    }
+  ) => {
     const shotId = newShotId();
 
     // 1. Store immediately into offline-safe IndexedDB BEFORE network request
@@ -161,6 +185,7 @@ export function GuestApp({ event }: GuestAppProps) {
       eventSlug: event.slug,
       guestId: activeId,
       blob,
+      ...metadata,
     });
 
     // 2. Trigger upload queue worker
@@ -171,22 +196,35 @@ export function GuestApp({ event }: GuestAppProps) {
     setShotsLeft(nextLeft);
 
     if (nextLeft <= 0) {
-      setTimeout(() => setScreen("thankyou"), 400);
+      setTimeout(() => setScreen("thankyou"), 500);
     }
   };
 
   const handleShotCaptured = async (blob: Blob) => {
     if (!guestId || shotsLeft <= 0) return;
-    await recordShot(blob, guestId);
+    await recordShot(blob, guestId, { source: "inapp", tier: "high" });
   };
 
-  const handleNativePhoto = async (file: File, explicitName: string | null = null) => {
+  const handleNativePhoto = async (
+    file: File,
+    explicitName: string | null = null,
+    quickThumb?: string
+  ) => {
     clearNativePending(event.slug);
-    let activeId = guestId;
 
+    // Instant UI feedback (<150ms): show developing modal immediately
+    const thumbUrl = quickThumb || URL.createObjectURL(file);
+    setNativeThumbnail(thumbUrl);
+    setNativeProcessingState("developing");
+    setNativeProgress(10);
+    setNativeError(undefined);
+    setNativeModalVisible(true);
+
+    let activeId = guestId;
     if (!activeId) {
       const res = await initGuest(explicitName);
       if (!res || res.remaining <= 0) {
+        setNativeModalVisible(false);
         setScreen("thankyou");
         return;
       }
@@ -194,63 +232,120 @@ export function GuestApp({ event }: GuestAppProps) {
     }
 
     if (shotsLeft <= 0) {
+      setNativeModalVisible(false);
       setScreen("thankyou");
       return;
     }
 
+    // Persist raw uncompressed shot to IndexedDB FIRST so if tab reloads or OS camera kills tab, photo is safe
+    const tempShotId = newShotId();
     try {
-      // Process through the same resize, grain, tint, EXIF strip pipeline
-      const blob = await renderFile(file);
-      await recordShot(blob, activeId);
+      await addShot({
+        shotId: tempShotId,
+        eventSlug: event.slug,
+        guestId: activeId,
+        blob: file,
+        source: "native",
+        tier: "original",
+      });
+    } catch {
+      // IndexedDB write error, proceed with memory pipeline
+    }
+
+    try {
+      setNativeProcessingState("saving");
+      setNativeProgress(45);
+
+      // Process image off main thread via Web Worker with EXIF correction
+      const processed = await processImageOffThread(file, {
+        maxEdge: 4096,
+        quality: 0.92,
+        applyFilter: true,
+        onProgress: (stage) => {
+          if (stage === "decoding") setNativeProgress(30);
+          if (stage === "filtering") setNativeProgress(60);
+          if (stage === "encoding") setNativeProgress(85);
+        },
+      });
+
+      setNativeProgress(95);
+
+      // Save processed photo to queue and replace the temporary raw entry
+      await recordShot(processed.blob, activeId, {
+        width: processed.width,
+        height: processed.height,
+        source: "native",
+        tier: "high",
+        filtered: true,
+      });
+
+      setNativeProgress(100);
+      setNativeProcessingState("saved");
     } catch (err) {
       console.error("Error processing native photo:", err);
+      setNativeProcessingState("error");
+      setNativeError(err instanceof Error ? err.message : "Processing failed");
     }
   };
 
-  if (status !== "open" || screen === "closed") {
-    return (
-      <ClosedScreen
-        coupleNames={event.couple_names}
-        status={status}
-        opensAt={event.opens_at}
-        lang={lang}
-      />
-    );
-  }
-
-  if (screen === "thankyou") {
-    return (
-      <ThankYouScreen
-        coupleNames={event.couple_names}
-        lang={lang}
-        pendingCount={pendingCount}
-      />
-    );
-  }
-
-  if (screen === "camera") {
-    return (
-      <CameraScreen
-        eventSlug={event.slug}
-        coupleNames={event.couple_names}
-        shotsLeft={shotsLeft}
-        pendingCount={pendingCount}
-        lang={lang}
-        onShotCaptured={handleShotCaptured}
-        onNativePhoto={handleNativePhoto}
-      />
-    );
-  }
-
   return (
-    <LandingScreen
-      coupleNames={event.couple_names}
-      shotsPerGuest={shotsPerGuest}
-      eventSlug={event.slug}
-      lang={lang}
-      onLanguageChange={handleLanguageChange}
-      onStartCamera={handleStartCamera}
-      onNativePhoto={handleNativePhoto}
-    />
+    <>
+      {nativeModalVisible && (
+        <NativeDevelopingModal
+          state={nativeProcessingState}
+          thumbnailUrl={nativeThumbnail}
+          progressPercent={nativeProgress}
+          isOffline={typeof navigator !== "undefined" && !navigator.onLine}
+          errorMessage={nativeError}
+          lang={lang}
+          onDismiss={() => {
+            setNativeModalVisible(false);
+            if (nativeThumbnail) URL.revokeObjectURL(nativeThumbnail);
+            setNativeThumbnail(null);
+          }}
+        />
+      )}
+
+      {screen === "closed" && (
+        <ClosedScreen
+          coupleNames={event.couple_names}
+          status={status}
+          opensAt={event.opens_at}
+          lang={lang}
+        />
+      )}
+
+      {screen === "thankyou" && (
+        <ThankYouScreen
+          coupleNames={event.couple_names}
+          lang={lang}
+          pendingCount={pendingCount}
+        />
+      )}
+
+      {screen === "camera" && (
+        <CameraScreen
+          eventSlug={event.slug}
+          coupleNames={event.couple_names}
+          shotsLeft={shotsLeft}
+          pendingCount={pendingCount}
+          lang={lang}
+          onShotCaptured={handleShotCaptured}
+          onNativePhoto={handleNativePhoto}
+        />
+      )}
+
+      {screen === "landing" && (
+        <LandingScreen
+          coupleNames={event.couple_names}
+          shotsPerGuest={shotsPerGuest}
+          eventSlug={event.slug}
+          lang={lang}
+          onLanguageChange={handleLanguageChange}
+          onStartCamera={handleStartCamera}
+          onNativePhoto={handleNativePhoto}
+        />
+      )}
+    </>
   );
 }

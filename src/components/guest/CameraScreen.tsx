@@ -6,12 +6,15 @@ import { useCamera } from "@/lib/camera/useCamera";
 import { triggerHaptic } from "@/lib/camera/haptics";
 import { ShutterButton } from "./ShutterButton";
 import { ShotCounter } from "./ShotCounter";
-import { LensPicker } from "./LensPicker";
+import { LensBar } from "./LensBar";
+import { AdvancedDrawer } from "./AdvancedDrawer";
 import { ZoomControl } from "./ZoomControl";
 import { TorchToggle } from "./TorchToggle";
 import { SyncBadge } from "./SyncBadge";
 import { NativeCameraInput } from "./NativeCameraInput";
 import { CameraErrorView } from "./CameraErrorView";
+import { ReviewModal } from "./ReviewModal";
+import { FilmThumbwheel } from "./FilmThumbwheel";
 
 interface CameraScreenProps {
   eventSlug: string;
@@ -20,7 +23,7 @@ interface CameraScreenProps {
   pendingCount: number;
   lang: Lang;
   onShotCaptured: (blob: Blob) => Promise<void>;
-  onNativePhoto: (file: File) => void;
+  onNativePhoto: (file: File, quickThumb?: string) => void;
 }
 
 export function CameraScreen({
@@ -34,6 +37,7 @@ export function CameraScreen({
 }: CameraScreenProps) {
   const {
     videoRef,
+    canvasRef,
     live,
     error,
     starting,
@@ -57,6 +61,8 @@ export function CameraScreen({
 
   const [isShutterActive, setIsShutterActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [reviewBlob, setReviewBlob] = useState<Blob | null>(null);
+  const [isAdvancingFilm, setIsAdvancingFilm] = useState(false);
 
   const handleShoot = async () => {
     if (shotsLeft <= 0 || isProcessing || !live) return;
@@ -71,12 +77,27 @@ export function CameraScreen({
     try {
       setIsProcessing(true);
       const blob = await capture();
-      await onShotCaptured(blob);
+      // Freeze frame and open retro Review Modal (no shot consumed yet)
+      setReviewBlob(blob);
     } catch (err) {
       console.error("Capture error:", err);
     } finally {
       setIsProcessing(false);
     }
+  };
+
+  const handleKeepPhoto = async () => {
+    if (!reviewBlob) return;
+    setIsAdvancingFilm(true);
+    const blobToSave = reviewBlob;
+    setReviewBlob(null);
+    // Consumes 1 shot server-side & client-side only upon Keep!
+    await onShotCaptured(blobToSave);
+  };
+
+  const handleRetakePhoto = () => {
+    // Discard captured frame without consuming any shot
+    setReviewBlob(null);
   };
 
   if (error) {
@@ -102,11 +123,18 @@ export function CameraScreen({
 
       {/* Camera Viewfinder */}
       <div className="absolute inset-0 flex items-center justify-center bg-zinc-950 overflow-hidden">
+        {/* Hidden video element feeding the WebGL canvas */}
         <video
           ref={videoRef}
           playsInline
           muted
           autoPlay
+          className="hidden"
+        />
+
+        {/* Live Filtered WebGL Canvas Viewfinder */}
+        <canvas
+          ref={canvasRef}
           className={`w-full h-full object-cover pointer-events-none transition-transform duration-300 ${
             facing === "user" ? "-scale-x-100" : ""
           }`}
@@ -142,7 +170,11 @@ export function CameraScreen({
       <header className="relative z-20 flex items-center justify-between p-4 pt-3">
         <ShotCounter shotsLeft={shotsLeft} lang={lang} />
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
+          <FilmThumbwheel
+            advancing={isAdvancingFilm}
+            onAdvanceComplete={() => setIsAdvancingFilm(false)}
+          />
           <SyncBadge pendingCount={pendingCount} lang={lang} />
           <TorchToggle
             available={torchAvailable}
@@ -162,25 +194,40 @@ export function CameraScreen({
       )}
 
       {/* Bottom Controls Overlay */}
-      <footer className="relative z-20 flex flex-col items-center pb-6 px-4 gap-4">
-        {/* Zoom and Lens controls row */}
-        <div className="flex items-center justify-center gap-3 w-full">
-          {facing === "environment" && lenses.length > 1 && (
-            <LensPicker
+      <footer className="relative z-20 flex flex-col items-center pb-6 px-4 gap-3">
+        {/* Advanced Drawer */}
+        <AdvancedDrawer
+          torchAvailable={torchAvailable}
+          torchOn={torchOn}
+          onToggleTorch={toggleTorch}
+          lang={lang}
+        />
+
+        {/* Lens Bar and Zoom Controls */}
+        <div className="flex items-center justify-center gap-2.5 w-full">
+          {facing === "environment" && (
+            <LensBar
               lenses={lenses}
               activeId={activeId}
-              onSelect={chooseLens}
+              zoomRange={zoomRange}
+              currentZoom={zoom}
+              digitalZoom={digitalZoom}
+              onSelectLens={chooseLens}
+              onSetZoom={setZoom}
+              onSetDigitalZoom={setDigitalZoom}
             />
           )}
 
-          <ZoomControl
-            zoomRange={zoomRange}
-            nativeZoom={zoom}
-            onNativeZoomChange={setZoom}
-            digitalZoom={digitalZoom}
-            onDigitalZoomChange={setDigitalZoom}
-            lang={lang}
-          />
+          {(!zoomRange || lenses.length <= 1) && (
+            <ZoomControl
+              zoomRange={zoomRange}
+              nativeZoom={zoom}
+              onNativeZoomChange={setZoom}
+              digitalZoom={digitalZoom}
+              onDigitalZoomChange={setDigitalZoom}
+              lang={lang}
+            />
+          )}
         </div>
 
         {/* Shutter row with flip camera and native app trigger */}
@@ -226,6 +273,16 @@ export function CameraScreen({
           </div>
         </div>
       </footer>
+
+      {/* Retro Review & Print Develop Modal (Keep vs Retake) */}
+      {reviewBlob && (
+        <ReviewModal
+          photoBlob={reviewBlob}
+          lang={lang}
+          onKeep={handleKeepPhoto}
+          onRetake={handleRetakePhoto}
+        />
+      )}
     </div>
   );
 }

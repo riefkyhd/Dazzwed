@@ -125,13 +125,19 @@ async function main() {
       const res = data[0];
       if (res.outcome === "reserved") {
         successfulReservations++;
-        // Simulate confirming upload in photos table
+        // Simulate confirming upload in photos table with 3-5 MB full resolution metadata
+        const fullResSizeBytes = 3_200_000 + Math.floor(Math.random() * 1_800_000); // 3.2 MB - 5.0 MB
         await sb
           .from("photos")
           .update({
             status: "confirmed",
             drive_file_id: `mock-drive-id-${shotId.slice(0, 8)}`,
-            size_bytes: 650000 + Math.floor(Math.random() * 200000),
+            size_bytes: fullResSizeBytes,
+            width: 4032,
+            height: 3024,
+            tier: "high",
+            source: s % 3 === 0 ? "native" : "inapp",
+            filtered: true,
           })
           .eq("shot_id", shotId);
       } else {

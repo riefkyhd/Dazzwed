@@ -19,6 +19,11 @@ export default function CameraDebugPage() {
   const [error, setError] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
   const [zoomVal, setZoomVal] = useState<number>(1);
+  const [measuredFps, setMeasuredFps] = useState<number>(0);
+  const [takePhotoSupported, setTakePhotoSupported] = useState<boolean>(false);
+  const [webglInfo, setWebglInfo] = useState<{ version: string; maxTextureSize: number } | null>(null);
+  const [testCaptureResult, setTestCaptureResult] = useState<{ sizeKB: number; width: number; height: number } | null>(null);
+  const [testingCapture, setTestingCapture] = useState(false);
 
   const [ua] = useState(() => (typeof navigator !== "undefined" ? navigator.userAgent : ""));
   const [isSecure] = useState(() => (typeof window !== "undefined" ? window.isSecureContext : true));
@@ -66,12 +71,57 @@ export default function CameraDebugPage() {
           // @ts-expect-error zoom may exist on extended capabilities
           if (caps.zoom) setZoomVal(caps.zoom.min || 1);
         }
+
+        // Check if ImageCapture.takePhoto() is available
+        if (typeof window !== "undefined" && "ImageCapture" in window) {
+          setTakePhotoSupported(true);
+        } else {
+          setTakePhotoSupported(false);
+        }
+      }
+
+      // Check WebGL version & MAX_TEXTURE_SIZE
+      const testCanvas = document.createElement("canvas");
+      const gl2 = testCanvas.getContext("webgl2");
+      if (gl2) {
+        setWebglInfo({
+          version: "WebGL 2.0",
+          maxTextureSize: gl2.getParameter(gl2.MAX_TEXTURE_SIZE) || 4096,
+        });
+      } else {
+        const gl1 = testCanvas.getContext("webgl");
+        if (gl1) {
+          setWebglInfo({
+            version: "WebGL 1.0",
+            maxTextureSize: gl1.getParameter(gl1.MAX_TEXTURE_SIZE) || 2048,
+          });
+        }
       }
 
       // Re-enumerate devices so labels become visible
       await refreshDevices();
     } catch (e) {
       setError(`getUserMedia error: ${String(e)}`);
+    }
+  };
+
+  const runTestCapture = async () => {
+    if (!videoRef.current || !stream) return;
+    setTestingCapture(true);
+    try {
+      const { renderShot } = await import("@/lib/imaging/render");
+      const blob = await renderShot(videoRef.current, { maxEdge: 4096, quality: 0.92 });
+      const bmp = await createImageBitmap(blob);
+      setTestCaptureResult({
+        sizeKB: Math.round(blob.size / 1024),
+        width: bmp.width,
+        height: bmp.height,
+      });
+      bmp.close();
+    } catch (e) {
+      setError(`Test capture error: ${String(e)}`);
+    } finally {
+      setTestingCapture(false);
     }
   };
 
@@ -158,7 +208,7 @@ export default function CameraDebugPage() {
       {/* Quick Controls if live */}
       {stream && (
         <div className="p-4 bg-zinc-900 rounded-lg border border-zinc-800 space-y-3">
-          <h2 className="text-sm font-bold text-white">Live Track Controls</h2>
+          <h2 className="text-sm font-bold text-white">Live Track & Hardware Capabilities</h2>
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => void toggleTorch()}
@@ -167,6 +217,15 @@ export default function CameraDebugPage() {
               }`}
             >
               Torch: {torchOn ? "ON" : "OFF"}
+            </button>
+
+            {/* Test Capture Button */}
+            <button
+              onClick={() => void runTestCapture()}
+              disabled={testingCapture}
+              className="px-3 py-1.5 rounded bg-accent text-accent-fg font-bold disabled:opacity-50"
+            >
+              {testingCapture ? "Processing Shot…" : "Run Test Capture"}
             </button>
 
             {/* @ts-expect-error zoom inspection */}
@@ -187,6 +246,35 @@ export default function CameraDebugPage() {
                 />
               </div>
             )}
+          </div>
+
+          {/* Test Capture Results */}
+          {testCaptureResult && (
+            <div className="p-2.5 rounded bg-emerald-950/60 border border-emerald-800 text-emerald-300 text-[11px] font-mono">
+              ✓ Test Capture: {testCaptureResult.width}x{testCaptureResult.height} px &bull; {testCaptureResult.sizeKB} KB ({(testCaptureResult.sizeKB / 1024).toFixed(2)} MB)
+            </div>
+          )}
+
+          {/* Hardware & WebGL Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 text-[11px] text-zinc-400">
+            <div>
+              <span className="text-zinc-500 block text-[10px]">IMAGE CAPTURE API</span>
+              <span className={takePhotoSupported ? "text-emerald-400 font-bold" : "text-zinc-400"}>
+                {takePhotoSupported ? "Supported (takePhoto)" : "Video Frame Fallback"}
+              </span>
+            </div>
+            <div>
+              <span className="text-zinc-500 block text-[10px]">WEBGL ENGINE</span>
+              <span className="text-amber-400 font-bold">
+                {webglInfo?.version || "Detecting…"}
+              </span>
+            </div>
+            <div>
+              <span className="text-zinc-500 block text-[10px]">MAX TEXTURE SIZE</span>
+              <span className="text-amber-400 font-bold">
+                {webglInfo ? `${webglInfo.maxTextureSize}px` : "Detecting…"}
+              </span>
+            </div>
           </div>
         </div>
       )}

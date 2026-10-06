@@ -11,10 +11,27 @@ export interface ShotRecord {
   guestId: string;
   blob: Blob | null; // dropped after sync to save space
   size: number;
+  width?: number;
+  height?: number;
+  source?: "inapp" | "native";
+  tier?: "original" | "high" | "standard" | "lite";
+  filtered?: boolean;
   createdAt: number;
   status: ShotStatus;
   attempts: number;
   nextAttemptAt: number;
+}
+
+/** Request durable browser storage so blobs are not evicted on low disk */
+export async function requestPersistentStorage(): Promise<boolean> {
+  if (typeof navigator !== "undefined" && navigator.storage?.persist) {
+    try {
+      return await navigator.storage.persist();
+    } catch {
+      return false;
+    }
+  }
+  return false;
 }
 
 const DB_NAME = "disposable-cam";
@@ -62,6 +79,11 @@ export async function addShot(input: {
   eventSlug: string;
   guestId: string;
   blob: Blob;
+  width?: number;
+  height?: number;
+  source?: "inapp" | "native";
+  tier?: "original" | "high" | "standard" | "lite";
+  filtered?: boolean;
 }): Promise<ShotRecord> {
   const rec: ShotRecord = {
     ...input,

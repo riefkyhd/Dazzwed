@@ -163,48 +163,160 @@ class UploadQueue {
     }
 
     try {
-      const form = new FormData();
-      form.append("file", item.blob, `${item.shotId}.jpg`);
-      form.append("guestId", item.guestId);
-      form.append("eventSlug", item.eventSlug);
-      form.append("shotId", item.shotId);
-
-      const res = await fetch("/api/photos", {
+      // Step A: Initialize resumable session & reserve shot atomically
+      const initRes = await fetch("/api/photos/init", {
         method: "POST",
-        body: form,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventSlug: item.eventSlug,
+          guestId: item.guestId,
+          shotId: item.shotId,
+          sizeBytes: item.blob.size,
+          width: item.width,
+          height: item.height,
+          source: item.source || "inapp",
+        }),
       });
 
-      if (res.ok) {
-        // Upload confirmed by server! Free memory by dropping blob.
+      if (!initRes.ok) {
+        if (initRes.status === 403 || initRes.status === 404 || initRes.status === 507) {
+          console.warn(`Server rejected photo init (${initRes.status}). Dropping item.`);
+          await updateShot(item.shotId, { status: "synced", blob: null });
+          const remaining = await getPendingShots();
+          this.notify(remaining.length);
+          return;
+        }
+
+        const retryAfter = initRes.headers.get("Retry-After");
+        const delay = this.calculateBackoff(item.attempts, retryAfter);
         await updateShot(item.shotId, {
-          status: "synced",
-          blob: null,
+          status: "queued",
+          attempts: item.attempts + 1,
+          nextAttemptAt: Date.now() + delay,
         });
-        const remaining = await getPendingShots();
-        this.notify(remaining.length);
         return;
       }
 
-      // 403 Forbidden: e.g. shot limit already exceeded or event closed
-      if (res.status === 403 || res.status === 404 || res.status === 413 || res.status === 415) {
-        console.warn(`Server rejected photo upload (${res.status}). Dropping item.`);
+      const initData = await initRes.json();
+      if (initData.duplicate && initData.driveFileId) {
+        // Already successfully uploaded in prior attempt
         await updateShot(item.shotId, { status: "synced", blob: null });
         const remaining = await getPendingShots();
         this.notify(remaining.length);
         return;
       }
 
-      // 503, 429, or 5xx: temporary error, retry with backoff + jitter
-      const retryAfter = res.headers.get("Retry-After");
-      const delay = this.calculateBackoff(item.attempts, retryAfter);
+      const sessionUri = initData.sessionUri;
+      if (!sessionUri) {
+        throw new Error("No resumable sessionUri returned from init");
+      }
+
+      // Step B: Upload straight to session URI in 2 MiB chunks (multiple of 256 KiB)
+      const CHUNK_SIZE = 2 * 1024 * 1024; // 2 MiB
+      const totalBytes = item.blob.size;
+      let startByte = 0;
+      let driveFileId: string | null = null;
+      let useProxy = false;
+
+      while (startByte < totalBytes) {
+        const endByte = Math.min(startByte + CHUNK_SIZE, totalBytes);
+        const chunk = item.blob.slice(startByte, endByte);
+        const contentRange = `bytes ${startByte}-${endByte - 1}/${totalBytes}`;
+
+        let chunkRes: Response;
+        if (!useProxy) {
+          try {
+            // Direct browser PUT to Google Drive
+            chunkRes = await fetch(sessionUri, {
+              method: "PUT",
+              headers: {
+                "Content-Range": contentRange,
+                "Content-Type": "image/jpeg",
+              },
+              body: chunk,
+            });
+          } catch (corsErr) {
+            console.warn("Direct CORS to Google Drive failed, switching to /api/photos/chunk proxy:", corsErr);
+            useProxy = true;
+            // Retry this chunk through proxy
+            chunkRes = await fetch("/api/photos/chunk", {
+              method: "PUT",
+              headers: {
+                "x-session-uri": sessionUri,
+                "content-range": contentRange,
+                "content-type": "image/jpeg",
+              },
+              body: chunk,
+            });
+          }
+        } else {
+          // Proxy chunk through Next.js
+          chunkRes = await fetch("/api/photos/chunk", {
+            method: "PUT",
+            headers: {
+              "x-session-uri": sessionUri,
+              "content-range": contentRange,
+              "content-type": "image/jpeg",
+            },
+            body: chunk,
+          });
+        }
+
+        // 308 Resume Incomplete => chunk received, continue next chunk
+        if (chunkRes.status === 308) {
+          const range = chunkRes.headers.get("range");
+          if (range) {
+            const m = range.match(/bytes=0-(\d+)/);
+            if (m && m[1]) {
+              startByte = parseInt(m[1], 10) + 1;
+              continue;
+            }
+          }
+          startByte = endByte;
+          continue;
+        }
+
+        // 200 or 201 Created => upload completely finished!
+        if (chunkRes.status === 200 || chunkRes.status === 201) {
+          const finishedData = await chunkRes.json().catch(() => null);
+          driveFileId = finishedData?.id || null;
+          break;
+        }
+
+        // Error in chunk upload
+        throw new Error(`Chunk upload failed with status ${chunkRes.status}`);
+      }
+
+      // Step C: Confirm photo upload with server
+      if (driveFileId) {
+        const confirmRes = await fetch("/api/photos/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            shotId: item.shotId,
+            driveFileId,
+            sizeBytes: totalBytes,
+          }),
+        });
+
+        if (confirmRes.ok) {
+          // Free blob storage!
+          await updateShot(item.shotId, { status: "synced", blob: null });
+          const remaining = await getPendingShots();
+          this.notify(remaining.length);
+          return;
+        }
+      }
+
+      // If finished without fileId or confirmation, mark for retry
+      const delay = this.calculateBackoff(item.attempts);
       await updateShot(item.shotId, {
         status: "queued",
         attempts: item.attempts + 1,
         nextAttemptAt: Date.now() + delay,
       });
     } catch (netErr) {
-      // NetworkError (e.g. offline, Airplane mode, DNS failure)
-      console.warn("Network error during photo upload. Scheduling retry:", netErr);
+      console.warn("Error during resumable photo upload. Scheduling retry:", netErr);
       const delay = this.calculateBackoff(item.attempts);
       await updateShot(item.shotId, {
         status: "queued",

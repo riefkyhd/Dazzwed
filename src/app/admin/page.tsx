@@ -32,24 +32,38 @@ export default async function AdminDashboardPage() {
     .select("*", { count: "exact", head: true })
     .eq("event_id", event.id);
 
-  // 3. Fetch photos metrics
+  // 3. Fetch photos metrics including tiers and dimensions
   const { data: allPhotos } = await sb
     .from("photos")
-    .select("id, status, size_bytes")
+    .select("id, status, size_bytes, tier, source")
     .eq("event_id", event.id);
 
-  const confirmedCount = (allPhotos || []).filter((p) => p.status === "confirmed").length;
+  const confirmedPhotos = (allPhotos || []).filter((p) => p.status === "confirmed");
+  const confirmedCount = confirmedPhotos.length;
   const failedCount = (allPhotos || []).filter((p) => p.status === "failed").length;
   const pendingCount = (allPhotos || []).filter((p) => p.status === "pending").length;
-  const totalSizeBytes = (allPhotos || []).reduce(
+  const totalSizeBytes = confirmedPhotos.reduce(
     (acc, p) => acc + (p.size_bytes || 0),
     0,
   );
+  const avgSizeBytes = confirmedCount > 0 ? Math.round(totalSizeBytes / confirmedCount) : 0;
+
+  // Tier breakdown
+  const tierMix = {
+    original: confirmedPhotos.filter((p) => p.tier === "original").length,
+    high: confirmedPhotos.filter((p) => p.tier === "high").length,
+    standard: confirmedPhotos.filter((p) => p.tier === "standard").length,
+    lite: confirmedPhotos.filter((p) => p.tier === "lite").length,
+  };
+
+  // Live storage guard quota inspection
+  const { getAdaptiveStorageGuard } = await import("@/lib/drive/health");
+  const storageGuard = await getAdaptiveStorageGuard();
 
   // 4. Fetch recent photos with guest display names
   const { data: recentRaw } = await sb
     .from("photos")
-    .select("id, shot_id, status, size_bytes, created_at, guest_id, guests(display_name)")
+    .select("id, shot_id, status, size_bytes, created_at, guest_id, tier, source, guests(display_name)")
     .eq("event_id", event.id)
     .order("created_at", { ascending: false })
     .limit(5);
@@ -61,6 +75,8 @@ export default async function AdminDashboardPage() {
     size_bytes: number | null;
     created_at: string;
     guest_id: string;
+    tier?: string;
+    source?: string;
     guests?: { display_name?: string | null } | null;
   }
 
@@ -71,6 +87,8 @@ export default async function AdminDashboardPage() {
     status: r.status,
     size_bytes: r.size_bytes,
     created_at: r.created_at,
+    tier: r.tier || "high",
+    source: r.source || "inapp",
   }));
 
   return (
@@ -82,6 +100,10 @@ export default async function AdminDashboardPage() {
         failedCount,
         pendingCount,
         totalSizeBytes,
+        avgSizeBytes,
+        tierMix,
+        estimatedPhotosRemaining: storageGuard.estimatedPhotosRemaining,
+        currentTier: storageGuard.tier,
       }}
       recentPhotos={recentPhotos}
     />

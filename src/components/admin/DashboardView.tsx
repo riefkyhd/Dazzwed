@@ -21,6 +21,15 @@ interface DashboardViewProps {
     failedCount: number;
     pendingCount: number;
     totalSizeBytes: number;
+    avgSizeBytes?: number;
+    tierMix?: {
+      original: number;
+      high: number;
+      standard: number;
+      lite: number;
+    };
+    estimatedPhotosRemaining?: number;
+    currentTier?: string;
   };
   recentPhotos: Array<{
     id: string;
@@ -29,6 +38,8 @@ interface DashboardViewProps {
     status: string;
     size_bytes: number | null;
     created_at: string;
+    tier?: string;
+    source?: string;
   }>;
 }
 
@@ -148,7 +159,9 @@ export function DashboardView({
             <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
               Drive Usage
             </span>
-            <span className="text-[11px] font-mono text-amber-400">{quotaPercent}%</span>
+            <span className="text-[11px] font-mono text-amber-400">
+              Tier: {metrics.currentTier?.toUpperCase() || "HIGH"}
+            </span>
           </div>
           <p className="text-3xl font-serif font-bold text-white mt-1">
             {totalMB} <span className="text-sm font-sans font-normal text-zinc-400">MB</span>
@@ -160,7 +173,10 @@ export function DashboardView({
                 style={{ width: `${Math.max(1, Number(quotaPercent))}%` }}
               />
             </div>
-            <p className="text-[10px] text-zinc-500 mt-1 font-mono">15 GB free tier</p>
+            <div className="flex items-center justify-between text-[10px] text-zinc-400 mt-1 font-mono">
+              <span>Avg: {metrics.avgSizeBytes ? `${(metrics.avgSizeBytes / (1024 * 1024)).toFixed(1)} MB` : "—"}</span>
+              <span>~{metrics.estimatedPhotosRemaining ?? 0} photos left</span>
+            </div>
           </div>
         </div>
 

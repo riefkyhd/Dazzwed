@@ -6,7 +6,7 @@ import { markNativePending } from "@/lib/guest/session";
 
 interface NativeCameraInputProps {
   eventSlug: string;
-  onFileSelected: (file: File) => void;
+  onFileSelected: (file: File, quickThumb?: string) => void;
   disabled?: boolean;
   lang: Lang;
   variant?: "button" | "secondary";
@@ -31,7 +31,9 @@ export function NativeCameraInput({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      onFileSelected(file);
+      // Create synchronous object URL immediately (<5ms) for instant visual feedback
+      const quickThumb = URL.createObjectURL(file);
+      onFileSelected(file, quickThumb);
     }
     // Reset input value so subsequent shots with the same filename trigger onChange
     if (inputRef.current) inputRef.current.value = "";

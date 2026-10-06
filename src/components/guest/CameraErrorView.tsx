@@ -11,7 +11,7 @@ interface CameraErrorViewProps {
   eventSlug: string;
   lang: Lang;
   onRetry: () => void;
-  onNativePhoto: (file: File) => void;
+  onNativePhoto: (file: File, quickThumb?: string) => void;
 }
 
 export function CameraErrorView({
