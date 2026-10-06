@@ -8,6 +8,7 @@ import { ShutterButton } from "@/components/guest/ShutterButton";
 import { ShotCounter } from "@/components/guest/ShotCounter";
 import { SyncBadge } from "@/components/guest/SyncBadge";
 import { LookDial } from "@/components/guest/LookDial";
+import { ViewfinderGestures } from "@/components/guest/ViewfinderGestures";
 import { DISPOSABLE_400_LOOK } from "@/lib/imaging/looks/presets";
 import { type Lang } from "@/lib/i18n";
 
@@ -37,6 +38,7 @@ export function UiDebugLab() {
   const [shotsLeft, setShotsLeft] = useState<number>(12);
   const [torchOn, setTorchOn] = useState(false);
   const [fontScale, setFontScale] = useState<number>(100);
+  const [exposureEV, setExposureEV] = useState<number>(0);
 
   const preset = PRESETS[presetIdx];
   const layout: ViewportLayout = calculateLayout(preset.w, preset.h, aspect, preset.safe);
@@ -164,15 +166,26 @@ export function UiDebugLab() {
                 width: `${layout.viewfinderRect.width}px`,
                 height: `${layout.viewfinderRect.height}px`,
               }}
-              className="bg-zinc-900 border border-amber-500/30 flex flex-col items-center justify-center text-zinc-500 text-xs overflow-hidden"
+              className="bg-zinc-900 border border-amber-500/30 flex flex-col items-center justify-center text-zinc-500 text-xs overflow-hidden relative"
             >
-              <div className="w-12 h-12 rounded-full border border-zinc-700 flex items-center justify-center mb-2">
+              <div className="w-12 h-12 rounded-full border border-zinc-700 flex items-center justify-center mb-2 pointer-events-none">
                 <span className="text-[10px] text-zinc-400 font-mono">{aspect}</span>
               </div>
-              <div>
+              <div className="pointer-events-none">
                 {layout.viewfinderRect.width} &times; {layout.viewfinderRect.height} px
               </div>
-              <div className="text-[10px] text-zinc-600 mt-1">Live Sensor Viewfinder</div>
+              <div className="text-[10px] text-zinc-600 mt-1 pointer-events-none">
+                EV: {exposureEV > 0 ? `+${exposureEV.toFixed(2)}` : exposureEV.toFixed(2)}
+              </div>
+
+              {/* Interactive Viewfinder Gestures Overlay */}
+              <ViewfinderGestures
+                showGrid={false}
+                showLevel={false}
+                zoom={1.0}
+                exposureCompensation={exposureEV}
+                onExposureChange={(ev) => setExposureEV(ev)}
+              />
             </div>
 
             {/* In-Frame UI Component Stack */}
