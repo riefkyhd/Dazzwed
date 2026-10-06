@@ -19,6 +19,7 @@ export function CameraDebugView() {
   } | null>(null);
 
   const [isSecure] = useState(() => (typeof window !== "undefined" ? window.isSecureContext : true));
+  const [browserCaps, setBrowserCaps] = useState<Record<string, boolean | string>>({});
 
   const refreshDevices = useCallback(async () => {
     try {
@@ -99,6 +100,19 @@ export function CameraDebugView() {
     requestAnimationFrame(() => {
       if (active) void refreshDevices();
     });
+
+    if (typeof window !== "undefined") {
+      setBrowserCaps({
+        wakeLock: "wakeLock" in navigator,
+        requestVideoFrameCallback: "requestVideoFrameCallback" in HTMLVideoElement.prototype,
+        offscreenCanvas: typeof OffscreenCanvas !== "undefined",
+        webWorker: typeof Worker !== "undefined",
+        screenOrientation: "orientation" in screen,
+        visualViewport: typeof window.visualViewport !== "undefined",
+        devicePixelRatio: window.devicePixelRatio || 1,
+      });
+    }
+
     return () => {
       active = false;
       if (stream) stream.getTracks().forEach((t) => t.stop());
@@ -152,6 +166,7 @@ export function CameraDebugView() {
             {JSON.stringify(
               {
                 isSecure,
+                capabilities: browserCaps,
                 webgl: webglInfo,
                 exposureComp: exposureCompInfo,
                 activeDeviceId,
