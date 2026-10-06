@@ -57,8 +57,11 @@ export function CameraScreen({
     digitalZoom,
     setDigitalZoom,
     torchAvailable,
+    hasHardwareFlash,
     torchOn,
     toggleTorch,
+    flashMode,
+    setFlashMode,
     capture,
     retry,
     cameraAspect,
@@ -75,6 +78,8 @@ export function CameraScreen({
 
   // Shutter & capture state
   const [isShutterActive, setIsShutterActive] = useState(false);
+  const [isScreenFlashActive, setIsScreenFlashActive] = useState(false);
+  const [showNativeFlashTip, setShowNativeFlashTip] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [reviewBlobs, setReviewBlobs] = useState<{ filteredBlob: Blob; originalBlob?: Blob } | null>(null);
 
@@ -127,6 +132,14 @@ export function CameraScreen({
 
     triggerHaptic([40]);
     playShutterSound();
+
+    // If front camera and flash enabled (or auto), trigger warm-white screen flash
+    const shouldFrontFlash = facing === "user" && flashMode !== "off";
+    if (shouldFrontFlash) {
+      setIsScreenFlashActive(true);
+      await new Promise((r) => setTimeout(r, 220));
+    }
+
     setIsShutterActive(true);
     setTimeout(() => setIsShutterActive(false), 180);
 
@@ -138,8 +151,9 @@ export function CameraScreen({
       console.error("Capture error:", err);
     } finally {
       setIsProcessing(false);
+      setIsScreenFlashActive(false);
     }
-  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect]);
+  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, flashMode]);
 
   // Shutter button trigger with timer countdown
   const handleShoot = () => {
@@ -218,6 +232,13 @@ export function CameraScreen({
 
   return (
     <div className="relative w-full h-dvh bg-black overflow-hidden select-none touch-manipulation flex flex-col justify-between">
+      {/* Warm-white front camera screen flash overlay */}
+      <div
+        className={`fixed inset-0 z-50 pointer-events-none transition-opacity duration-150 bg-[#fff9ea] ${
+          isScreenFlashActive ? "opacity-100" : "opacity-0"
+        }`}
+      />
+
       {/* Mechanical shutter blink animation overlay */}
       <div
         className={`fixed inset-0 z-40 pointer-events-none transition-opacity duration-150 bg-black ${
@@ -253,11 +274,15 @@ export function CameraScreen({
           }`}
         />
 
-        {/* Viewfinder Gestures & Overlays (Focus Ring, Grid, Level, Exposure) */}
+        {/* Viewfinder Gestures & Overlays (Focus Ring, Grid, Level, Exposure, Pinch-Zoom) */}
         <ViewfinderGestures
           showGrid={showGrid}
           showLevel={showLevel}
           zoom={currentDisplayZoom}
+          onZoomChange={(z) => {
+            if (zoomRange) setZoom(z);
+            else setDigitalZoom(z);
+          }}
           onResetZoom={handleResetZoom}
           onExposureChange={handleExposureChange}
           exposureCompensation={exposureCompValue}
@@ -301,14 +326,15 @@ export function CameraScreen({
           >
             {/* Top Bar Controls */}
             <CameraTopBar
-              torchAvailable={torchAvailable}
-              torchOn={torchOn}
-              onToggleTorch={toggleTorch}
+              flashAvailable={hasHardwareFlash || facing === "user"}
+              flashMode={flashMode}
+              onChangeFlashMode={setFlashMode}
               aspect={cameraAspect}
               onChangeAspect={setCameraAspect}
               timerSeconds={timerSeconds}
               onChangeTimer={setTimerSeconds}
               onOpenSettings={() => setSettingsOpen(true)}
+              onNativeTipClick={() => setShowNativeFlashTip(true)}
               lang={lang}
             />
 
@@ -443,14 +469,15 @@ export function CameraScreen({
             {/* Top controls in rail */}
             <div className="flex flex-col items-center gap-3">
               <CameraTopBar
-                torchAvailable={torchAvailable}
-                torchOn={torchOn}
-                onToggleTorch={toggleTorch}
+                flashAvailable={hasHardwareFlash || facing === "user"}
+                flashMode={flashMode}
+                onChangeFlashMode={setFlashMode}
                 aspect={cameraAspect}
                 onChangeAspect={setCameraAspect}
                 timerSeconds={timerSeconds}
                 onChangeTimer={setTimerSeconds}
                 onOpenSettings={() => setSettingsOpen(true)}
+                onNativeTipClick={() => setShowNativeFlashTip(true)}
                 lang={lang}
               />
             </div>
@@ -518,6 +545,47 @@ export function CameraScreen({
           onKeep={handleKeepPhoto}
           onRetake={handleRetakePhoto}
         />
+      )}
+
+      {/* Hardware Flash Unsupported Tip Modal */}
+      {showNativeFlashTip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
+          <div className="w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-2xl p-5 text-center shadow-2xl">
+            <div className="w-10 h-10 rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center mx-auto mb-3">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                <path fillRule="evenodd" d="M14.615 1.595a.75.75 0 0 1 .359.852L12.982 9.75h7.268a.75.75 0 0 1 .548 1.262l-10.5 11.25a.75.75 0 0 1-1.272-.71l1.992-7.302H3.75a.75.75 0 0 1-.548-1.262l10.5-11.25a.75.75 0 0 1 .913-.143Z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <h3 className="text-sm font-bold text-white mb-1.5 font-mono">
+              {lang === "id" ? "Lampu Kilat Perangkat" : "Hardware Flash"}
+            </h3>
+            <p className="text-xs text-zinc-400 leading-relaxed mb-4">
+              {lang === "id"
+                ? "Untuk lampu kilat belakang di Safari, gunakan kamera bawaan ponsel Anda."
+                : "For rear flash on Safari, use your phone's native camera app."}
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNativeFlashTip(false);
+                  const nativeBtn = document.querySelector<HTMLInputElement>("input[type=file][capture=environment]");
+                  if (nativeBtn) nativeBtn.click();
+                }}
+                className="w-full py-2.5 rounded-xl bg-amber-400 text-black font-bold text-xs active:scale-95 transition-all cursor-pointer"
+              >
+                {lang === "id" ? "Buka Kamera Bawaan" : "Use Phone Camera"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowNativeFlashTip(false)}
+                className="w-full py-2 rounded-xl bg-zinc-800 text-zinc-300 font-medium text-xs hover:bg-zinc-700 active:scale-95 transition-all cursor-pointer"
+              >
+                {lang === "id" ? "Tutup" : "Dismiss"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

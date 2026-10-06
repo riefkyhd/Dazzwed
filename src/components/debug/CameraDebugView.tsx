@@ -77,6 +77,17 @@ export function CameraDebugView() {
           setExposureCompInfo({ supported: false });
         }
 
+        // Probe torch and ImageCapture fillLightMode
+        const capsRecord = (caps || {}) as Record<string, unknown>;
+        const hasTorchCap = Boolean(capsRecord.torch);
+        const fillModes = Array.isArray(capsRecord.fillLightMode) ? (capsRecord.fillLightMode as string[]) : [];
+        setBrowserCaps((prev) => ({
+          ...prev,
+          torch: hasTorchCap,
+          fillLightModes: fillModes.length > 0 ? fillModes.join(", ") : "none",
+          imageCapture: typeof window !== "undefined" && "ImageCapture" in window,
+        }));
+
         try {
           const testCanvas = document.createElement("canvas");
           const gl = (testCanvas.getContext("webgl2") || testCanvas.getContext("webgl")) as WebGLRenderingContext | null;

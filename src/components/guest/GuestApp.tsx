@@ -9,6 +9,9 @@ import {
   saveSession,
   clearNativePending,
   wasNativePending,
+  markSessionActive,
+  clearSessionActive,
+  wasUncleanExit,
 } from "@/lib/guest/session";
 import {
   addShot,
@@ -69,6 +72,8 @@ export function GuestApp({ event }: GuestAppProps) {
   const [shotsPerGuest, setShotsPerGuest] = useState(event.shots_per_guest);
   const [shotsLeft, setShotsLeft] = useState(event.shots_per_guest);
 
+  const [welcomeToast, setWelcomeToast] = useState(false);
+
   // Background IndexedDB upload queue with real-time pending badge
   const { pendingCount, enqueue } = useQueue(guestId);
 
@@ -77,6 +82,31 @@ export function GuestApp({ event }: GuestAppProps) {
     const cleanup = initGlobalTelemetry(event.slug, guestId || undefined);
     return cleanup;
   }, [event.slug, guestId]);
+
+  // Warn user if closing tab while photos are still syncing
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (pendingCount > 0) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [pendingCount]);
+
+  // Track active session for unclean exit detection
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (wasUncleanExit(event.slug)) {
+      setWelcomeToast(true);
+      setTimeout(() => setWelcomeToast(false), 4500);
+    }
+    markSessionActive(event.slug);
+    return () => {
+      clearSessionActive(event.slug);
+    };
+  }, [event.slug]);
 
   // Restore existing session and counts from IndexedDB asynchronously
   useEffect(() => {
@@ -326,6 +356,14 @@ export function GuestApp({ event }: GuestAppProps) {
         else setScreen("camera");
       }}
     >
+      {/* Unclean exit recovery toast */}
+      {welcomeToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-950/95 border border-emerald-500/50 rounded-full shadow-2xl flex items-center gap-2 text-emerald-200 text-xs font-mono animate-in fade-in slide-in-from-top-4 duration-300">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <span>{lang === "id" ? "Selamat datang kembali! Foto Anda aman." : "Welcome back! Your photos are safe."}</span>
+        </div>
+      )}
+
       {nativeModalVisible && (
         <NativeDevelopingModal
           state={nativeProcessingState}

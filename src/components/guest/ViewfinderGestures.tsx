@@ -11,6 +11,11 @@ import {
   RING_TRACK_GAP,
   EV_DEFAULT,
 } from "@/lib/camera/exposure-slider";
+import {
+  createInitialGestureState,
+  processGestureEvent,
+  type GestureState,
+} from "@/lib/camera/gesture-machine";
 
 interface ViewfinderGesturesProps {
   showGrid: boolean;
@@ -19,6 +24,7 @@ interface ViewfinderGesturesProps {
   onExposureChange?: (deltaEV: number) => void;
   exposureCompensation?: number;
   zoom: number;
+  onZoomChange?: (newZoom: number) => void;
   onResetZoom?: () => void;
   aeAfLocked?: boolean;
   onToggleAeAfLock?: () => void;
@@ -31,6 +37,7 @@ export function ViewfinderGestures({
   onExposureChange,
   exposureCompensation = 0,
   zoom,
+  onZoomChange,
   onResetZoom,
   aeAfLocked,
   onToggleAeAfLock,
@@ -51,13 +58,14 @@ export function ViewfinderGestures({
   const [tiltDegrees, setTiltDegrees] = useState<number>(0);
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const gestureStateRef = useRef<GestureState>(createInitialGestureState());
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const easeTimer = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
   const lastTapTime = useRef<number>(0);
   const dragStartEV = useRef<number>(0);
-  const touchStartY = useRef<number | null>(null);
-  const activePointerId = useRef<number | null>(null);
   const lastHapticZone = useRef<"negative" | "zero" | "positive">("zero");
+  const rafZoomRef = useRef<number | null>(null);
 
   // Keep internal EV state in sync when external prop changes (e.g. preset reset)
   useEffect(() => {
@@ -76,6 +84,51 @@ export function ViewfinderGestures({
     }, 3000);
   }, []);
 
+  // Smoothly ease EV bias back to 0.0 over 300ms ease-out
+  const easeEVToZero = useCallback(() => {
+    if (easeTimer.current) cancelAnimationFrame(easeTimer.current);
+
+    const startEV = currentEV;
+    if (Math.abs(startEV) < 0.01) {
+      setCurrentEV(0);
+      onExposureChange?.(0);
+      return;
+    }
+
+    const duration = 300; // ms
+    const startTime = performance.now();
+
+    const step = (now: number) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      // Quad ease-out: 1 - (1 - t)^2
+      const ease = 1 - Math.pow(1 - progress, 2);
+      const val = startEV * (1 - ease);
+
+      setCurrentEV(val);
+      onExposureChange?.(val);
+
+      if (progress < 1) {
+        easeTimer.current = requestAnimationFrame(step);
+      } else {
+        setCurrentEV(0);
+        onExposureChange?.(0);
+      }
+    };
+
+    easeTimer.current = requestAnimationFrame(step);
+  }, [currentEV, onExposureChange]);
+
+  // Clean up timers on unmount
+  useEffect(() => {
+    return () => {
+      if (longPressTimer.current) clearTimeout(longPressTimer.current);
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      if (easeTimer.current) cancelAnimationFrame(easeTimer.current);
+      if (rafZoomRef.current) cancelAnimationFrame(rafZoomRef.current);
+    };
+  }, []);
+
   // Device orientation listener for horizon level
   useEffect(() => {
     if (!showLevel) return;
@@ -90,136 +143,178 @@ export function ViewfinderGestures({
     return () => window.removeEventListener("deviceorientation", handleOrientation);
   }, [showLevel]);
 
-  // Clean up timers on unmount
-  useEffect(() => {
-    return () => {
-      if (longPressTimer.current) clearTimeout(longPressTimer.current);
-      if (hideTimer.current) clearTimeout(hideTimer.current);
-    };
-  }, []);
+  // Hit-test if coordinates fall inside the focus ring / exposure slider
+  const isRingHit = useCallback(
+    (x: number, y: number) => {
+      if (!focusState || !isVisible) return false;
+      const ringDist = Math.hypot(x - focusState.x, y - focusState.y);
+      return ringDist <= FOCUS_BOX_SIZE;
+    },
+    [focusState, isVisible]
+  );
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    // Only respond to primary pointer; ignore secondary touches
-    if (!e.isPrimary) return;
-
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
 
-    const clientX = e.clientX;
-    const clientY = e.clientY;
-    const localX = clientX - rect.left;
-    const localY = clientY - rect.top;
+    const localX = e.clientX - rect.left;
+    const localY = e.clientY - rect.top;
+    const time = performance.now();
 
     // Check for double-tap reset (within 300ms)
-    const now = performance.now();
-    if (now - lastTapTime.current < 300 && focusState) {
+    if (e.isPrimary && time - lastTapTime.current < 300 && focusState) {
       lastTapTime.current = 0;
-      setCurrentEV(EV_DEFAULT);
-      onExposureChange?.(EV_DEFAULT);
+      easeEVToZero();
       triggerHaptic([25]);
       restartHideTimer();
       return;
     }
-    lastTapTime.current = now;
+    if (e.isPrimary) lastTapTime.current = time;
 
-    // Capture pointer so dragging outside container or screen keeps working
-    activePointerId.current = e.pointerId;
-    try {
-      e.currentTarget.setPointerCapture(e.pointerId);
-    } catch {
-      // Ignore if capture fails in unsupported test environments
-    }
+    // Process event through gesture state machine
+    const { nextState, action } = processGestureEvent(
+      gestureStateRef.current,
+      {
+        type: "POINTER_DOWN",
+        id: e.pointerId,
+        x: localX,
+        y: localY,
+        time,
+        currentZoom: zoom,
+      },
+      isRingHit
+    );
+    gestureStateRef.current = nextState;
 
-    // Determine safe anchor bounds inside viewfinder
-    const anchor = calculateFocusAnchor(localX, localY, rect.width, rect.height);
-    setFocusState({
-      x: anchor.ringX,
-      y: anchor.ringY,
-      trackSide: anchor.trackSide,
-      trackHeight: anchor.trackHeight,
-    });
-    setIsVisible(true);
-
-    touchStartY.current = clientY;
-    dragStartEV.current = currentEV;
-
-    // Report focus tap coordinates normalized [0, 1]
-    onFocusTap?.(localX / rect.width, localY / rect.height);
-
-    // Start long-press timer for AE/AF lock (600ms)
-    longPressTimer.current = setTimeout(() => {
-      triggerHaptic([40, 40]);
-      onToggleAeAfLock?.();
-    }, 600);
-
-    restartHideTimer();
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointerId.current !== e.pointerId || touchStartY.current === null || !focusState) {
-      return;
-    }
-
-    const deltaY = e.clientY - touchStartY.current;
-
-    // Ignore tiny accidental jitters (< 6px)
-    if (!isDragging && Math.abs(deltaY) < 6) {
-      return;
-    }
-
-    // Entering active drag mode
-    if (!isDragging) {
-      setIsDragging(true);
+    if (action.type === "PINCH_START") {
+      // Cancel focus ring and slider when pinching
+      setIsVisible(false);
+      setIsDragging(false);
       if (longPressTimer.current) {
         clearTimeout(longPressTimer.current);
         longPressTimer.current = null;
       }
+    } else if (action.type === "SLIDER_DRAG_START") {
+      setIsDragging(true);
+      dragStartEV.current = currentEV;
+    } else {
+      // Tap candidate: start long press timer for AE/AF lock (600ms)
+      longPressTimer.current = setTimeout(() => {
+        triggerHaptic([40, 40]);
+        onToggleAeAfLock?.();
+      }, 600);
     }
 
-    // Pure EV mapping from startEV and deltaY
-    const newEV = pointerDeltaToEV(dragStartEV.current, deltaY, focusState.trackHeight);
-    setCurrentEV(newEV);
-    onExposureChange?.(newEV);
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {}
+  };
 
-    // Haptic feedback when crossing 0 EV or hitting limits
-    if (Math.abs(newEV) < 0.1 && lastHapticZone.current !== "zero") {
-      triggerHaptic(15);
-      lastHapticZone.current = "zero";
-    } else if (newEV >= 1.95 && lastHapticZone.current !== "positive") {
-      triggerHaptic([20, 20]);
-      lastHapticZone.current = "positive";
-    } else if (newEV <= -1.95 && lastHapticZone.current !== "negative") {
-      triggerHaptic([20, 20]);
-      lastHapticZone.current = "negative";
-    } else if (newEV > 0.1 && newEV < 1.95) {
-      lastHapticZone.current = "positive";
-    } else if (newEV < -0.1 && newEV > -1.95) {
-      lastHapticZone.current = "negative";
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const localX = e.clientX - rect.left;
+    const localY = e.clientY - rect.top;
+    const time = performance.now();
+
+    const { nextState, action } = processGestureEvent(gestureStateRef.current, {
+      type: "POINTER_MOVE",
+      id: e.pointerId,
+      x: localX,
+      y: localY,
+      time,
+    });
+    gestureStateRef.current = nextState;
+
+    if (action.type === "PINCH_UPDATE" && action.zoom !== undefined) {
+      // Throttle zoom callback per animation frame
+      const targetZoom = action.zoom;
+      if (rafZoomRef.current) cancelAnimationFrame(rafZoomRef.current);
+      rafZoomRef.current = requestAnimationFrame(() => {
+        onZoomChange?.(targetZoom);
+      });
+    } else if (action.type === "SLIDER_DRAG_START") {
+      setIsDragging(true);
+      dragStartEV.current = currentEV;
+      if (longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        longPressTimer.current = null;
+      }
+    } else if (action.type === "SLIDER_DRAG_UPDATE" && action.deltaY !== undefined && focusState) {
+      const newEV = pointerDeltaToEV(dragStartEV.current, action.deltaY, focusState.trackHeight);
+      setCurrentEV(newEV);
+      onExposureChange?.(newEV);
+
+      // Haptic feedback
+      if (Math.abs(newEV) < 0.1 && lastHapticZone.current !== "zero") {
+        triggerHaptic(15);
+        lastHapticZone.current = "zero";
+      } else if (newEV >= 1.95 && lastHapticZone.current !== "positive") {
+        triggerHaptic([20, 20]);
+        lastHapticZone.current = "positive";
+      } else if (newEV <= -1.95 && lastHapticZone.current !== "negative") {
+        triggerHaptic([20, 20]);
+        lastHapticZone.current = "negative";
+      }
+      restartHideTimer();
     }
-
-    restartHideTimer();
   };
 
   const handlePointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (activePointerId.current === e.pointerId) {
-      try {
-        if (e.currentTarget.hasPointerCapture(e.pointerId)) {
-          e.currentTarget.releasePointerCapture(e.pointerId);
-        }
-      } catch {
-        // Safe catch
-      }
-      activePointerId.current = null;
-    }
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const localX = e.clientX - rect.left;
+    const localY = e.clientY - rect.top;
+    const time = performance.now();
 
     if (longPressTimer.current) {
       clearTimeout(longPressTimer.current);
       longPressTimer.current = null;
     }
 
-    setIsDragging(false);
-    touchStartY.current = null;
-    restartHideTimer();
+    const { nextState, action } = processGestureEvent(gestureStateRef.current, {
+      type: e.type === "pointercancel" ? "POINTER_CANCEL" : "POINTER_UP",
+      id: e.pointerId,
+      x: localX,
+      y: localY,
+      time,
+    });
+    gestureStateRef.current = nextState;
+
+    try {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+    } catch {}
+
+    if (action.type === "TAP" && action.x !== undefined && action.y !== undefined) {
+      // Tap recognized! If AE/AF was locked, tapping elsewhere unlocks it
+      if (aeAfLocked) {
+        onToggleAeAfLock?.();
+      }
+
+      // If prior bias existed, ease smoothly back to 0.0 before metering new point
+      if (Math.abs(currentEV) > 0.05) {
+        easeEVToZero();
+      }
+
+      // Anchor focus ring cleanly inside viewfinder
+      const anchor = calculateFocusAnchor(action.x, action.y, rect.width, rect.height);
+      setFocusState({
+        x: anchor.ringX,
+        y: anchor.ringY,
+        trackSide: anchor.trackSide,
+        trackHeight: anchor.trackHeight,
+      });
+      setIsVisible(true);
+      onFocusTap?.(action.x / rect.width, action.y / rect.height);
+      restartHideTimer();
+    } else if (action.type === "SLIDER_DRAG_END") {
+      setIsDragging(false);
+      restartHideTimer();
+    }
   };
 
   // Compute sun position strictly from clamped EV

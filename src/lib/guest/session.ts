@@ -36,7 +36,6 @@ export function saveSession(slug: string, s: Session): void {
   }
 }
 
-/** Set BEFORE opening the OS camera: the tab may be killed while the camera app is open. */
 export function markNativePending(slug: string): void {
   try {
     ls()?.setItem(nativeKey(slug), String(Date.now()));
@@ -54,6 +53,30 @@ export function clearNativePending(slug: string): void {
 export function wasNativePending(slug: string): boolean {
   try {
     return !!ls()?.getItem(nativeKey(slug));
+  } catch {
+    return false;
+  }
+}
+
+const uncleanKey = (slug: string) => `dc:active:${slug}`;
+
+/** Records active session so OS kills/crashes can display welcome back banner */
+export function markSessionActive(slug: string): void {
+  try {
+    ls()?.setItem(uncleanKey(slug), "1");
+  } catch {}
+}
+
+export function clearSessionActive(slug: string): void {
+  try {
+    ls()?.removeItem(uncleanKey(slug));
+  } catch {}
+}
+
+export function wasUncleanExit(slug: string): boolean {
+  try {
+    const val = ls()?.getItem(uncleanKey(slug));
+    return val === "1";
   } catch {
     return false;
   }

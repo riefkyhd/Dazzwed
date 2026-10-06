@@ -5,6 +5,9 @@ import {
   applyNativeZoom,
   applyTorch,
   hasTorch,
+  hasImageCaptureFlash,
+  pulseTorch,
+  measureSceneLuminance,
   readZoomRange,
   readExposureCompRange,
   applyExposureCompensation,
@@ -52,7 +55,9 @@ export function useCamera(enabled: boolean) {
   const [zoom, setZoomValue] = useState(1);
   const [digitalZoom, setDigitalZoom] = useState(1);
   const [torchAvailable, setTorchAvailable] = useState(false);
+  const [hasHardwareFlash, setHasHardwareFlash] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
+  const [flashMode, setFlashMode] = useState<"auto" | "on" | "off">("auto");
   const [aspect, setAspect] = useState(9 / 16);
   const [cameraAspect, setCameraAspect] = useState<CameraAspect>("3:4");
   const [activeLook, setActiveLookState] = useState<LookRecipe>(DISPOSABLE_400_LOOK);
@@ -135,6 +140,7 @@ export function useCamera(enabled: boolean) {
         setZoomValue(zr?.min ?? 1);
         setDigitalZoom(1);
         setTorchAvailable(hasTorch(track));
+        setHasHardwareFlash(hasImageCaptureFlash(track) || hasTorch(track));
         setTorchOn(false);
 
         // Apply track exposure compensation (-0.5 EV) to protect highlights if supported
@@ -357,26 +363,46 @@ export function useCamera(enabled: boolean) {
       shotSeed = Math.floor(Math.random() * 100000)
     ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
       const v = videoRef.current;
+      const track = streamRef.current?.getVideoTracks()[0];
       if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
       const targetAspect = aspectOverride || cameraAspect;
-      // Native zoom is already in the frames; digital zoom and aspect ratio are applied by cropping.
-      const [filteredBlob, originalBlob] = await Promise.all([
-        renderShot(v, {
-          zoom: zoomRange ? 1 : digitalZoom,
-          aspect: targetAspect,
-          applyFilter: true,
-          look: activeLook,
-          seed: shotSeed,
-        }),
-        renderShot(v, {
-          zoom: zoomRange ? 1 : digitalZoom,
-          aspect: targetAspect,
-          applyFilter: false,
-        }),
-      ]);
-      return { filteredBlob, originalBlob };
+
+      // Determine if flash should fire
+      let shouldFireFlash = false;
+      if (flashMode === "on") {
+        shouldFireFlash = true;
+      } else if (flashMode === "auto") {
+        const luminance = measureSceneLuminance(v);
+        // Low light threshold: mean luminance < 0.28
+        shouldFireFlash = luminance < 0.28;
+      }
+
+      const performRender = async (): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
+        const [filteredBlob, originalBlob] = await Promise.all([
+          renderShot(v, {
+            zoom: zoomRange ? 1 : digitalZoom,
+            aspect: targetAspect,
+            applyFilter: true,
+            look: activeLook,
+            seed: shotSeed,
+          }),
+          renderShot(v, {
+            zoom: zoomRange ? 1 : digitalZoom,
+            aspect: targetAspect,
+            applyFilter: false,
+          }),
+        ]);
+        return { filteredBlob, originalBlob };
+      };
+
+      // Rear camera with torch support: pulse torch strictly during capture
+      if (shouldFireFlash && facing === "environment" && track && hasTorch(track)) {
+        return await pulseTorch(track, performRender);
+      }
+
+      return await performRender();
     },
-    [zoomRange, digitalZoom, cameraAspect, activeLook]
+    [zoomRange, digitalZoom, cameraAspect, activeLook, flashMode, facing]
   );
 
   return {
@@ -411,8 +437,11 @@ export function useCamera(enabled: boolean) {
     digitalZoom,
     setDigitalZoom,
     torchAvailable: torchAvailable && facing === "environment",
+    hasHardwareFlash: hasHardwareFlash && facing === "environment",
     torchOn,
     toggleTorch,
+    flashMode,
+    setFlashMode,
     capture,
     retry: () => void runRef.current(),
     hasTrack: () => !!streamRef.current?.getVideoTracks()[0],

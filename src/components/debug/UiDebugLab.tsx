@@ -36,7 +36,7 @@ export function UiDebugLab() {
   const [timerSec, setTimerSec] = useState<number>(0);
   const [countdown, setCountdown] = useState<number>(0);
   const [shotsLeft, setShotsLeft] = useState<number>(12);
-  const [torchOn, setTorchOn] = useState(false);
+  const [flashMode, setFlashMode] = useState<"auto" | "on" | "off">("auto");
   const [fontScale, setFontScale] = useState<number>(100);
   const [exposureEV, setExposureEV] = useState<number>(0);
 
@@ -199,9 +199,9 @@ export function UiDebugLab() {
                   }`}
                 >
                   <CameraTopBar
-                    torchAvailable={true}
-                    torchOn={torchOn}
-                    onToggleTorch={() => setTorchOn(!torchOn)}
+                    flashAvailable={true}
+                    flashMode={flashMode}
+                    onChangeFlashMode={setFlashMode}
                     aspect={aspect}
                     onChangeAspect={setAspect}
                     timerSeconds={timerSec}
@@ -255,9 +255,9 @@ export function UiDebugLab() {
                   className="h-full bg-black flex flex-col items-center justify-between py-6 px-2 pointer-events-auto border-l border-zinc-900"
                 >
                   <CameraTopBar
-                    torchAvailable={true}
-                    torchOn={torchOn}
-                    onToggleTorch={() => setTorchOn(!torchOn)}
+                    flashAvailable={true}
+                    flashMode={flashMode}
+                    onChangeFlashMode={setFlashMode}
                     aspect={aspect}
                     onChangeAspect={setAspect}
                     timerSeconds={timerSec}
