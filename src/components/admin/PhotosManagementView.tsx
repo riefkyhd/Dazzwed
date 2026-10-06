@@ -234,12 +234,12 @@ export function PhotosManagementView({
           </div>
 
           {/* Filter tabs */}
-          <div className="flex items-center gap-1 bg-zinc-900 p-1 rounded-xl text-xs font-medium border border-zinc-800 self-start sm:self-auto">
+          <div className="flex items-center gap-1 bg-zinc-900 p-1 rounded-xl text-xs font-medium border border-zinc-800 overflow-x-auto no-scrollbar max-w-full">
             {(["all", "confirmed", "hidden", "failed"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setFilter(tab)}
-                className={`px-3 py-1.5 rounded-lg capitalize transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg capitalize transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                   filter === tab
                     ? "bg-zinc-800 text-amber-300 font-semibold shadow"
                     : "text-zinc-400 hover:text-zinc-200"

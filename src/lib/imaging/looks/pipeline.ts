@@ -81,15 +81,16 @@ float fbmGrain(vec2 uv, float roughness) {
 
 // Filmic Tone Curve evaluation
 float evalCurve(float x, vec4 curve) {
+  float clampedX = clamp(x, 0.0, 1.0);
   float toe = curve.z;
-  float val = toe + x * (1.0 - toe);
+  float val = clamp(toe + clampedX * (1.0 - toe), 0.0, 1.0);
   float pivot = max(0.01, min(0.99, curve.y));
-  float contrast = curve.x;
+  float contrast = max(0.1, curve.x);
   
   if (val <= pivot) {
-    val = pivot * pow(val / pivot, contrast);
+    val = pivot * pow(clamp(val / pivot, 0.0, 1.0), contrast);
   } else {
-    val = 1.0 - (1.0 - pivot) * pow((1.0 - val) / (1.0 - pivot), contrast);
+    val = 1.0 - (1.0 - pivot) * pow(clamp((1.0 - val) / (1.0 - pivot), 0.0, 1.0), contrast);
   }
 
   float shoulder = curve.w;
@@ -131,6 +132,7 @@ void main() {
     float flashBoost = 1.0 + u_flashFalloff.x * (att * att - 0.3);
     rgb *= max(0.2, flashBoost);
   }
+  rgb = clamp(rgb, 0.0, 1.0);
 
   // 4. Filmic Tone Curve
   rgb.r = evalCurve(rgb.r, u_curve);
@@ -139,11 +141,11 @@ void main() {
 
   // 5. Lift / Gamma / Gain
   // Lift (shadows)
-  rgb += u_lift;
+  rgb = clamp(rgb + u_lift, 0.0, 1.0);
   // Gamma (midtones)
-  rgb = pow(max(vec3(0.0), rgb), 1.0 / max(vec3(0.1), u_gamma));
+  rgb = pow(rgb, 1.0 / max(vec3(0.1), u_gamma));
   // Gain (highlights)
-  rgb *= u_gain;
+  rgb = clamp(rgb * u_gain, 0.0, 1.0);
 
   // 6. Split-Toning with neutral-axis fadeout
   float luma = dot(rgb, vec3(0.299, 0.587, 0.114));
@@ -152,26 +154,26 @@ void main() {
   float splitMid = 0.5 + u_splitBalance * 0.25;
 
   if (luma < splitMid && u_splitTone.y > 0.0) {
-    float t = (1.0 - luma / splitMid) * u_splitTone.y * satWeight;
+    float t = clamp((1.0 - luma / max(0.01, splitMid)) * u_splitTone.y * satWeight, 0.0, 1.0);
     vec3 shadowTint = vec3(
       0.5 + 0.5 * cos(u_splitTone.x),
       0.5 + 0.5 * cos(u_splitTone.x - 2.094),
       0.5 + 0.5 * cos(u_splitTone.x + 2.094)
     );
-    rgb = mix(rgb, rgb * shadowTint * 2.0, t);
+    rgb = clamp(mix(rgb, rgb * shadowTint * 2.0, t), 0.0, 1.0);
   } else if (luma >= splitMid && u_splitTone.w > 0.0) {
-    float t = ((luma - splitMid) / (1.0 - splitMid)) * u_splitTone.w * satWeight;
+    float t = clamp(((luma - splitMid) / max(0.01, 1.0 - splitMid)) * u_splitTone.w * satWeight, 0.0, 1.0);
     vec3 highlightTint = vec3(
       0.5 + 0.5 * cos(u_splitTone.z),
       0.5 + 0.5 * cos(u_splitTone.z - 2.094),
       0.5 + 0.5 * cos(u_splitTone.z + 2.094)
     );
-    rgb = mix(rgb, rgb * highlightTint * 2.0, t);
+    rgb = clamp(mix(rgb, rgb * highlightTint * 2.0, t), 0.0, 1.0);
   }
 
   // 7. Saturation adjustment
   luma = dot(rgb, vec3(0.299, 0.587, 0.114));
-  rgb = mix(vec3(luma), rgb, u_saturation);
+  rgb = clamp(mix(vec3(luma), rgb, u_saturation), 0.0, 1.0);
 
   // 8. Film Grain (Normalized to frame height)
   if (u_grain.x > 0.0) {

@@ -19,7 +19,7 @@ export function LookDial({ activeLook, onSelectLook, allowedLookIds }: LookDialP
   if (availableLooks.length <= 1) return null;
 
   return (
-    <div className="flex items-center gap-1.5 p-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 shadow-lg select-none">
+    <div className="flex items-center gap-1.5 p-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 shadow-lg select-none max-w-[92vw] overflow-x-auto no-scrollbar">
       {availableLooks.map((look) => {
         const isSelected = activeLook.id === look.id;
         return (
@@ -30,7 +30,7 @@ export function LookDial({ activeLook, onSelectLook, allowedLookIds }: LookDialP
               triggerHaptic([20]);
               onSelectLook(look);
             }}
-            className={`px-2.5 py-1 rounded-full text-xs font-mono font-medium tracking-wider transition-all duration-150 cursor-pointer ${
+            className={`px-2.5 py-1 rounded-full text-xs font-mono font-medium tracking-wider transition-all duration-150 cursor-pointer whitespace-nowrap shrink-0 ${
               isSelected
                 ? "bg-amber-400 text-black shadow-md font-bold scale-105"
                 : "text-zinc-400 hover:text-zinc-200 hover:bg-white/5 active:scale-95"

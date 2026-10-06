@@ -221,24 +221,24 @@ export function LookLabView() {
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-zinc-800">
         <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-serif font-bold text-white tracking-tight">Look Lab</h1>
-            <span className="text-xs font-mono uppercase bg-amber-400/10 text-amber-400 border border-amber-400/20 px-2 py-0.5 rounded-full">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-tight">Look Lab</h1>
+            <span className="text-[10px] sm:text-xs font-mono uppercase bg-amber-400/10 text-amber-400 border border-amber-400/20 px-2 py-0.5 rounded-full">
               Live Shader Tuner
             </span>
           </div>
-          <p className="text-sm text-zinc-400 mt-1">
+          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
             Fine-tune film curves, grain, halation, and color grading in real time with 0-to-1 normalized spatial parameters.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={copyRecipeJson}
-            className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-200 border border-zinc-700 cursor-pointer"
+            className="flex-1 sm:flex-initial text-center px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-200 border border-zinc-700 cursor-pointer transition-colors"
           >
             {copySuccess ? "Copied!" : "Export JSON"}
           </button>
@@ -248,7 +248,7 @@ export function LookLabView() {
               setJsonText(JSON.stringify(currentRecipe, null, 2));
               setShowJson(true);
             }}
-            className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-200 border border-zinc-700 cursor-pointer"
+            className="flex-1 sm:flex-initial text-center px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-200 border border-zinc-700 cursor-pointer transition-colors"
           >
             Import JSON
           </button>
@@ -258,7 +258,7 @@ export function LookLabView() {
       {/* Main Grid: Viewport + Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column: Live Canvas & Source Selector (7 cols) */}
-        <div className="lg:col-span-7 space-y-4">
+        <div className="lg:col-span-7 space-y-3 sm:space-y-4">
           <div className="relative aspect-[4/3] bg-zinc-950 rounded-2xl overflow-hidden border border-zinc-800 shadow-2xl flex items-center justify-center">
             <canvas ref={canvasRef} className="w-full h-full object-contain" />
             <video ref={videoRef} playsInline muted autoPlay className="hidden" />
@@ -274,18 +274,18 @@ export function LookLabView() {
             </div>
           </div>
 
-          {/* Preset Selector & Source Switcher */}
-          <div className="flex items-center justify-between p-3 bg-zinc-900/60 rounded-xl border border-zinc-800">
-            <div className="flex items-center gap-1.5">
-              <span className="text-xs font-mono text-zinc-400 mr-1">PRESET:</span>
+          {/* Preset Selector & Source Switcher - responsive stacked on mobile */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-zinc-900/60 rounded-xl border border-zinc-800">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+              <span className="text-[11px] font-mono text-zinc-400 shrink-0 mr-0.5">PRESET:</span>
               {BUILTIN_LOOKS.map((preset) => (
                 <button
                   key={preset.id}
                   type="button"
                   onClick={() => handleSelectPreset(preset.id)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer shrink-0 ${
                     selectedPresetId === preset.id
-                      ? "bg-amber-400 text-black font-bold"
+                      ? "bg-amber-400 text-black font-bold shadow-sm"
                       : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
                   }`}
                 >
@@ -294,12 +294,12 @@ export function LookLabView() {
               ))}
             </div>
 
-            <div className="flex items-center gap-1 bg-black/50 p-1 rounded-lg border border-zinc-800 text-xs font-mono">
+            <div className="flex items-center justify-center gap-1 bg-black/50 p-1 rounded-lg border border-zinc-800 text-xs font-mono shrink-0 self-end sm:self-auto">
               <button
                 type="button"
                 onClick={() => setSourceType("chart")}
-                className={`px-2 py-0.5 rounded cursor-pointer ${
-                  sourceType === "chart" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-500"
+                className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
+                  sourceType === "chart" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
                 Chart
@@ -307,8 +307,8 @@ export function LookLabView() {
               <button
                 type="button"
                 onClick={() => setSourceType("camera")}
-                className={`px-2 py-0.5 rounded cursor-pointer ${
-                  sourceType === "camera" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-500"
+                className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
+                  sourceType === "camera" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
                 }`}
               >
                 Camera
@@ -318,7 +318,7 @@ export function LookLabView() {
         </div>
 
         {/* Right Column: Param Sliders (5 cols) */}
-        <div className="lg:col-span-5 bg-zinc-950 p-5 rounded-2xl border border-zinc-800 shadow-xl space-y-5 max-h-[720px] overflow-y-auto">
+        <div className="lg:col-span-5 bg-zinc-950 p-4 sm:p-5 rounded-2xl border border-zinc-800 shadow-xl space-y-5 max-h-[520px] lg:max-h-[720px] overflow-y-auto">
           <h2 className="text-sm font-mono uppercase tracking-wider text-amber-400 font-semibold pb-2 border-b border-zinc-900">
             Shader Parameters
           </h2>
@@ -326,153 +326,169 @@ export function LookLabView() {
           {/* 1. Exposure & Contrast */}
           <div className="space-y-3">
             <span className="text-xs font-mono text-zinc-400">EXPOSURE & CURVE</span>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-mono text-zinc-300">
-                <span>Exposure EV</span>
-                <span>{currentRecipe.exposureEV.toFixed(2)}</span>
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                  <span>Exposure EV</span>
+                  <span className="font-bold text-amber-300">{currentRecipe.exposureEV.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="-1.5"
+                  max="1.5"
+                  step="0.05"
+                  value={currentRecipe.exposureEV}
+                  onChange={(e) => updateRecipe((r) => (r.exposureEV = parseFloat(e.target.value)))}
+                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="-1.5"
-                max="1.5"
-                step="0.05"
-                value={currentRecipe.exposureEV}
-                onChange={(e) => updateRecipe((r) => (r.exposureEV = parseFloat(e.target.value)))}
-                className="w-full accent-amber-400"
-              />
 
-              <div className="flex justify-between text-xs font-mono text-zinc-300">
-                <span>Contrast</span>
-                <span>{currentRecipe.curve.contrast.toFixed(2)}</span>
+              <div>
+                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                  <span>Contrast</span>
+                  <span className="font-bold text-amber-300">{currentRecipe.curve.contrast.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.2"
+                  max="1.5"
+                  step="0.05"
+                  value={currentRecipe.curve.contrast}
+                  onChange={(e) => updateRecipe((r) => (r.curve.contrast = parseFloat(e.target.value)))}
+                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="0.2"
-                max="1.5"
-                step="0.05"
-                value={currentRecipe.curve.contrast}
-                onChange={(e) => updateRecipe((r) => (r.curve.contrast = parseFloat(e.target.value)))}
-                className="w-full accent-amber-400"
-              />
 
-              <div className="flex justify-between text-xs font-mono text-zinc-300">
-                <span>Shadow Toe (Lifted Blacks)</span>
-                <span>{currentRecipe.curve.toe.toFixed(2)}</span>
+              <div>
+                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                  <span>Shadow Toe (Lifted Blacks)</span>
+                  <span className="font-bold text-amber-300">{currentRecipe.curve.toe.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="0.2"
+                  step="0.01"
+                  value={currentRecipe.curve.toe}
+                  onChange={(e) => updateRecipe((r) => (r.curve.toe = parseFloat(e.target.value)))}
+                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="0.0"
-                max="0.2"
-                step="0.01"
-                value={currentRecipe.curve.toe}
-                onChange={(e) => updateRecipe((r) => (r.curve.toe = parseFloat(e.target.value)))}
-                className="w-full accent-amber-400"
-              />
 
-              <div className="flex justify-between text-xs font-mono text-zinc-300">
-                <span>Saturation</span>
-                <span>{currentRecipe.saturation.toFixed(2)}</span>
+              <div>
+                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                  <span>Saturation</span>
+                  <span className="font-bold text-amber-300">{currentRecipe.saturation.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="2.0"
+                  step="0.05"
+                  value={currentRecipe.saturation}
+                  onChange={(e) => updateRecipe((r) => (r.saturation = parseFloat(e.target.value)))}
+                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="0.0"
-                max="2.0"
-                step="0.05"
-                value={currentRecipe.saturation}
-                onChange={(e) => updateRecipe((r) => (r.saturation = parseFloat(e.target.value)))}
-                className="w-full accent-amber-400"
-              />
             </div>
           </div>
 
           {/* 2. Grain */}
           <div className="space-y-3 pt-3 border-t border-zinc-900">
             <span className="text-xs font-mono text-zinc-400">FILM GRAIN</span>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-mono text-zinc-300">
-                <span>Amount</span>
-                <span>{currentRecipe.grain.amount.toFixed(2)}</span>
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                  <span>Amount</span>
+                  <span className="font-bold text-amber-300">{currentRecipe.grain.amount.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="0.4"
+                  step="0.01"
+                  value={currentRecipe.grain.amount}
+                  onChange={(e) => updateRecipe((r) => (r.grain.amount = parseFloat(e.target.value)))}
+                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="0.0"
-                max="0.4"
-                step="0.01"
-                value={currentRecipe.grain.amount}
-                onChange={(e) => updateRecipe((r) => (r.grain.amount = parseFloat(e.target.value)))}
-                className="w-full accent-amber-400"
-              />
 
-              <div className="flex justify-between text-xs font-mono text-zinc-300">
-                <span>Chroma Noise</span>
-                <span>{currentRecipe.grain.chroma.toFixed(2)}</span>
+              <div>
+                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                  <span>Chroma Noise</span>
+                  <span className="font-bold text-amber-300">{currentRecipe.grain.chroma.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="1.0"
+                  step="0.05"
+                  value={currentRecipe.grain.chroma}
+                  onChange={(e) => updateRecipe((r) => (r.grain.chroma = parseFloat(e.target.value)))}
+                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="0.0"
-                max="1.0"
-                step="0.05"
-                value={currentRecipe.grain.chroma}
-                onChange={(e) => updateRecipe((r) => (r.grain.chroma = parseFloat(e.target.value)))}
-                className="w-full accent-amber-400"
-              />
             </div>
           </div>
 
           {/* 3. Vignette & Flash Falloff */}
           <div className="space-y-3 pt-3 border-t border-zinc-900">
             <span className="text-xs font-mono text-zinc-400">OPTICS & VIGNETTE</span>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-mono text-zinc-300">
-                <span>Vignette Strength</span>
-                <span>{currentRecipe.vignette.strength.toFixed(2)}</span>
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                  <span>Vignette Strength</span>
+                  <span className="font-bold text-amber-300">{currentRecipe.vignette.strength.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="0.8"
+                  step="0.05"
+                  value={currentRecipe.vignette.strength}
+                  onChange={(e) => updateRecipe((r) => (r.vignette.strength = parseFloat(e.target.value)))}
+                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="0.0"
-                max="0.8"
-                step="0.05"
-                value={currentRecipe.vignette.strength}
-                onChange={(e) => updateRecipe((r) => (r.vignette.strength = parseFloat(e.target.value)))}
-                className="w-full accent-amber-400"
-              />
 
-              <div className="flex justify-between text-xs font-mono text-zinc-300">
-                <span>Flash Falloff</span>
-                <span>{currentRecipe.flashFalloff.strength.toFixed(2)}</span>
+              <div>
+                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                  <span>Flash Falloff</span>
+                  <span className="font-bold text-amber-300">{currentRecipe.flashFalloff.strength.toFixed(2)}</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.0"
+                  max="1.0"
+                  step="0.05"
+                  value={currentRecipe.flashFalloff.strength}
+                  onChange={(e) => updateRecipe((r) => (r.flashFalloff.strength = parseFloat(e.target.value)))}
+                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                />
               </div>
-              <input
-                type="range"
-                min="0.0"
-                max="1.0"
-                step="0.05"
-                value={currentRecipe.flashFalloff.strength}
-                onChange={(e) => updateRecipe((r) => (r.flashFalloff.strength = parseFloat(e.target.value)))}
-                className="w-full accent-amber-400"
-              />
             </div>
           </div>
 
           {/* 4. Date Stamp & Frame */}
           <div className="space-y-3 pt-3 border-t border-zinc-900">
             <span className="text-xs font-mono text-zinc-400">POST-PROCESS EXTRAS</span>
-            <div className="flex items-center gap-4 text-xs font-mono text-zinc-300">
-              <label className="flex items-center gap-2 cursor-pointer">
+            <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-zinc-300">
+              <label className="flex items-center gap-2 cursor-pointer py-1">
                 <input
                   type="checkbox"
                   checked={currentRecipe.dateStamp.enabled}
                   onChange={(e) => updateRecipe((r) => (r.dateStamp.enabled = e.target.checked))}
-                  className="rounded accent-amber-400"
+                  className="w-4 h-4 rounded accent-amber-400"
                 />
                 <span>Orange Date Stamp</span>
               </label>
 
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex items-center gap-2 cursor-pointer py-1">
                 <input
                   type="checkbox"
                   checked={currentRecipe.frame.type === "instant"}
                   onChange={(e) => updateRecipe((r) => (r.frame.type = e.target.checked ? "instant" : "none"))}
-                  className="rounded accent-amber-400"
+                  className="w-4 h-4 rounded accent-amber-400"
                 />
                 <span>Instant Border</span>
               </label>
