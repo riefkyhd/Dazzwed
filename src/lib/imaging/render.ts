@@ -2,8 +2,10 @@ import {
   MAX_EDGE,
   QUALITY_STEPS,
   cropForZoom,
+  cropForAspectAndZoom,
   fitLongestEdge,
   type OutputTier,
+  type CameraAspect,
   TIER_CONFIG,
 } from "./geometry";
 
@@ -70,16 +72,19 @@ function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 export interface RenderOptions {
   /** Digital zoom factor (centered crop). Use 1 when native zoom already applied. */
   zoom?: number;
+  /** Camera aspect ratio crop (3:4, 16:9, 1:1) */
+  aspect?: CameraAspect;
 }
 
 /**
- * Crop → resize (longest edge ≤ 1920) → film look → JPEG (≈0.8, stepped down to stay <~900 KB).
+ * Crop → resize → film look → JPEG.
  * Re-encoding through canvas drops all EXIF/GPS metadata.
  */
 export async function renderShot(
   src: Source,
   {
     zoom = 1,
+    aspect = "3:4",
     maxEdge = 4096,
     quality = 0.92,
     applyFilter = true,
@@ -87,7 +92,7 @@ export async function renderShot(
 ): Promise<Blob> {
   const { w, h } = sourceSize(src);
   if (!w || !h) throw new Error("source has no size");
-  const crop = cropForZoom(w, h, zoom);
+  const crop = cropForAspectAndZoom(w, h, aspect, zoom);
   const out = fitLongestEdge(crop.sw, crop.sh, maxEdge);
 
   const canvas = document.createElement("canvas");

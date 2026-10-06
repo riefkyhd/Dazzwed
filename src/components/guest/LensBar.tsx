@@ -91,9 +91,9 @@ export function LensBar({
           }
         }}
         className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold transition-all active:scale-95 ${
-          (tele && activeId === tele.deviceId) ||
-          currentZoom >= 1.8 ||
-          digitalZoom === 2
+          ((tele && activeId === tele.deviceId) ||
+          (currentZoom >= 1.8 && currentZoom < 2.8) ||
+          digitalZoom === 2) && currentZoom < 2.8
             ? "bg-amber-400 text-black shadow"
             : "text-zinc-400 hover:text-white"
         }`}

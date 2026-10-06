@@ -47,6 +47,7 @@ export function useCamera(enabled: boolean) {
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [aspect, setAspect] = useState(9 / 16);
+  const [cameraAspect, setCameraAspect] = useState<"3:4" | "16:9" | "1:1">("3:4");
 
   useEffect(() => {
     if (!enabled) return;
@@ -278,16 +279,20 @@ export function useCamera(enabled: boolean) {
     }
   }, [torchOn]);
 
-  const capture = useCallback(async (): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
-    const v = videoRef.current;
-    if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
-    // Native zoom is already in the frames; digital zoom is applied by cropping.
-    const [filteredBlob, originalBlob] = await Promise.all([
-      renderShot(v, { zoom: zoomRange ? 1 : digitalZoom, applyFilter: true }),
-      renderShot(v, { zoom: zoomRange ? 1 : digitalZoom, applyFilter: false }),
-    ]);
-    return { filteredBlob, originalBlob };
-  }, [zoomRange, digitalZoom]);
+  const capture = useCallback(
+    async (aspectOverride?: "3:4" | "16:9" | "1:1"): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
+      const v = videoRef.current;
+      if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
+      const targetAspect = aspectOverride || cameraAspect;
+      // Native zoom is already in the frames; digital zoom and aspect ratio are applied by cropping.
+      const [filteredBlob, originalBlob] = await Promise.all([
+        renderShot(v, { zoom: zoomRange ? 1 : digitalZoom, aspect: targetAspect, applyFilter: true }),
+        renderShot(v, { zoom: zoomRange ? 1 : digitalZoom, aspect: targetAspect, applyFilter: false }),
+      ]);
+      return { filteredBlob, originalBlob };
+    },
+    [zoomRange, digitalZoom, cameraAspect]
+  );
 
   return {
     videoRef,
@@ -299,6 +304,8 @@ export function useCamera(enabled: boolean) {
     measuredFps,
     previewTier,
     aspect,
+    cameraAspect,
+    setCameraAspect,
     facing,
     flip: () => {
       setLensChoice(undefined);

@@ -150,24 +150,44 @@ export async function POST(req: Request) {
     // Get origin for CORS
     const origin = req.headers.get("origin") || req.headers.get("referer") || "https://dazzwed.vercel.app";
 
-    // Request resumable upload session from Google Drive
-    const sessionRes = await (drive.files.create as any)({
-      requestBody: {
-        name: filename,
-        parents: [targetParentFolderId],
-      },
-      media: {
-        mimeType: "image/jpeg",
-      },
-      uploadType: "resumable",
+    // Obtain access token from OAuth2 client
+    const { getOAuth2Client } = await import("@/lib/drive/client");
+    const oauth2Client = getOAuth2Client();
+    oauth2Client.setCredentials({ refresh_token: refreshToken });
+    const tokenRes = await oauth2Client.getAccessToken();
+    const accessToken = tokenRes.token;
+
+    if (!accessToken) {
+      throw new Error("Failed to generate Google Drive access token from refresh token");
+    }
+
+    // Request resumable upload session from Google Drive using direct fetch
+    const gDriveInitRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable", {
+      method: "POST",
       headers: {
-        Origin: origin,
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=UTF-8",
         "X-Upload-Content-Type": "image/jpeg",
         "X-Upload-Content-Length": String(sizeParsed.data),
+        Origin: origin,
       },
+      body: JSON.stringify({
+        name: filename,
+        parents: [targetParentFolderId],
+      }),
     });
 
-    const sessionUri = sessionRes.headers?.location || sessionRes.data?.location;
+    if (!gDriveInitRes.ok) {
+      const errText = await gDriveInitRes.text();
+      console.error("Google Drive resumable session initiation failed:", gDriveInitRes.status, errText);
+      return NextResponse.json({ error: "Failed to initialize Google Drive session" }, { status: 502 });
+    }
+
+    const sessionUri = gDriveInitRes.headers.get("location");
+    if (!sessionUri) {
+      console.error("Google Drive returned 200/201 but no Location header:", Array.from(gDriveInitRes.headers.entries()));
+      return NextResponse.json({ error: "No resumable session Location returned from Drive" }, { status: 502 });
+    }
 
     if (!isOriginal) {
       // Update photo record with dimensions & tier for the primary filtered photo

@@ -17,12 +17,48 @@ export function fitLongestEdge(w: number, h: number, max: number): Size {
   return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
 }
 
+export type CameraAspect = "3:4" | "16:9" | "1:1";
+
+/**
+ * Centered crop for target aspect ratio and digital zoom.
+ * Original camera sensor is portrait 3:4 (or landscape 4:3).
+ * Other aspect ratios (16:9, 1:1) are center-cropped from the full sensor.
+ */
+export function cropForAspectAndZoom(
+  w: number,
+  h: number,
+  aspect: CameraAspect = "3:4",
+  zoom: number = 1
+): Crop {
+  // Target ratio width / height in portrait orientation
+  const targetRatio =
+    aspect === "1:1" ? 1 : aspect === "16:9" ? 9 / 16 : 3 / 4;
+
+  const currentRatio = w / h;
+
+  let baseSw = w;
+  let baseSh = h;
+
+  if (currentRatio > targetRatio) {
+    // Current is wider than target: crop width
+    baseSw = Math.round(h * targetRatio);
+  } else if (currentRatio < targetRatio) {
+    // Current is taller than target: crop height
+    baseSh = Math.round(w / targetRatio);
+  }
+
+  const z = Math.max(1, zoom);
+  const sw = Math.round(baseSw / z);
+  const sh = Math.round(baseSh / z);
+  const sx = Math.round((w - sw) / 2);
+  const sy = Math.round((h - sh) / 2);
+
+  return { sx, sy, sw, sh };
+}
+
 /** Centered crop for digital zoom (zoom >= 1). */
 export function cropForZoom(w: number, h: number, zoom: number): Crop {
-  const z = Math.max(1, zoom);
-  const sw = w / z;
-  const sh = h / z;
-  return { sx: (w - sw) / 2, sy: (h - sh) / 2, sw, sh };
+  return cropForAspectAndZoom(w, h, "3:4", zoom);
 }
 
 export type OutputTier = "original" | "high" | "standard" | "lite";

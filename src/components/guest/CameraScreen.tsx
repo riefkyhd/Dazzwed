@@ -1,20 +1,19 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { type Lang, t } from "@/lib/i18n";
 import { useCamera } from "@/lib/camera/useCamera";
 import { triggerHaptic } from "@/lib/camera/haptics";
+import type { CameraAspect } from "@/lib/imaging/geometry";
 import { ShutterButton } from "./ShutterButton";
 import { ShotCounter } from "./ShotCounter";
 import { LensBar } from "./LensBar";
-import { AdvancedDrawer } from "./AdvancedDrawer";
 import { ZoomControl } from "./ZoomControl";
 import { TorchToggle } from "./TorchToggle";
 import { SyncBadge } from "./SyncBadge";
 import { NativeCameraInput } from "./NativeCameraInput";
 import { CameraErrorView } from "./CameraErrorView";
 import { ReviewModal } from "./ReviewModal";
-import { FilmThumbwheel } from "./FilmThumbwheel";
 
 interface CameraScreenProps {
   eventSlug: string;
@@ -57,27 +56,82 @@ export function CameraScreen({
     toggleTorch,
     capture,
     retry,
+    cameraAspect,
+    setCameraAspect,
   } = useCamera(true);
 
   const [isShutterActive, setIsShutterActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [reviewBlobs, setReviewBlobs] = useState<{ filteredBlob: Blob; originalBlob?: Blob } | null>(null);
-  const [isAdvancingFilm, setIsAdvancingFilm] = useState(false);
+
+  // Viewfinder container ref for pinch-to-zoom gestures
+  const viewfinderRef = useRef<HTMLDivElement>(null);
+  const pinchStartDist = useRef<number | null>(null);
+  const pinchStartZoom = useRef<number>(1);
+
+  // Pinch-to-zoom gesture listener on viewfinder container
+  useEffect(() => {
+    const el = viewfinderRef.current;
+    if (!el) return;
+
+    const getDistance = (touches: TouchList) => {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.hypot(dx, dy);
+    };
+
+    const handleTouchStart = (e: TouchEvent) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        pinchStartDist.current = getDistance(e.touches);
+        pinchStartZoom.current = zoomRange ? zoom : digitalZoom;
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length === 2 && pinchStartDist.current !== null) {
+        e.preventDefault();
+        const dist = getDistance(e.touches);
+        const scale = dist / pinchStartDist.current;
+        const targetZoom = pinchStartZoom.current * scale;
+
+        if (zoomRange) {
+          const clamped = Math.max(zoomRange.min, Math.min(zoomRange.max, targetZoom));
+          setZoom(Math.round(clamped * 10) / 10);
+        } else {
+          const clamped = Math.max(1, Math.min(4, targetZoom));
+          setDigitalZoom(Math.round(clamped * 10) / 10);
+        }
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (e.touches.length < 2) {
+        pinchStartDist.current = null;
+      }
+    };
+
+    el.addEventListener("touchstart", handleTouchStart, { passive: false });
+    el.addEventListener("touchmove", handleTouchMove, { passive: false });
+    el.addEventListener("touchend", handleTouchEnd, { passive: false });
+
+    return () => {
+      el.removeEventListener("touchstart", handleTouchStart);
+      el.removeEventListener("touchmove", handleTouchMove);
+      el.removeEventListener("touchend", handleTouchEnd);
+    };
+  }, [zoomRange, zoom, digitalZoom, setZoom, setDigitalZoom]);
 
   const handleShoot = async () => {
     if (shotsLeft <= 0 || isProcessing || !live) return;
 
-    // Trigger haptic feedback immediately
     triggerHaptic([35]);
-
-    // Visual shutter animation: screen flash
     setIsShutterActive(true);
     setTimeout(() => setIsShutterActive(false), 180);
 
     try {
       setIsProcessing(true);
-      const { filteredBlob, originalBlob } = await capture();
-      // Freeze frame and open retro Review Modal (no shot consumed yet)
+      const { filteredBlob, originalBlob } = await capture(cameraAspect);
       setReviewBlobs({ filteredBlob, originalBlob });
     } catch (err) {
       console.error("Capture error:", err);
@@ -88,15 +142,12 @@ export function CameraScreen({
 
   const handleKeepPhoto = async () => {
     if (!reviewBlobs) return;
-    setIsAdvancingFilm(true);
     const toSave = reviewBlobs;
     setReviewBlobs(null);
-    // Consumes 1 shot server-side & client-side only upon Keep!
     await onShotCaptured(toSave.filteredBlob, toSave.originalBlob);
   };
 
   const handleRetakePhoto = () => {
-    // Discard captured frame without consuming any shot
     setReviewBlobs(null);
   };
 
@@ -112,6 +163,14 @@ export function CameraScreen({
     );
   }
 
+  // Calculate viewfinder frame aspect ratio styling
+  const aspectClass =
+    cameraAspect === "1:1"
+      ? "aspect-square max-h-[72vh] w-full"
+      : cameraAspect === "16:9"
+        ? "aspect-[9/16] h-full max-w-full"
+        : "aspect-[3/4] max-h-[78vh] w-full";
+
   return (
     <div className="relative w-full h-dvh bg-black flex flex-col justify-between overflow-hidden select-none touch-manipulation">
       {/* Mechanical shutter blink animation overlay */}
@@ -121,8 +180,11 @@ export function CameraScreen({
         }`}
       />
 
-      {/* Camera Viewfinder */}
-      <div className="absolute inset-0 flex items-center justify-center bg-zinc-950 overflow-hidden">
+      {/* Camera Viewfinder with Pinch-to-zoom Listener */}
+      <div
+        ref={viewfinderRef}
+        className="absolute inset-0 flex items-center justify-center bg-black overflow-hidden touch-none"
+      >
         {/* Hidden video element feeding the WebGL canvas */}
         <video
           ref={videoRef}
@@ -132,27 +194,30 @@ export function CameraScreen({
           className="hidden"
         />
 
-        {/* Live Filtered WebGL Canvas Viewfinder */}
-        <canvas
-          ref={canvasRef}
-          className={`w-full h-full object-cover pointer-events-none transition-transform duration-300 ${
-            facing === "user" ? "-scale-x-100" : ""
-          }`}
-        />
+        {/* Framing Box matching chosen aspect ratio */}
+        <div className={`relative flex items-center justify-center overflow-hidden transition-all duration-300 ${aspectClass}`}>
+          {/* Live Filtered WebGL Canvas Viewfinder */}
+          <canvas
+            ref={canvasRef}
+            className={`w-full h-full object-cover pointer-events-none transition-transform duration-300 ${
+              facing === "user" ? "-scale-x-100" : ""
+            }`}
+          />
 
-        {/* Vintage camera frame watermark / corners */}
-        <div className="absolute inset-4 pointer-events-none border border-white/10 rounded-2xl">
-          <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-accent/60" />
-          <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-accent/60" />
-          <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-accent/60" />
-          <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-accent/60" />
-        </div>
+          {/* Vintage camera frame watermark / corners */}
+          <div className="absolute inset-3 pointer-events-none border border-white/10 rounded-2xl">
+            <div className="absolute top-2 left-2 w-4 h-4 border-t-2 border-l-2 border-accent/60" />
+            <div className="absolute top-2 right-2 w-4 h-4 border-t-2 border-r-2 border-accent/60" />
+            <div className="absolute bottom-2 left-2 w-4 h-4 border-b-2 border-l-2 border-accent/60" />
+            <div className="absolute bottom-2 right-2 w-4 h-4 border-b-2 border-r-2 border-accent/60" />
+          </div>
 
-        {/* Center crosshair */}
-        <div className="absolute pointer-events-none opacity-25 flex items-center justify-center">
-          <div className="w-8 h-8 rounded-full border border-white/60" />
-          <div className="absolute w-12 h-px bg-white/60" />
-          <div className="absolute h-12 w-px bg-white/60" />
+          {/* Center crosshair */}
+          <div className="absolute pointer-events-none opacity-25 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full border border-white/60" />
+            <div className="absolute w-12 h-px bg-white/60" />
+            <div className="absolute h-12 w-px bg-white/60" />
+          </div>
         </div>
 
         {/* Starting / Restarting Spinner */}
@@ -171,10 +236,6 @@ export function CameraScreen({
         <ShotCounter shotsLeft={shotsLeft} lang={lang} />
 
         <div className="flex items-center gap-2.5">
-          <FilmThumbwheel
-            advancing={isAdvancingFilm}
-            onAdvanceComplete={() => setIsAdvancingFilm(false)}
-          />
           <SyncBadge pendingCount={pendingCount} lang={lang} />
           <TorchToggle
             available={torchAvailable}
@@ -194,14 +255,27 @@ export function CameraScreen({
       )}
 
       {/* Bottom Controls Overlay */}
-      <footer className="relative z-20 flex flex-col items-center pb-6 px-4 gap-3">
-        {/* Advanced Drawer */}
-        <AdvancedDrawer
-          torchAvailable={torchAvailable}
-          torchOn={torchOn}
-          onToggleTorch={toggleTorch}
-          lang={lang}
-        />
+      <footer className="relative z-20 flex flex-col items-center pb-6 px-4 gap-2.5">
+        {/* Aspect Ratio Selector: 3:4 (Full Sensor) | 16:9 | 1:1 */}
+        <div className="flex items-center gap-1 p-1 rounded-full bg-zinc-950/80 backdrop-blur-md border border-zinc-800 shadow-md">
+          {(["3:4", "16:9", "1:1"] as CameraAspect[]).map((asp) => (
+            <button
+              key={asp}
+              type="button"
+              onClick={() => {
+                triggerHaptic([20]);
+                setCameraAspect(asp);
+              }}
+              className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition-all active:scale-95 ${
+                cameraAspect === asp
+                  ? "bg-amber-400 text-black shadow"
+                  : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              {asp === "3:4" ? "3:4 (Full)" : asp}
+            </button>
+          ))}
+        </div>
 
         {/* Lens Bar and Zoom Controls */}
         <div className="flex items-center justify-center gap-2.5 w-full">
@@ -231,7 +305,7 @@ export function CameraScreen({
         </div>
 
         {/* Shutter row with flip camera and native app trigger */}
-        <div className="flex items-center justify-between w-full max-w-sm px-2">
+        <div className="flex items-center justify-between w-full max-w-sm px-2 mt-1">
           {/* Native OS Camera Fallback */}
           <div className="w-16 flex justify-start">
             <NativeCameraInput
@@ -255,7 +329,7 @@ export function CameraScreen({
               type="button"
               onClick={flip}
               aria-label={t(lang, "flip")}
-              className="p-3 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition-all active:scale-90 touch-manipulation shadow-md"
+              className="p-3 rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition-all active:scale-90 touch-manipulation shadow-md cursor-pointer"
             >
               <svg
                 xmlns="http://www.w3.org/2000/svg"

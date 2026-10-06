@@ -24,30 +24,29 @@ export async function resolveDriveTokens(): Promise<{
   rootFolderId: string | null;
 }> {
   const env = serverEnv();
-  let refreshToken = env.GOOGLE_REFRESH_TOKEN || null;
-  let rootFolderId = env.DRIVE_ROOT_FOLDER_ID || null;
+  let refreshToken: string | null = null;
+  let rootFolderId: string | null = null;
 
-  if (!refreshToken || !rootFolderId) {
-    try {
-      const { data: event } = await supabaseAdmin()
-        .from("events")
-        .select("google_refresh_token, drive_root_folder_id")
-        .not("google_refresh_token", "is", null)
-        .limit(1)
-        .maybeSingle();
+  // First check database (the live source of truth from OAuth authorization)
+  try {
+    const { data: event } = await supabaseAdmin()
+      .from("events")
+      .select("google_refresh_token, drive_root_folder_id")
+      .not("google_refresh_token", "is", null)
+      .limit(1)
+      .maybeSingle();
 
-      if (event) {
-        if (!refreshToken && event.google_refresh_token) {
-          refreshToken = event.google_refresh_token;
-        }
-        if (!rootFolderId && event.drive_root_folder_id) {
-          rootFolderId = event.drive_root_folder_id;
-        }
-      }
-    } catch (err) {
-      console.error("Failed to query fallback Drive tokens from DB:", err);
+    if (event) {
+      if (event.google_refresh_token) refreshToken = event.google_refresh_token;
+      if (event.drive_root_folder_id) rootFolderId = event.drive_root_folder_id;
     }
+  } catch (err) {
+    console.error("Failed to query Drive tokens from DB:", err);
   }
+
+  // Fallback to environment variables if database didn't have them
+  if (!refreshToken) refreshToken = env.GOOGLE_REFRESH_TOKEN || null;
+  if (!rootFolderId) rootFolderId = env.DRIVE_ROOT_FOLDER_ID || null;
 
   return { refreshToken, rootFolderId };
 }
