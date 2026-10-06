@@ -16,6 +16,7 @@ interface SettingsViewProps {
       accentFg?: string;
       bgColor?: string;
       note?: string;
+      activeLookId?: string;
     };
   };
 }
@@ -39,6 +40,61 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
   const [welcomeNote, setWelcomeNote] = useState(
     initialEvent.theme?.note || "",
   );
+  const [activeLookId, setActiveLookId] = useState(
+    initialEvent.theme?.activeLookId || "cpm-35",
+  );
+
+  const [availableLuts, setAvailableLuts] = useState<Array<{ fileName: string; url: string; name: string }>>([
+    { fileName: "dazz-cpm35.cube", url: "/luts/dazz-cpm35.cube", name: "Dazz Cam CPM35 (Classic 35mm Warmth)" },
+    { fileName: "fuji-classic-neg.cube", url: "/luts/fuji-classic-neg.cube", name: "Fujifilm Classic Neg (Teal & Crimson)" },
+    { fileName: "kodak-gold-200.cube", url: "/luts/kodak-gold-200.cube", name: "Kodak Gold 200 (Golden Nostalgia)" },
+  ]);
+  const [uploadingLut, setUploadingLut] = useState(false);
+  const [lutUploadMsg, setLutUploadMsg] = useState<string | null>(null);
+
+  // Fetch available LUTs on load
+  React.useEffect(() => {
+    fetch("/api/admin/luts")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.luts && Array.isArray(data.luts)) {
+          setAvailableLuts(data.luts);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleLutUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingLut(true);
+    setLutUploadMsg(null);
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const res = await fetch("/api/admin/luts", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to upload LUT");
+      }
+      setLutUploadMsg(`Successfully uploaded ${data.fileName}!`);
+      // Refresh list
+      const listRes = await fetch("/api/admin/luts");
+      const listData = await listRes.json();
+      if (listData.luts) setAvailableLuts(listData.luts);
+      setActiveLookId(data.fileName);
+    } catch (err) {
+      setLutUploadMsg(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUploadingLut(false);
+      e.target.value = "";
+    }
+  };
 
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -63,6 +119,7 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
             accentColor,
             bgColor,
             note: welcomeNote,
+            activeLookId,
           },
         }),
       });
@@ -258,6 +315,84 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
               placeholder="e.g. Capture candid moments for our private album!"
               className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-xs text-zinc-100 placeholder:text-zinc-600"
             />
+          </div>
+        </div>
+
+        {/* 4. Film Simulation & 3D LUT Recipe Card */}
+        <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+              4. Active Film Simulation & 3D LUT Recipe
+            </h2>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
+              GPU Color Science
+            </span>
+          </div>
+
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Choose the default photo recipe applied to all guest captures. Guests don&apos;t need to configure anything—the camera automatically bakes in authentic analog film colors, optical halation bloom, and organic silver-halide grain.
+          </p>
+
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1.5 font-medium">
+              Active Camera Recipe / LUT
+            </label>
+            <select
+              value={activeLookId}
+              onChange={(e) => setActiveLookId(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-sm text-zinc-100 font-medium"
+            >
+              <optgroup label="✨ Calibrated Film & Dazz Cam Recipes">
+                <option value="cpm-35">Dazz Cam CPM35 (Classic 35mm Rangefinder — Golden Warmth)</option>
+                <option value="classic-neg">Fujifilm Classic Neg (Superia 400 — Deep Teal Foliage & Crimson)</option>
+                <option value="golden-200">Kodak Gold 200 (Warm Sunny Wedding Nostalgia)</option>
+                <option value="disposable-400">Fuji Quicksnap Disposable 400 (Authentic 90s Disposable)</option>
+                <option value="ccd-flash">CCD Direct Flash (Canon PowerShot Digicam Vibe)</option>
+                <option value="instant">Instant Polaroid (Milky Blacks & Square Framing)</option>
+              </optgroup>
+
+              {availableLuts.length > 0 && (
+                <optgroup label="📁 Uploaded 3D .cube LUT Files">
+                  {availableLuts.map((lut) => (
+                    <option key={lut.fileName} value={lut.fileName}>
+                      {lut.name} ({lut.fileName})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+
+          {/* Import / Upload new .cube LUT file */}
+          <div className="pt-2 border-t border-zinc-900">
+            <label className="block text-xs text-zinc-300 mb-1.5 font-medium">
+              Import New 3D LUT (.cube file)
+            </label>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <label className="px-4 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 text-xs text-amber-300 font-mono flex items-center gap-2 cursor-pointer transition active:scale-95">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path d="M9.25 13.25a.75.75 0 0 0 1.5 0V4.636l2.955 3.129a.75.75 0 0 0 1.09-1.03l-4.25-4.5a.75.75 0 0 0-1.09 0l-4.25 4.5a.75.75 0 1 0 1.09 1.03L9.25 4.636v8.614Z" />
+                  <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+                </svg>
+                {uploadingLut ? "Uploading LUT…" : "Choose .cube file"}
+                <input
+                  type="file"
+                  accept=".cube"
+                  disabled={uploadingLut}
+                  onChange={handleLutUpload}
+                  className="hidden"
+                />
+              </label>
+              <span className="text-[11px] text-zinc-500">
+                Upload Adobe 3D .cube LUTs directly from Lightroom, DaVinci Resolve, or film packs.
+              </span>
+            </div>
+
+            {lutUploadMsg && (
+              <p className="text-xs text-amber-300 mt-2 font-mono">
+                {lutUploadMsg}
+              </p>
+            )}
           </div>
         </div>
 

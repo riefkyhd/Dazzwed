@@ -31,6 +31,7 @@ interface CameraScreenProps {
   onShotCaptured: (filteredBlob: Blob, originalBlob?: Blob) => Promise<void>;
   onNativePhoto: (file: File, quickThumb?: string) => void;
   allowedLookIds?: string[];
+  defaultLookId?: string;
 }
 
 export function CameraScreen({
@@ -45,6 +46,7 @@ export function CameraScreen({
   onShotCaptured,
   onNativePhoto,
   allowedLookIds,
+  defaultLookId,
 }: CameraScreenProps) {
   const {
     videoRef,
@@ -78,7 +80,7 @@ export function CameraScreen({
     exposureCompSupported,
     exposureCompValue,
     setExposureCompensation,
-  } = useCamera(true);
+  } = useCamera(true, defaultLookId);
 
   // Responsive Layout Engine
   const layout = useViewportLayout(cameraAspect);

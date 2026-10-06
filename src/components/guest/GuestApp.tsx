@@ -479,6 +479,11 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
               ? ((event.theme as Record<string, unknown>).allowedLooks as string[])
               : undefined
           }
+          defaultLookId={
+            event.theme && typeof event.theme === "object" && "activeLookId" in event.theme && typeof (event.theme as Record<string, unknown>).activeLookId === "string"
+              ? ((event.theme as Record<string, unknown>).activeLookId as string)
+              : "cpm-35"
+          }
         />
       )}
 

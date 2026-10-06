@@ -165,28 +165,49 @@ export async function renderShot(
     }
   }
 
-  // 1. Run WebGL2 Look Engine pipeline on a dedicated GL canvas
-  const glCanvas = document.createElement("canvas");
-  glCanvas.width = out.width;
-  glCanvas.height = out.height;
-
+  // 1. Run 3D LUT PostProcessing or WebGL2 Look Engine pipeline
   let rendered = false;
-  let pipeline: LookEnginePipeline | null = null;
-  try {
-    pipeline = new LookEnginePipeline(glCanvas);
-    const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
-    rendered = pipeline.render(sourceToRender, look, {
-      width: out.width,
-      height: out.height,
-      isCapture: true,
-      seed,
-      isNativeCamera: sourceType === "native",
-      intensity: targetIntensity,
-    });
-  } catch (err) {
-    console.warn("WebGL2 Look Engine failed, falling back to 2D canvas:", err);
-  } finally {
-    if (pipeline) pipeline.destroy();
+  let processedCanvas: HTMLCanvasElement | null = null;
+
+  if (look.lutUrl) {
+    try {
+      const { renderWithPostProcessing } = await import("./renderThree");
+      processedCanvas = await renderWithPostProcessing(sourceToRender, {
+        width: out.width,
+        height: out.height,
+        lutUrl: look.lutUrl,
+        bloomThreshold: look.lens?.bloom?.threshold ?? 0.82,
+        bloomIntensity: look.lens?.bloom?.strength ?? 0.35,
+        grainAmount: look.emulsion?.grain?.amount ?? 0.12,
+      });
+      rendered = true;
+    } catch (err) {
+      console.warn("3D LUT PostProcessing failed, falling back to WebGL2 Look Engine:", err);
+    }
+  }
+
+  if (!rendered) {
+    const glCanvas = document.createElement("canvas");
+    glCanvas.width = out.width;
+    glCanvas.height = out.height;
+    let pipeline: LookEnginePipeline | null = null;
+    try {
+      pipeline = new LookEnginePipeline(glCanvas);
+      const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
+      rendered = pipeline.render(sourceToRender, look, {
+        width: out.width,
+        height: out.height,
+        isCapture: true,
+        seed,
+        isNativeCamera: sourceType === "native",
+        intensity: targetIntensity,
+      });
+      if (rendered) processedCanvas = glCanvas;
+    } catch (err) {
+      console.warn("WebGL2 Look Engine failed, falling back to 2D canvas:", err);
+    } finally {
+      if (pipeline) pipeline.destroy();
+    }
   }
 
   if (interCanvas) {
@@ -198,8 +219,9 @@ export async function renderShot(
   if (!ctx2d) throw new Error("Could not acquire 2D canvas context");
   ctx2d.imageSmoothingQuality = "high";
 
-  if (rendered) {
-    ctx2d.drawImage(glCanvas, 0, 0);
+  if (rendered && processedCanvas) {
+    ctx2d.drawImage(processedCanvas, 0, 0);
+    processedCanvas.width = processedCanvas.height = 0; // free WebGL memory
   } else {
     // Fallback 2D if WebGL unavailable
     if (mirror) {
@@ -213,7 +235,6 @@ export async function renderShot(
     }
     applyFilmLook(ctx2d, out.width, out.height);
   }
-  glCanvas.width = glCanvas.height = 0; // free WebGL memory
 
   // 3. Post-shader 2D extras pass (Light leaks, dust, date stamp, instant frame)
   drawEmulsionExtras(ctx2d, out.width, out.height, look, seed);

@@ -467,6 +467,7 @@ export const GOLDEN_200_LOOK: LookRecipe = {
   frame: { type: "none" },
   intensity: 1.0,
   whiteProtect: true,
+  lutUrl: "/luts/kodak-gold-200.cube",
   reference: {
     referenceId: "kodak-gold-200-wedding",
     referenceNotes: "Calibrated against Kodak Gold 200 35mm wedding daylight photos; golden highlights, gentle red-orange halation, and flattering warm skin tones.",
@@ -540,6 +541,7 @@ export const CLASSIC_NEG_LOOK: LookRecipe = {
   frame: { type: "none" },
   intensity: 1.0,
   whiteProtect: true,
+  lutUrl: "/luts/fuji-classic-neg.cube",
   reference: {
     referenceId: "fujicolor-superia-400",
     referenceNotes: "Calibrated against Fujicolor Superia 400 negative film; iconic deep teal foliage greens, punchy contrast, and preserved natural skin tones.",
@@ -627,6 +629,7 @@ export const CPM35_LOOK: LookRecipe = {
   frame: { type: "none" },
   intensity: 1.0,
   whiteProtect: true,
+  lutUrl: "/luts/dazz-cpm35.cube",
   reference: {
     referenceId: "dazz-cam-cpm35-rangefinder",
     referenceNotes: "Calibrated against Dazz Cam CPM35 classic 35mm rangefinder aesthetic; warm golden highlights, lush gentle glow, lifted creamy shadows.",
@@ -656,15 +659,15 @@ export const CPM35_LOOK: LookRecipe = {
 };
 
 export const BUILTIN_LOOKS: LookRecipe[] = [
-  DISPOSABLE_400_LOOK,
-  CLASSIC_NEG_LOOK,
   CPM35_LOOK,
+  CLASSIC_NEG_LOOK,
+  DISPOSABLE_400_LOOK,
+  GOLDEN_200_LOOK,
   CCD_FLASH_LOOK,
   INSTANT_LOOK,
-  GOLDEN_200_LOOK,
   NEUTRAL_LOOK,
 ];
 
 export function getLookById(id: string): LookRecipe {
-  return BUILTIN_LOOKS.find((l) => l.id === id) || DISPOSABLE_400_LOOK;
+  return BUILTIN_LOOKS.find((l) => l.id === id) || CPM35_LOOK;
 }

@@ -19,7 +19,7 @@ import { pickDefaultLens, pickerLenses, type Lens } from "./lenses";
 import { renderShot } from "@/lib/imaging/render";
 import { cropForAspectAndZoom, fitLongestEdge, type CameraAspect } from "@/lib/imaging/geometry";
 import type { LookRecipe } from "@/lib/imaging/looks/types";
-import { DISPOSABLE_400_LOOK } from "@/lib/imaging/looks/presets";
+import { CPM35_LOOK, getLookById } from "@/lib/imaging/looks/presets";
 import type { LookEnginePipeline } from "@/lib/imaging/looks/pipeline";
 
 export type Facing = "environment" | "user";
@@ -31,7 +31,7 @@ const stopStream = (s: MediaStream | null) => s?.getTracks().forEach((t) => t.st
  * permission is granted. Restarts itself after interruptions; the shot counter lives in the parent
  * so it survives restarts.
  */
-export function useCamera(enabled: boolean) {
+export function useCamera(enabled: boolean, defaultLookId?: string) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -60,7 +60,18 @@ export function useCamera(enabled: boolean) {
   const [flashMode, setFlashMode] = useState<"auto" | "on" | "off">("auto");
   const [aspect, setAspect] = useState(9 / 16);
   const [cameraAspect, setCameraAspect] = useState<CameraAspect>("3:4");
-  const [activeLook, setActiveLookState] = useState<LookRecipe>(DISPOSABLE_400_LOOK);
+  const [activeLook, setActiveLookState] = useState<LookRecipe>(() => {
+    if (!defaultLookId) return CPM35_LOOK;
+    if (defaultLookId.endsWith(".cube")) {
+      return {
+        ...CPM35_LOOK,
+        id: defaultLookId,
+        name: defaultLookId.replace(/\.cube$/, "").replace(/[-_]/g, " "),
+        lutUrl: `/luts/${defaultLookId}`,
+      };
+    }
+    return getLookById(defaultLookId);
+  });
   const [disableAnimatedGrain, setDisableAnimatedGrain] = useState(false);
   const [exposureCompRange, setExposureCompRange] = useState<ExposureCompRange | null>(null);
   const [exposureCompValue, setExposureCompValue] = useState<number>(0);

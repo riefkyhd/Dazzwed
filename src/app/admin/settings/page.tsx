@@ -29,6 +29,7 @@ export default async function AdminSettingsPage() {
     accentFg?: string;
     bgColor?: string;
     note?: string;
+    activeLookId?: string;
   };
 
   return (
