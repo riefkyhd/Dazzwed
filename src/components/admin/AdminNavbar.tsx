@@ -13,6 +13,7 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
 
   const navItems = [
     { label: "Dashboard", href: "/admin" },
+    { label: "Look Lab", href: "/admin/look-lab" },
     { label: "Settings", href: "/admin/settings" },
     { label: "Photos & Guests", href: "/admin/photos" },
     { label: "QR & Print", href: "/admin/qr" },

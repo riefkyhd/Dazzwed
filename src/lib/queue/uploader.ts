@@ -175,6 +175,8 @@ class UploadQueue {
           width: item.width,
           height: item.height,
           source: item.source || "inapp",
+          lookId: item.lookId || "disposable-400",
+          lookVersion: item.lookVersion || 1,
         }),
       });
 

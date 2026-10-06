@@ -32,7 +32,7 @@ export default async function AdminPhotosPage() {
   // 3. Fetch photos
   const { data: photos } = await sb
     .from("photos")
-    .select("id, guest_id, shot_id, drive_file_id, size_bytes, status, created_at")
+    .select("id, guest_id, shot_id, drive_file_id, size_bytes, status, created_at, source, tier, look_id")
     .eq("event_id", event.id)
     .order("created_at", { ascending: false });
 
@@ -47,6 +47,9 @@ export default async function AdminPhotosPage() {
         size_bytes: number | null;
         status: "pending" | "confirmed" | "failed" | "hidden";
         created_at: string;
+        source?: string;
+        tier?: string;
+        look_id?: string;
       }>) || []}
       rootFolderId={event.drive_root_folder_id}
       shotsPerGuest={event.shots_per_guest}

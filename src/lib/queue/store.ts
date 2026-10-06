@@ -18,6 +18,8 @@ export interface ShotRecord {
   source?: "inapp" | "native";
   tier?: "original" | "high" | "standard" | "lite";
   filtered?: boolean;
+  lookId?: string;
+  lookVersion?: number;
   createdAt: number;
   status: ShotStatus;
   originalStatus?: OriginalStatus;

@@ -11,6 +11,8 @@ import {
 import { CameraError, openStream, type CameraErrorKind } from "./constraints";
 import { pickDefaultLens, pickerLenses, type Lens } from "./lenses";
 import { renderShot } from "@/lib/imaging/render";
+import type { LookRecipe } from "@/lib/imaging/looks/types";
+import { DISPOSABLE_400_LOOK } from "@/lib/imaging/looks/presets";
 
 export type Facing = "environment" | "user";
 
@@ -27,7 +29,7 @@ export function useCamera(enabled: boolean) {
   const streamRef = useRef<MediaStream | null>(null);
   const runRef = useRef<() => Promise<void>>(async () => {});
   const zoomQueue = useRef<Promise<void>>(Promise.resolve());
-  const webglFilterRef = useRef<any>(null);
+  const lookPipelineRef = useRef<any>(null);
   const animFrameRef = useRef<number | null>(null);
   const frameTimes = useRef<number[]>([]);
 
@@ -48,6 +50,8 @@ export function useCamera(enabled: boolean) {
   const [torchOn, setTorchOn] = useState(false);
   const [aspect, setAspect] = useState(9 / 16);
   const [cameraAspect, setCameraAspect] = useState<"3:4" | "16:9" | "1:1">("3:4");
+  const [activeLook, setActiveLook] = useState<LookRecipe>(DISPOSABLE_400_LOOK);
+  const [disableAnimatedGrain, setDisableAnimatedGrain] = useState(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -186,12 +190,12 @@ export function useCamera(enabled: boolean) {
     v.addEventListener("resize", sync);
     v.play().catch(() => {});
 
-    // Lazy load and start WebGL viewfinder filter loop
+    // Lazy load and start Look Engine WebGL2 viewfinder loop
     if (c) {
-      import("@/lib/imaging/webgl-filter").then(({ WebGLFilmFilter }) => {
+      import("@/lib/imaging/looks/pipeline").then(({ LookEnginePipeline }) => {
         if (destroyed || !canvasRef.current) return;
-        webglFilter = new WebGLFilmFilter(canvasRef.current);
-        webglFilterRef.current = webglFilter;
+        const pipeline = new LookEnginePipeline(canvasRef.current);
+        lookPipelineRef.current = pipeline;
 
         let lastTime = performance.now();
         const renderLoop = (now: DOMHighResTimeStamp) => {
@@ -206,7 +210,12 @@ export function useCamera(enabled: boolean) {
             const avg = frameTimes.current.reduce((a, b) => a + b, 0) / frameTimes.current.length;
             setMeasuredFps(Math.round(avg));
 
-            // Adaptive downsampling if slow
+            // Performance degradation ladder:
+            // 1. animated grain off (< 24 fps)
+            // 2. preview resolution tier down (< 20 fps, < 15 fps)
+            if (avg < 24) {
+              setDisableAnimatedGrain(true);
+            }
             if (avg < 20 && previewTier === "high") {
               setPreviewTier("standard");
             } else if (avg < 15 && previewTier === "standard") {
@@ -214,21 +223,20 @@ export function useCamera(enabled: boolean) {
             }
           }
 
-          if (v.readyState >= 2 && webglFilter) {
+          if (v.readyState >= 2 && lookPipelineRef.current) {
             const longEdge = previewTier === "high" ? 1280 : previewTier === "standard" ? 960 : 720;
             const aspectVal = (v.videoWidth && v.videoHeight) ? v.videoWidth / v.videoHeight : 9 / 16;
             const w = aspectVal >= 1 ? longEdge : Math.round(longEdge * aspectVal);
             const h = aspectVal >= 1 ? Math.round(longEdge / aspectVal) : longEdge;
 
-            webglFilter.render(v, {
+            lookPipelineRef.current.render(v, activeLook, {
               width: w,
               height: h,
-              grainIntensity: previewTier === "lite" ? 0.0 : 0.07,
               isCapture: false,
+              disableAnimatedGrain,
             });
           }
 
-          // Use requestVideoFrameCallback if available, fallback rAF
           if ("requestVideoFrameCallback" in v) {
             (v as any).requestVideoFrameCallback(renderLoop);
           } else {
@@ -247,12 +255,12 @@ export function useCamera(enabled: boolean) {
     return () => {
       destroyed = true;
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-      if (webglFilter) webglFilter.destroy();
-      webglFilterRef.current = null;
+      if (lookPipelineRef.current) lookPipelineRef.current.destroy();
+      lookPipelineRef.current = null;
       v.removeEventListener("loadedmetadata", sync);
       v.removeEventListener("resize", sync);
     };
-  }, [stream, previewTier]);
+  }, [stream, previewTier, activeLook, disableAnimatedGrain]);
 
   const track = () => streamRef.current?.getVideoTracks()[0];
 
@@ -280,18 +288,31 @@ export function useCamera(enabled: boolean) {
   }, [torchOn]);
 
   const capture = useCallback(
-    async (aspectOverride?: "3:4" | "16:9" | "1:1"): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
+    async (
+      aspectOverride?: "3:4" | "16:9" | "1:1",
+      shotSeed = Math.floor(Math.random() * 100000)
+    ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
       const v = videoRef.current;
       if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
       const targetAspect = aspectOverride || cameraAspect;
       // Native zoom is already in the frames; digital zoom and aspect ratio are applied by cropping.
       const [filteredBlob, originalBlob] = await Promise.all([
-        renderShot(v, { zoom: zoomRange ? 1 : digitalZoom, aspect: targetAspect, applyFilter: true }),
-        renderShot(v, { zoom: zoomRange ? 1 : digitalZoom, aspect: targetAspect, applyFilter: false }),
+        renderShot(v, {
+          zoom: zoomRange ? 1 : digitalZoom,
+          aspect: targetAspect,
+          applyFilter: true,
+          look: activeLook,
+          seed: shotSeed,
+        }),
+        renderShot(v, {
+          zoom: zoomRange ? 1 : digitalZoom,
+          aspect: targetAspect,
+          applyFilter: false,
+        }),
       ]);
       return { filteredBlob, originalBlob };
     },
-    [zoomRange, digitalZoom, cameraAspect]
+    [zoomRange, digitalZoom, cameraAspect, activeLook]
   );
 
   return {
@@ -306,6 +327,8 @@ export function useCamera(enabled: boolean) {
     aspect,
     cameraAspect,
     setCameraAspect,
+    activeLook,
+    setActiveLook,
     facing,
     flip: () => {
       setLensChoice(undefined);

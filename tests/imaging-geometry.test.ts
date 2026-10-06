@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { fitLongestEdge, cropForZoom, MAX_EDGE } from "@/lib/imaging/geometry";
+import { fitLongestEdge, cropForAspectAndZoom, MAX_EDGE } from "@/lib/imaging/geometry";
 
 describe("imaging geometry", () => {
-  it("scales down large 4K portrait orientation to max edge 1920", () => {
+  it("keeps or scales down large 4K portrait orientation to max edge 4096", () => {
     const res = fitLongestEdge(2160, 3840, MAX_EDGE);
-    expect(res.height).toBe(1920);
-    expect(res.width).toBe(1080);
+    expect(res.height).toBe(3840);
+    expect(res.width).toBe(2160);
   });
 
-  it("scales down large 12MP photo (4032x3024) to max edge 1920", () => {
+  it("scales down large 12MP photo (4032x3024) within max edge 4096", () => {
     const res = fitLongestEdge(4032, 3024, MAX_EDGE);
-    expect(res.width).toBe(1920);
-    expect(res.height).toBe(1440);
+    expect(res.width).toBe(4032);
+    expect(res.height).toBe(3024);
   });
 
   it("never upscales smaller photos", () => {
@@ -20,14 +20,15 @@ describe("imaging geometry", () => {
     expect(res.height).toBe(600);
   });
 
-  it("computes center crop for 1x and 2x digital zoom correctly", () => {
-    const crop1x = cropForZoom(1920, 1080, 1);
-    expect(crop1x).toEqual({ sx: 0, sy: 0, sw: 1920, sh: 1080 });
+  it("computes center crop for 1x and 2x digital zoom on 3:4 portrait sensor", () => {
+    const crop1x = cropForAspectAndZoom(1080, 1440, "3:4", 1);
+    expect(crop1x).toEqual({ sx: 0, sy: 0, sw: 1080, sh: 1440 });
 
-    const crop2x = cropForZoom(1920, 1080, 2);
-    expect(crop2x.sw).toBe(960);
-    expect(crop2x.sh).toBe(540);
-    expect(crop2x.sx).toBe(480);
-    expect(crop2x.sy).toBe(270);
+    const crop2x = cropForAspectAndZoom(1080, 1440, "3:4", 2);
+    expect(crop2x.sw).toBe(540);
+    expect(crop2x.sh).toBe(720);
+    expect(crop2x.sx).toBe(270);
+    expect(crop2x.sy).toBe(360);
   });
 });
+

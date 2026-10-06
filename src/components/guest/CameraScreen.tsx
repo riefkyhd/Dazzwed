@@ -14,6 +14,7 @@ import { SyncBadge } from "./SyncBadge";
 import { NativeCameraInput } from "./NativeCameraInput";
 import { CameraErrorView } from "./CameraErrorView";
 import { ReviewModal } from "./ReviewModal";
+import { LookDial } from "./LookDial";
 
 interface CameraScreenProps {
   eventSlug: string;
@@ -23,6 +24,7 @@ interface CameraScreenProps {
   lang: Lang;
   onShotCaptured: (filteredBlob: Blob, originalBlob?: Blob) => Promise<void>;
   onNativePhoto: (file: File, quickThumb?: string) => void;
+  allowedLookIds?: string[];
 }
 
 export function CameraScreen({
@@ -33,6 +35,7 @@ export function CameraScreen({
   lang,
   onShotCaptured,
   onNativePhoto,
+  allowedLookIds,
 }: CameraScreenProps) {
   const {
     videoRef,
@@ -58,6 +61,8 @@ export function CameraScreen({
     retry,
     cameraAspect,
     setCameraAspect,
+    activeLook,
+    setActiveLook,
   } = useCamera(true);
 
   const [isShutterActive, setIsShutterActive] = useState(false);
@@ -256,6 +261,13 @@ export function CameraScreen({
 
       {/* Bottom Controls Overlay */}
       <footer className="relative z-20 flex flex-col items-center pb-6 px-4 gap-2.5">
+        {/* Look Switcher Dial (Retro Film Style) */}
+        <LookDial
+          activeLook={activeLook}
+          onSelectLook={setActiveLook}
+          allowedLookIds={allowedLookIds}
+        />
+
         {/* Aspect Ratio Selector: 3:4 (Full Sensor) | 16:9 | 1:1 */}
         <div className="flex items-center gap-1 p-1 rounded-full bg-zinc-950/80 backdrop-blur-md border border-zinc-800 shadow-md">
           {(["3:4", "16:9", "1:1"] as CameraAspect[]).map((asp) => (

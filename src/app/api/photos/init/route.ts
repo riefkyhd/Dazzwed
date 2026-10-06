@@ -37,7 +37,18 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { eventSlug, guestId, shotId, sizeBytes, width, height, source = "inapp", isOriginal = false } = body;
+    const {
+      eventSlug,
+      guestId,
+      shotId,
+      sizeBytes,
+      width,
+      height,
+      source = "inapp",
+      isOriginal = false,
+      lookId = "disposable-400",
+      lookVersion = 1,
+    } = body as any;
 
     const slugParsed = z.string().min(2).max(63).safeParse(eventSlug);
     const guestIdParsed = z.uuid().safeParse(guestId);
@@ -199,6 +210,8 @@ export async function POST(req: Request) {
           source,
           tier: source === "native" ? "original" : "high",
           filtered: true,
+          look_id: lookId,
+          look_version: lookVersion,
         })
         .eq("shot_id", shotIdParsed.data);
     }

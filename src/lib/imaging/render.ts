@@ -8,6 +8,10 @@ import {
   type CameraAspect,
   TIER_CONFIG,
 } from "./geometry";
+import type { LookRecipe } from "./looks/types";
+import { DISPOSABLE_400_LOOK } from "./looks/presets";
+import { LookEnginePipeline } from "./looks/pipeline";
+import { drawEmulsionExtras, drawDateStamp, drawInstantFrame } from "./looks/stamp-and-frame";
 
 type Source = HTMLVideoElement | ImageBitmap | HTMLImageElement;
 
@@ -74,10 +78,18 @@ export interface RenderOptions {
   zoom?: number;
   /** Camera aspect ratio crop (3:4, 16:9, 1:1) */
   aspect?: CameraAspect;
+  /** Active Look Recipe to apply */
+  look?: LookRecipe;
+  /** Randomization seed for procedural extras */
+  seed?: number;
+  /** Event date or capture date for orange date stamp */
+  dateStampDate?: Date;
+  /** Optional couple names for instant frame caption */
+  coupleNames?: string;
 }
 
 /**
- * Crop → resize → film look → JPEG.
+ * Crop → resize → Look Engine WebGL shader → 2D extras → JPEG.
  * Re-encoding through canvas drops all EXIF/GPS metadata.
  */
 export async function renderShot(
@@ -88,6 +100,10 @@ export async function renderShot(
     maxEdge = 4096,
     quality = 0.92,
     applyFilter = true,
+    look = DISPOSABLE_400_LOOK,
+    seed = 42,
+    dateStampDate,
+    coupleNames,
   }: RenderOptions & { maxEdge?: number; quality?: number; applyFilter?: boolean } = {}
 ): Promise<Blob> {
   const { w, h } = sourceSize(src);
@@ -110,45 +126,60 @@ export async function renderShot(
     return blob;
   }
 
-  // Try WebGL rendering first for exact WYSIWYG match
-  let rendered = false;
-  try {
-    const { WebGLFilmFilter } = await import("./webgl-filter");
-    const filter = new WebGLFilmFilter(canvas);
-    if (filter.getVersion() !== "none") {
-      // If digital zoom applied, first draw crop to intermediate canvas or bitmap
-      let sourceToRender: TexImageSource = src;
-      let interCanvas: HTMLCanvasElement | null = null;
-      if (zoom > 1) {
-        interCanvas = document.createElement("canvas");
-        interCanvas.width = out.width;
-        interCanvas.height = out.height;
-        const iCtx = interCanvas.getContext("2d");
-        if (iCtx) {
-          iCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-          sourceToRender = interCanvas;
-        }
-      }
-
-      rendered = filter.render(sourceToRender, {
-        width: out.width,
-        height: out.height,
-        isCapture: true,
-        grainIntensity: 0.08,
-      });
-      filter.destroy();
-      if (interCanvas) interCanvas.width = interCanvas.height = 0;
+  // Intermediate crop canvas if digital zoom applied
+  let sourceToRender: TexImageSource = src;
+  let interCanvas: HTMLCanvasElement | null = null;
+  if (zoom > 1 || crop.sw !== w || crop.sh !== h) {
+    interCanvas = document.createElement("canvas");
+    interCanvas.width = out.width;
+    interCanvas.height = out.height;
+    const iCtx = interCanvas.getContext("2d");
+    if (iCtx) {
+      iCtx.imageSmoothingQuality = "high";
+      iCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+      sourceToRender = interCanvas;
     }
-  } catch (err) {
-    console.warn("WebGL offscreen render failed, falling back to 2D canvas:", err);
   }
 
+  // 1. Run WebGL2 Look Engine pipeline
+  let rendered = false;
+  try {
+    const pipeline = new LookEnginePipeline(canvas);
+    rendered = pipeline.render(sourceToRender, look, {
+      width: out.width,
+      height: out.height,
+      isCapture: true,
+      seed,
+    });
+    pipeline.destroy();
+  } catch (err) {
+    console.warn("WebGL2 Look Engine failed, falling back to 2D canvas:", err);
+  }
+
+  if (interCanvas) {
+    interCanvas.width = interCanvas.height = 0;
+  }
+
+  // Fallback 2D if WebGL unavailable
   if (!rendered) {
     const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("no 2d context");
-    ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-    applyFilmLook(ctx, out.width, out.height);
+    if (ctx) {
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+      applyFilmLook(ctx, out.width, out.height);
+    }
+  }
+
+  // 2. Post-shader 2D extras pass (Light leaks, dust, date stamp, instant frame)
+  const ctx2d = canvas.getContext("2d");
+  if (ctx2d) {
+    drawEmulsionExtras(ctx2d, out.width, out.height, look, seed);
+    if (look.dateStamp.enabled) {
+      drawDateStamp(ctx2d, out.width, out.height, look, dateStampDate);
+    }
+    if (look.frame.type === "instant") {
+      drawInstantFrame(ctx2d, out.width, out.height, look, coupleNames);
+    }
   }
 
   const blob = await toBlob(canvas, quality);
@@ -169,18 +200,21 @@ export async function decodeFile(file: Blob): Promise<ImageBitmap | HTMLImageEle
       await img.decode();
       return img;
     } finally {
-      // Safe: decoded image keeps its pixels after the URL is revoked.
       URL.revokeObjectURL(url);
     }
   }
 }
 
 /** File from the OS camera → same pipeline as in-app shots. */
-export async function renderFile(file: Blob): Promise<Blob> {
+export async function renderFile(
+  file: Blob,
+  options?: RenderOptions & { maxEdge?: number; quality?: number; applyFilter?: boolean }
+): Promise<Blob> {
   const img = await decodeFile(file);
   try {
-    return await renderShot(img);
+    return await renderShot(img, options);
   } finally {
     if ("close" in img) img.close();
   }
 }
+

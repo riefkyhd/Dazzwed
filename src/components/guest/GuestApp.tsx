@@ -339,6 +339,7 @@ export function GuestApp({ event }: GuestAppProps) {
           lang={lang}
           onShotCaptured={handleShotCaptured}
           onNativePhoto={handleNativePhoto}
+          allowedLookIds={(event.theme as any)?.allowedLooks}
         />
       )}
 

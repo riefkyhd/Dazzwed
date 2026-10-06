@@ -261,6 +261,7 @@ export function PhotosManagementView({
               <thead>
                 <tr className="border-b border-zinc-800 text-zinc-400 font-mono uppercase tracking-wider">
                   <th className="py-2.5 px-3">Shot ID</th>
+                  <th className="py-2.5 px-3">Look</th>
                   <th className="py-2.5 px-3">Status</th>
                   <th className="py-2.5 px-3">Size</th>
                   <th className="py-2.5 px-3">Drive File ID</th>
@@ -275,6 +276,9 @@ export function PhotosManagementView({
                     <tr key={photo.id} className="hover:bg-zinc-900/50 transition-colors">
                       <td className="py-3 px-3 text-zinc-300">
                         {photo.shot_id.slice(0, 8)}…
+                      </td>
+                      <td className="py-3 px-3 text-amber-400 font-semibold">
+                        {(photo as any).look_id || "disposable-400"}
                       </td>
                       <td className="py-3 px-3">
                         <span
