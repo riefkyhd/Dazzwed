@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getEventBySlug } from "@/lib/event-server";
 import { eventStatus } from "@/lib/event";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,16 @@ const clean = (s?: string | null) => {
  * clearing localStorage alone resumes the same guest (and the same shot quota) rather than a fresh one.
  */
 export async function POST(req: Request) {
+  const ip = getClientIp(req);
+  // IP rate limit on guest creation (generous for shared wedding venue Wi-Fi: 60/min)
+  const ipLimit = await checkRateLimit(`guest_ip:${ip}`, 60, 60);
+  if (!ipLimit.allowed) {
+    return NextResponse.json(
+      { error: "Too many guest creation attempts, please wait" },
+      { status: 429, headers: { "Retry-After": String(ipLimit.retryAfter) } }
+    );
+  }
+
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad_request" }, { status: 400 });
   const { eventSlug, guestId: bodyGuestId } = parsed.data;

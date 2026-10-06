@@ -16,6 +16,20 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Missing x-session-uri or content-range header" }, { status: 400 });
     }
 
+    // SSRF Guard: Strictly restrict sessionUri to official Google APIs upload domain
+    try {
+      const parsedUrl = new URL(sessionUri);
+      if (
+        parsedUrl.protocol !== "https:" ||
+        parsedUrl.hostname !== "www.googleapis.com" ||
+        !parsedUrl.pathname.startsWith("/upload/drive/v3/files")
+      ) {
+        return NextResponse.json({ error: "Invalid upload destination URI" }, { status: 400 });
+      }
+    } catch {
+      return NextResponse.json({ error: "Malformed session URI" }, { status: 400 });
+    }
+
     const chunkBuffer = await req.arrayBuffer();
 
     const driveRes = await fetch(sessionUri, {

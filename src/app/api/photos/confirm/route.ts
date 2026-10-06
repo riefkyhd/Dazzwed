@@ -34,14 +34,22 @@ export async function POST(req: Request) {
 
     const fileMeta = await drive.files.get({
       fileId: driveFileIdParsed.data,
-      fields: "id, name, size, trashed",
+      fields: "id, name, size, mimeType, trashed, parents",
     });
 
     if (!fileMeta.data.id || fileMeta.data.trashed) {
       return NextResponse.json({ error: "Drive file not found or trashed" }, { status: 404 });
     }
 
+    // Verify MIME type is image/jpeg
+    if (fileMeta.data.mimeType && !fileMeta.data.mimeType.startsWith("image/")) {
+      return NextResponse.json({ error: "Invalid file type in storage" }, { status: 400 });
+    }
+
     const actualSize = fileMeta.data.size ? parseInt(fileMeta.data.size, 10) : sizeBytes || 0;
+    if (actualSize <= 0 || actualSize > 50 * 1024 * 1024) {
+      return NextResponse.json({ error: "Invalid file size recorded" }, { status: 400 });
+    }
 
     if (isOriginal) {
       // Update original_drive_file_id on the existing photo

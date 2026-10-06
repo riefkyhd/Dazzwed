@@ -57,10 +57,9 @@ export async function GET(req: Request) {
       })
       .eq("id", event.id);
 
-    // Redirect to connect-drive page with details
+    // Redirect to connect-drive page with details (without leaking refreshToken in URL)
     const redirectParams = new URLSearchParams({
       connected: "1",
-      refreshToken,
       folderId: rootFolderId,
       coupleNames: event.couple_names,
     });

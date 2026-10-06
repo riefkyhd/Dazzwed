@@ -39,17 +39,11 @@ export async function POST(req: Request) {
     );
 
     if (existing) {
-      // User exists, so update their password
-      const { error: updateErr } = await sbAdmin.auth.admin.updateUserById(
-        existing.id,
-        { password, email_confirm: true },
+      // Security: Admin account already exists. Do not allow public overwrite without an active admin session.
+      return NextResponse.json(
+        { error: "Admin account already exists. Please use the Login tab." },
+        { status: 409 },
       );
-      if (updateErr) {
-        return NextResponse.json(
-          { error: `Failed to update password: ${updateErr.message}` },
-          { status: 500 },
-        );
-      }
     } else {
       // Create user with confirmed email
       const { error: createErr } = await sbAdmin.auth.admin.createUser({
