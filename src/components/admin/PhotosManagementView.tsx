@@ -21,6 +21,7 @@ interface PhotoItem {
   status: "pending" | "confirmed" | "failed" | "hidden";
   created_at: string;
   guestName?: string;
+  look_id?: string;
 }
 
 interface PhotosManagementViewProps {
@@ -278,7 +279,7 @@ export function PhotosManagementView({
                         {photo.shot_id.slice(0, 8)}…
                       </td>
                       <td className="py-3 px-3 text-amber-400 font-semibold">
-                        {(photo as any).look_id || "disposable-400"}
+                        {photo.look_id || "disposable-400"}
                       </td>
                       <td className="py-3 px-3">
                         <span

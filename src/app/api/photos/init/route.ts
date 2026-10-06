@@ -30,6 +30,8 @@ export async function POST(req: Request) {
       height?: number;
       source?: "inapp" | "native";
       isOriginal?: boolean;
+      lookId?: string;
+      lookVersion?: number;
       turnstileToken?: string;
     } | null;
 
@@ -48,7 +50,7 @@ export async function POST(req: Request) {
       isOriginal = false,
       lookId = "disposable-400",
       lookVersion = 1,
-    } = body as any;
+    } = body;
 
     const slugParsed = z.string().min(2).max(63).safeParse(eventSlug);
     const guestIdParsed = z.uuid().safeParse(guestId);

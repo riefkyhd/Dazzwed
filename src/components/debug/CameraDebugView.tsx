@@ -55,18 +55,22 @@ export function CameraDebugView() {
 
       const track = s.getVideoTracks()[0];
       if (track) {
-        const caps = "getCapabilities" in track ? (track as any).getCapabilities() : null;
-        const sets = track.getSettings();
+        const trackWithCaps = track as MediaStreamTrack & {
+          getCapabilities?: () => Record<string, unknown>;
+        };
+        const caps = typeof trackWithCaps.getCapabilities === "function" ? trackWithCaps.getCapabilities() : null;
+        const sets = track.getSettings() as MediaTrackSettings & { exposureCompensation?: number };
         setTrackCapabilities(caps);
         setActiveDeviceId(sets.deviceId || deviceId || "");
 
         if (caps && "exposureCompensation" in caps) {
+          const ec = caps.exposureCompensation as { min?: number; max?: number; step?: number };
           setExposureCompInfo({
             supported: true,
-            min: caps.exposureCompensation.min,
-            max: caps.exposureCompensation.max,
-            step: caps.exposureCompensation.step,
-            current: (sets as any).exposureCompensation ?? 0,
+            min: ec.min,
+            max: ec.max,
+            step: ec.step,
+            current: sets.exposureCompensation ?? 0,
           });
         } else {
           setExposureCompInfo({ supported: false });
@@ -91,11 +95,15 @@ export function CameraDebugView() {
   };
 
   useEffect(() => {
-    void refreshDevices();
+    let active = true;
+    requestAnimationFrame(() => {
+      if (active) void refreshDevices();
+    });
     return () => {
+      active = false;
       if (stream) stream.getTracks().forEach((t) => t.stop());
     };
-  }, []);
+  }, [refreshDevices, stream]);
 
   return (
     <div className="min-h-screen bg-black text-zinc-100 p-6 font-mono text-xs max-w-4xl mx-auto space-y-6">
@@ -156,6 +164,11 @@ export function CameraDebugView() {
           <h2 className="text-sm font-bold text-zinc-300 pt-2 border-t border-zinc-800">Track Capabilities</h2>
           <pre className="text-[11px] text-zinc-400">
             {JSON.stringify(trackCapabilities, null, 2)}
+          </pre>
+
+          <h2 className="text-sm font-bold text-zinc-300 pt-2 border-t border-zinc-800">Discovered Media Devices ({devices.length})</h2>
+          <pre className="text-[11px] text-zinc-400">
+            {JSON.stringify(devices.map((d) => ({ kind: d.kind, label: d.label, id: d.deviceId })), null, 2)}
           </pre>
         </div>
       </div>

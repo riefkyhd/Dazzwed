@@ -192,7 +192,10 @@ export function useViewportLayout(aspect: CameraAspect = "3:4"): ViewportLayout 
   }, [aspect]);
 
   useEffect(() => {
-    update();
+    // Schedule initial layout measure without synchronous setState in effect body
+    const rafId = requestAnimationFrame(() => {
+      update();
+    });
 
     const vv = window.visualViewport;
     if (vv) {
@@ -203,6 +206,7 @@ export function useViewportLayout(aspect: CameraAspect = "3:4"): ViewportLayout 
     window.addEventListener("orientationchange", update);
 
     return () => {
+      cancelAnimationFrame(rafId);
       if (vv) {
         vv.removeEventListener("resize", update);
         vv.removeEventListener("scroll", update);

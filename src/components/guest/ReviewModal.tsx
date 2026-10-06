@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { type Lang, t } from "@/lib/i18n";
 import { triggerHaptic } from "@/lib/camera/haptics";
 
@@ -19,23 +19,21 @@ export function ReviewModal({
   onKeep,
   onRetake,
 }: ReviewModalProps) {
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const photoUrl = useMemo(() => URL.createObjectURL(photoBlob), [photoBlob]);
   const [isDeveloped, setIsDeveloped] = useState(false);
   const [isKeeping, setIsKeeping] = useState(false);
 
   useEffect(() => {
-    const url = URL.createObjectURL(photoBlob);
-    setPhotoUrl(url);
-
     // Film developing effect: starts dark/foggy, develops into crisp warm print over 1 second
     const timer = setTimeout(() => {
       setIsDeveloped(true);
     }, 150);
 
     return () => {
-      URL.revokeObjectURL(url);
+      clearTimeout(timer);
+      URL.revokeObjectURL(photoUrl);
     };
-  }, [photoBlob]);
+  }, [photoUrl]);
 
   const handleKeep = async () => {
     if (isKeeping) return;
@@ -128,7 +126,7 @@ export function ReviewModal({
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-zinc-400">
             <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0-.75.75v4.482a.75.75 0 0 0 1.5 0v-2.073l.235.234a7 7 0 0 0 11.956-3.136.75.75 0 0 0-1.379-.412ZM4.688 8.576a5.5 5.5 0 0 1 9.201-2.466l.312.311H11.77a.75.75 0 0 0 0 1.5h4.48a.75.75 0 0 0 .75-.75V2.689a.75.75 0 0 0-1.5 0v2.073l-.235-.234A7 7 0 0 0 3.309 7.664a.75.75 0 0 0 1.379.412Z" clipRule="evenodd" />
           </svg>
-          <span>Retake</span>
+          <span>{t(lang, "retake")}</span>
         </button>
 
         {/* Keep Button (Enqueues upload & consumes shot) */}
@@ -148,7 +146,7 @@ export function ReviewModal({
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                 <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
               </svg>
-              <span>Keep Photo</span>
+              <span>{t(lang, "keep")}</span>
             </>
           )}
         </button>

@@ -71,7 +71,6 @@ export function drawEmulsionExtras(
     const lr = Math.max(w, h) * (0.4 + rng() * 0.4);
 
     const grad = ctx.createRadialGradient(lx, ly, 0, lx, ly, lr);
-    const colors = look.lightLeak.palette || ["#ff5500", "#ffaa00", "#ff1144"];
     grad.addColorStop(0, `rgba(255, 120, 40, ${0.45 * leakStrength})`);
     grad.addColorStop(0.5, `rgba(255, 50, 10, ${0.25 * leakStrength})`);
     grad.addColorStop(1, "rgba(0, 0, 0, 0)");

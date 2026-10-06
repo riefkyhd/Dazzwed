@@ -339,7 +339,11 @@ export function GuestApp({ event }: GuestAppProps) {
           lang={lang}
           onShotCaptured={handleShotCaptured}
           onNativePhoto={handleNativePhoto}
-          allowedLookIds={(event.theme as any)?.allowedLooks}
+          allowedLookIds={
+            event.theme && typeof event.theme === "object" && "allowedLooks" in event.theme && Array.isArray((event.theme as Record<string, unknown>).allowedLooks)
+              ? ((event.theme as Record<string, unknown>).allowedLooks as string[])
+              : undefined
+          }
         />
       )}
 

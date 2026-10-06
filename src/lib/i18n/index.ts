@@ -43,6 +43,8 @@ const en = {
   processing: "Developing…",
   storageError: "Couldn't save the photo on this device. Free up some space and try again.",
   close: "Close",
+  keep: "Keep Photo",
+  retake: "Retake",
   // debug
   debugTitle: "Camera debug",
 } as const;
@@ -93,6 +95,8 @@ const id: Dict = {
   processing: "Mencuci foto…",
   storageError: "Foto tidak bisa disimpan di perangkat ini. Kosongkan ruang penyimpanan lalu coba lagi.",
   close: "Tutup",
+  keep: "Simpan Foto",
+  retake: "Foto Ulang",
   debugTitle: "Debug kamera",
 };
 

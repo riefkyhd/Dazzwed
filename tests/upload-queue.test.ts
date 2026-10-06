@@ -171,8 +171,8 @@ describe("Upload Queue Engine", () => {
   });
 
   it("processes clean original photo when primary is synced and original is queued", async () => {
-    const fetchMock = vi.fn().mockImplementation(async (url: string, init: any) => {
-      const body = JSON.parse(init.body);
+    const fetchMock = vi.fn().mockImplementation(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(init?.body as string || "{}");
       if (body.isOriginal) {
         return new Response(JSON.stringify({ ok: true, duplicate: true, driveFileId: "orig-drive-456" }), {
           status: 200,

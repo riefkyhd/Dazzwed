@@ -17,6 +17,7 @@ import { renderShot } from "@/lib/imaging/render";
 import { cropForAspectAndZoom, fitLongestEdge, type CameraAspect } from "@/lib/imaging/geometry";
 import type { LookRecipe } from "@/lib/imaging/looks/types";
 import { DISPOSABLE_400_LOOK } from "@/lib/imaging/looks/presets";
+import type { LookEnginePipeline } from "@/lib/imaging/looks/pipeline";
 
 export type Facing = "environment" | "user";
 
@@ -33,7 +34,7 @@ export function useCamera(enabled: boolean) {
   const streamRef = useRef<MediaStream | null>(null);
   const runRef = useRef<() => Promise<void>>(async () => {});
   const zoomQueue = useRef<Promise<void>>(Promise.resolve());
-  const lookPipelineRef = useRef<any>(null);
+  const lookPipelineRef = useRef<LookEnginePipeline | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const frameTimes = useRef<number[]>([]);
 
@@ -206,7 +207,6 @@ export function useCamera(enabled: boolean) {
     if (!stream) return;
 
     let destroyed = false;
-    let webglFilter: any = null;
 
     const sync = () => {
       if (v.videoWidth && v.videoHeight) {
@@ -282,15 +282,21 @@ export function useCamera(enabled: boolean) {
             });
           }
 
-          if ("requestVideoFrameCallback" in v) {
-            (v as any).requestVideoFrameCallback(renderLoop);
+          const videoWithRvfc = v as HTMLVideoElement & {
+            requestVideoFrameCallback?: (cb: (now: DOMHighResTimeStamp) => void) => number;
+          };
+          if (typeof videoWithRvfc.requestVideoFrameCallback === "function") {
+            videoWithRvfc.requestVideoFrameCallback(renderLoop);
           } else {
             animFrameRef.current = requestAnimationFrame(renderLoop);
           }
         };
 
-        if ("requestVideoFrameCallback" in v) {
-          (v as any).requestVideoFrameCallback(renderLoop);
+        const videoWithRvfc = v as HTMLVideoElement & {
+          requestVideoFrameCallback?: (cb: (now: DOMHighResTimeStamp) => void) => number;
+        };
+        if (typeof videoWithRvfc.requestVideoFrameCallback === "function") {
+          videoWithRvfc.requestVideoFrameCallback(renderLoop);
         } else {
           animFrameRef.current = requestAnimationFrame(renderLoop);
         }
@@ -306,8 +312,6 @@ export function useCamera(enabled: boolean) {
       v.removeEventListener("resize", sync);
     };
   }, [stream, previewTier, activeLook, disableAnimatedGrain, cameraAspect, digitalZoom, zoomRange]);
-
-  const track = () => streamRef.current?.getVideoTracks()[0];
 
   const setZoom = useCallback((value: number) => {
     setZoomValue(value);

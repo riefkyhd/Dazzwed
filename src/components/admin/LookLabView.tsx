@@ -32,7 +32,6 @@ export function LookLabView() {
     referenceId: string;
     referenceNotes: string;
   } | null>(null);
-  const [wipePercent, setWipePercent] = useState<number>(50);
 
   // Scene Checklist State
   const [checkedScenes, setCheckedScenes] = useState<Record<string, boolean>>({
@@ -166,14 +165,20 @@ export function LookLabView() {
   };
 
   useEffect(() => {
+    let active = true;
     if (sourceType === "camera") {
-      void startCamera();
+      requestAnimationFrame(() => {
+        if (active) void startCamera();
+      });
     } else {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
     }
+    return () => {
+      active = false;
+    };
   }, [sourceType]);
 
   // Main Render Loop
@@ -322,10 +327,8 @@ export function LookLabView() {
       const dataR = ctxR.getImageData(0, 0, size, size).data;
 
       // Least squares fit 3x3 dye matrix
-      let sRR = 0, sRG = 0, sRB = 0, sGG = 0, sGB = 0, sBB = 0;
-      let sR_Y0 = 0, sG_Y0 = 0, sB_Y0 = 0;
-      let sR_Y1 = 0, sG_Y1 = 0, sB_Y1 = 0;
-      let sR_Y2 = 0, sG_Y2 = 0, sB_Y2 = 0;
+      let sRR = 0, sGG = 0, sBB = 0;
+      let sR_Y0 = 0, sG_Y1 = 0, sB_Y2 = 0;
 
       const count = size * size;
       for (let i = 0; i < count; i++) {
@@ -337,12 +340,13 @@ export function LookLabView() {
         const tg = dataR[i * 4 + 1] / 255;
         const tb = dataR[i * 4 + 2] / 255;
 
-        sRR += r * r; sRG += r * g; sRB += r * b;
-        sGG += g * g; sGB += g * b; sBB += b * b;
+        sRR += r * r;
+        sGG += g * g;
+        sBB += b * b;
 
-        sR_Y0 += r * tr; sG_Y0 += g * tr; sB_Y0 += b * tr;
-        sR_Y1 += r * tg; sG_Y1 += g * tg; sB_Y1 += b * tg;
-        sR_Y2 += r * tb; sG_Y2 += g * tb; sB_Y2 += b * tb;
+        sR_Y0 += r * tr;
+        sG_Y1 += g * tg;
+        sB_Y2 += b * tb;
       }
 
       // Simplified diagonal-weighted least squares

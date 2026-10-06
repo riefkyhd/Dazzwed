@@ -1,12 +1,7 @@
 import {
-  MAX_EDGE,
-  QUALITY_STEPS,
-  cropForZoom,
   cropForAspectAndZoom,
   fitLongestEdge,
-  type OutputTier,
   type CameraAspect,
-  TIER_CONFIG,
 } from "./geometry";
 import type { LookRecipe } from "./looks/types";
 import { DISPOSABLE_400_LOOK } from "./looks/presets";

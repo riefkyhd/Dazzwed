@@ -12,7 +12,7 @@ export function generateFilmHueTable(type: "disposable" | "ccd" | "instant" | "g
     const hue = (i * 360) / 24;
     let dHue = 0;
     let dChroma = 1.0;
-    let dLightness = 0;
+    const dLightness = 0;
 
     if (type === "disposable") {
       // Greens toward yellow-teal (75-135 deg)

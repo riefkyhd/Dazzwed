@@ -1,5 +1,4 @@
 import type { LookRecipe, Matrix3x3 } from "./types";
-import { srgbToLinear, linearToSrgb, linearSrgbToOklab, oklabToLinearSrgb, oklabToOklch, oklchToOklab } from "./math";
 
 /**
  * GLSL 3.00 ES Vertex Shader

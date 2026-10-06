@@ -95,8 +95,8 @@ export function fitOklchToGamut(
   if (L <= 0) return [0, 0, 0];
   if (L >= 1) return [1, 1, 1];
 
-  let [a, b_] = [C * Math.cos((hDeg * Math.PI) / 180), C * Math.sin((hDeg * Math.PI) / 180)];
-  let [r, g, b] = oklabToLinearSrgb(L, a, b_);
+  const [a, b_] = [C * Math.cos((hDeg * Math.PI) / 180), C * Math.sin((hDeg * Math.PI) / 180)];
+  const [r, g, b] = oklabToLinearSrgb(L, a, b_);
 
   if (r >= 0 && r <= 1 && g >= 0 && g <= 1 && b >= 0 && b <= 1) {
     return [Math.max(0, Math.min(1, r)), Math.max(0, Math.min(1, g)), Math.max(0, Math.min(1, b))];
@@ -137,7 +137,6 @@ export function evaluateHueTable(
   const normalizedH = ((hDeg % 360) + 360) % 360;
   const n = table.length;
 
-  let idx = 0;
   for (let i = 0; i < n; i++) {
     const nextIdx = (i + 1) % n;
     const h1 = table[i].hue;
@@ -148,7 +147,6 @@ export function evaluateHueTable(
     if (targetH < h1) targetH += 360;
 
     if (targetH >= h1 && targetH <= h2) {
-      idx = i;
       const t = (targetH - h1) / Math.max(1e-4, h2 - h1);
       // Smoothstep interpolation
       const st = t * t * (3 - 2 * t);

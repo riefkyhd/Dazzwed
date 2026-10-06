@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import type { CameraAspect } from "@/lib/imaging/geometry";
 import { triggerHaptic } from "@/lib/camera/haptics";
 import type { Lang } from "@/lib/i18n";

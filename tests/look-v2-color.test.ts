@@ -8,7 +8,6 @@ import {
   evaluateHueTable,
   calculateSkinDamping,
   evaluateToneCurve,
-  calculateDeltaE,
 } from "../src/lib/imaging/looks/math";
 import type { HueNode } from "../src/lib/imaging/looks/types";
 

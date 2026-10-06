@@ -5,7 +5,6 @@ import { type Lang, t } from "@/lib/i18n";
 import { useCamera } from "@/lib/camera/useCamera";
 import { useViewportLayout } from "@/lib/camera/useViewportLayout";
 import { triggerHaptic } from "@/lib/camera/haptics";
-import type { CameraAspect } from "@/lib/imaging/geometry";
 import { CameraTopBar } from "./CameraTopBar";
 import { ViewfinderGestures } from "./ViewfinderGestures";
 import { CameraSettingsSheet } from "./CameraSettingsSheet";
