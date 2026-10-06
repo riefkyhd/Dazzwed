@@ -41,37 +41,70 @@ export interface OpenOptions {
   facing: "environment" | "user";
 }
 
+/**
+ * Resolution ladder for native 4:3 sensor frames (long edge x short edge).
+ * 4032x3024 (12MP full sensor), 3264x2448 (8MP), 2592x1944 (5MP), 2048x1536 (3MP),
+ * 1920x1440, 1600x1200, 1280x960, 1024x768, 640x480 (VGA).
+ */
+export const RESOLUTION_LADDER_4_3 = [
+  { w: 4032, h: 3024 },
+  { w: 3264, h: 2448 },
+  { w: 2592, h: 1944 },
+  { w: 2048, h: 1536 },
+  { w: 1920, h: 1440 },
+  { w: 1600, h: 1200 },
+  { w: 1280, h: 960 },
+  { w: 1024, h: 768 },
+  { w: 640, h: 480 },
+] as const;
+
 /** Constraint sets from most to least specific. Handles OverconstrainedError by walking down. */
 export function constraintLadder({ deviceId, facing }: OpenOptions): MediaStreamConstraints[] {
   const ladder: MediaStreamConstraints[] = [];
 
+  // Helper to push 4:3 resolution variants (both landscape and portrait orientations)
+  const pushResolutionRungs = (baseConstraint: MediaTrackConstraintSet) => {
+    for (const res of RESOLUTION_LADDER_4_3) {
+      // Landscape request
+      ladder.push({
+        audio: false,
+        video: {
+          ...baseConstraint,
+          width: { ideal: res.w },
+          height: { ideal: res.h },
+          aspectRatio: { ideal: 4 / 3 },
+        },
+      });
+      // Portrait request (some mobile drivers expect portrait dimensions)
+      ladder.push({
+        audio: false,
+        video: {
+          ...baseConstraint,
+          width: { ideal: res.h },
+          height: { ideal: res.w },
+          aspectRatio: { ideal: 3 / 4 },
+        },
+      });
+    }
+  };
+
   if (deviceId) {
     // Specific device requested
-    ladder.push({
-      audio: false,
-      video: { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-    });
+    pushResolutionRungs({ deviceId: { exact: deviceId } });
     ladder.push({
       audio: false,
       video: { deviceId: { exact: deviceId } },
     });
     ladder.push({
       audio: false,
-      video: { facingMode: { ideal: facing } },
+      video: { facingMode: { ideal: facing }, aspectRatio: { ideal: 4 / 3 } },
     });
   } else if (facing === "user") {
     // Front selfie camera:
-    // Some mobile devices reject 1080p landscape on front camera or fail exact matching.
-    // Try exact "user" first, then ideal "user" with 720p, then bare "user" constraint.
-    // NEVER fall back to { video: true } which defaults to the rear camera on mobile.
-    ladder.push({
-      audio: false,
-      video: { facingMode: { exact: "user" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-    });
-    ladder.push({
-      audio: false,
-      video: { facingMode: { ideal: "user" }, width: { ideal: 1280 }, height: { ideal: 720 } },
-    });
+    // Try exact user with 4:3 ladder rungs, then ideal user, then bare "user" constraint.
+    // NEVER fall back to { video: true } which defaults to rear camera on mobile.
+    pushResolutionRungs({ facingMode: { exact: "user" } });
+    pushResolutionRungs({ facingMode: { ideal: "user" } });
     ladder.push({
       audio: false,
       video: { facingMode: { ideal: "user" } },
@@ -83,10 +116,7 @@ export function constraintLadder({ deviceId, facing }: OpenOptions): MediaStream
     return ladder;
   } else {
     // Rear environment camera
-    ladder.push({
-      audio: false,
-      video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-    });
+    pushResolutionRungs({ facingMode: { ideal: "environment" } });
     ladder.push({
       audio: false,
       video: { facingMode: { ideal: "environment" } },

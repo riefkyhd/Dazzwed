@@ -13,13 +13,17 @@ describe("camera constraints & error classification", () => {
     expect(classifyError({ name: "OverconstrainedError" })).toBe("unknown");
   });
 
-  it("builds constraint ladder from high-res exact down to bare minimal fallback", () => {
+  it("builds constraint ladder from high-res 4:3 down to bare minimal fallback", () => {
     const ladder = constraintLadder({ facing: "environment" });
-    expect(ladder.length).toBeGreaterThanOrEqual(3);
+    expect(ladder.length).toBeGreaterThanOrEqual(18);
 
-    // First rung requests ideal 1920x1080
+    // First rung requests ideal 4032x3024 (12MP 4:3) with aspect 4/3
     // @ts-expect-error video constraint inspect
-    expect(ladder[0].video.width).toEqual({ ideal: 1920 });
+    expect(ladder[0].video.width).toEqual({ ideal: 4032 });
+    // @ts-expect-error video constraint inspect
+    expect(ladder[0].video.height).toEqual({ ideal: 3024 });
+    // @ts-expect-error video constraint inspect
+    expect(ladder[0].video.aspectRatio).toEqual({ ideal: 4 / 3 });
 
     // Last rung is bare minimal fallback { video: true }
     expect(ladder[ladder.length - 1]).toEqual({ audio: false, video: true });

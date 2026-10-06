@@ -113,8 +113,9 @@ export async function renderShot(
   const { w, h } = sourceSize(src);
   if (!w || !h) throw new Error("source has no size");
 
-  // Default aspect ratio to the look's authentic format (e.g. 3:2 for Disposable, 4:3 for CCD, 1:1 for Instant)
-  const targetAspect: CameraAspect = aspect ?? (look.aspectRatio as CameraAspect) ?? "3:4";
+  // Aspect ratio: in-app shots explicitly supply `aspect` (e.g. "3:4", "9:16", "1:1").
+  // If none supplied, default to "3:4" (full sensor) or look's format if defined.
+  const targetAspect: CameraAspect = aspect ?? (look?.aspectRatio as CameraAspect) ?? "3:4";
   const crop = cropForAspectAndZoom(w, h, targetAspect, zoom);
   const out = fitLongestEdge(crop.sw, crop.sh, maxEdge);
 
