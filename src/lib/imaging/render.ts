@@ -85,6 +85,8 @@ export interface RenderOptions {
   sourceType?: "in-app" | "native";
   /** Optional intensity override (e.g. 0.70 for native photos) */
   intensity?: number;
+  /** Horizontally mirror the captured image (e.g. front camera matching preview) */
+  mirror?: boolean;
 }
 
 /**
@@ -105,6 +107,7 @@ export async function renderShot(
     coupleNames,
     sourceType = "in-app",
     intensity,
+    mirror = false,
   }: RenderOptions & { maxEdge?: number; quality?: number; applyFilter?: boolean } = {}
 ): Promise<Blob> {
   const { w, h } = sourceSize(src);
@@ -124,23 +127,39 @@ export async function renderShot(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("no 2d context");
     ctx.imageSmoothingQuality = "high";
-    ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+    if (mirror) {
+      ctx.save();
+      ctx.translate(out.width, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+      ctx.restore();
+    } else {
+      ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+    }
     const blob = await toBlob(canvas, quality);
     canvas.width = canvas.height = 0;
     return blob;
   }
 
-  // Intermediate crop canvas if digital zoom applied
+  // Intermediate crop canvas if digital zoom applied or mirroring needed
   let sourceToRender: TexImageSource = src;
   let interCanvas: HTMLCanvasElement | null = null;
-  if (zoom > 1 || crop.sw !== w || crop.sh !== h) {
+  if (zoom > 1 || crop.sw !== w || crop.sh !== h || mirror) {
     interCanvas = document.createElement("canvas");
     interCanvas.width = out.width;
     interCanvas.height = out.height;
     const iCtx = interCanvas.getContext("2d");
     if (iCtx) {
       iCtx.imageSmoothingQuality = "high";
-      iCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+      if (mirror) {
+        iCtx.save();
+        iCtx.translate(out.width, 0);
+        iCtx.scale(-1, 1);
+        iCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+        iCtx.restore();
+      } else {
+        iCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+      }
       sourceToRender = interCanvas;
     }
   }
@@ -182,7 +201,15 @@ export async function renderShot(
     ctx2d.drawImage(glCanvas, 0, 0);
   } else {
     // Fallback 2D if WebGL unavailable
-    ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+    if (mirror) {
+      ctx2d.save();
+      ctx2d.translate(out.width, 0);
+      ctx2d.scale(-1, 1);
+      ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+      ctx2d.restore();
+    } else {
+      ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+    }
     applyFilmLook(ctx2d, out.width, out.height);
   }
   glCanvas.width = glCanvas.height = 0; // free WebGL memory

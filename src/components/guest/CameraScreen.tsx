@@ -155,7 +155,8 @@ export function CameraScreen({
 
     try {
       setIsProcessing(true);
-      const { filteredBlob, originalBlob } = await capture(cameraAspect);
+      const isMirrored = facing === "user" && mirrorFront;
+      const { filteredBlob, originalBlob } = await capture(cameraAspect, undefined, isMirrored);
       setReviewBlobs({ filteredBlob, originalBlob });
     } catch (err) {
       console.error("Capture error:", err);
@@ -163,7 +164,7 @@ export function CameraScreen({
       setIsProcessing(false);
       setIsScreenFlashActive(false);
     }
-  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, flashMode]);
+  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, flashMode, mirrorFront]);
 
   // Shutter button trigger with timer countdown
   const handleShoot = () => {

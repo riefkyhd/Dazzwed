@@ -360,12 +360,14 @@ export function useCamera(enabled: boolean) {
   const capture = useCallback(
     async (
       aspectOverride?: CameraAspect,
-      shotSeed = Math.floor(Math.random() * 100000)
+      shotSeed = Math.floor(Math.random() * 100000),
+      mirrorOverride?: boolean
     ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
       const v = videoRef.current;
       const track = streamRef.current?.getVideoTracks()[0];
       if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
       const targetAspect = aspectOverride || cameraAspect;
+      const isMirrored = mirrorOverride !== undefined ? mirrorOverride : facing === "user";
 
       // Determine if flash should fire
       let shouldFireFlash = false;
@@ -385,11 +387,13 @@ export function useCamera(enabled: boolean) {
             applyFilter: true,
             look: activeLook,
             seed: shotSeed,
+            mirror: isMirrored,
           }),
           renderShot(v, {
             zoom: zoomRange ? 1 : digitalZoom,
             aspect: targetAspect,
             applyFilter: false,
+            mirror: isMirrored,
           }),
         ]);
         return { filteredBlob, originalBlob };
