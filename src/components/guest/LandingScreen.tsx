@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { type Lang, t } from "@/lib/i18n";
 import { NativeCameraInput } from "./NativeCameraInput";
+import { RestoreRollModal } from "./RestoreRollModal";
 
 interface LandingScreenProps {
   coupleNames: string;
@@ -12,6 +13,7 @@ interface LandingScreenProps {
   onLanguageChange: (lang: Lang) => void;
   onStartCamera: (name: string | null) => void;
   onNativePhoto: (file: File, name: string | null, quickThumb?: string) => void;
+  onRestoreSuccess?: (data: { guestId: string; name: string | null; rollCode: string; shotsLeft: number }) => void;
 }
 
 export function LandingScreen({
@@ -22,8 +24,10 @@ export function LandingScreen({
   onLanguageChange,
   onStartCamera,
   onNativePhoto,
+  onRestoreSuccess,
 }: LandingScreenProps) {
   const [name, setName] = useState("");
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
 
   const handleStart = (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +144,17 @@ export function LandingScreen({
             variant="secondary"
           />
         </div>
+
+        {/* Continue Roll / Restore Link */}
+        <div className="mt-5">
+          <button
+            type="button"
+            onClick={() => setShowRestoreModal(true)}
+            className="text-xs text-zinc-400 hover:text-amber-300 underline underline-offset-4 transition font-medium cursor-pointer"
+          >
+            {t(lang, "continueRoll")}
+          </button>
+        </div>
       </div>
 
       {/* Footer: Privacy Note */}
@@ -160,6 +175,19 @@ export function LandingScreen({
           {t(lang, "privacy")}
         </p>
       </footer>
+
+      {showRestoreModal && (
+        <RestoreRollModal
+          isOpen={showRestoreModal}
+          eventSlug={eventSlug}
+          lang={lang}
+          onClose={() => setShowRestoreModal(false)}
+          onSuccess={(data) => {
+            setShowRestoreModal(false);
+            if (onRestoreSuccess) onRestoreSuccess(data);
+          }}
+        />
+      )}
     </div>
   );
 }

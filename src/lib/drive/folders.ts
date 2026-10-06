@@ -1,6 +1,5 @@
 import "server-only";
 import type { drive_v3 } from "googleapis";
-import { supabaseAdmin } from "@/lib/supabase/admin";
 
 /**
  * Creates the root folder for the event in Google Drive.
@@ -28,86 +27,37 @@ export async function createRootFolder(
 }
 
 /**
- * Ensures a per-guest subfolder exists inside the root event folder.
- * Uses lazy creation and updates the cached drive_folder_id in the guests table.
- * Handles concurrent creation races gracefully.
+ * Ensures the single shared "originals" subfolder exists inside the root event folder.
+ * Caches in-memory per root folder ID so Drive list/create calls are never repeated.
  */
-export async function ensureGuestFolder(
+const originalsFolderCache = new Map<string, string>();
+
+export async function ensureEventOriginalsFolder(
   drive: drive_v3.Drive,
   rootFolderId: string,
-  guestId: string,
-  displayName: string | null,
 ): Promise<string> {
-  const sb = supabaseAdmin();
+  const cached = originalsFolderCache.get(rootFolderId);
+  if (cached) return cached;
 
-  // First check if already cached
-  const { data: currentGuest, error: fetchErr } = await sb
-    .from("guests")
-    .select("drive_folder_id")
-    .eq("id", guestId)
-    .single();
-
-  if (fetchErr) {
-    throw new Error(`Failed to query guest: ${fetchErr.message}`);
-  }
-
-  if (currentGuest?.drive_folder_id) {
-    return currentGuest.drive_folder_id;
-  }
-
-  // Create subfolder in Drive
-  const shortId = guestId.replace(/-/g, "").slice(0, 6);
-  const cleanName = displayName?.trim().replace(/[/\\?%*:|"<>]/g, "") || "Guest";
-  const folderName = `${cleanName} (${shortId})`;
-
-  const res = await drive.files.create({
-    requestBody: {
-      name: folderName,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [rootFolderId],
-    },
-    fields: "id",
-  });
-
-  const folderId = res.data.id;
-  if (!folderId) {
-    throw new Error("Failed to create guest subfolder in Google Drive");
-  }
-
-  // Save folderId in Supabase
-  await sb
-    .from("guests")
-    .update({ drive_folder_id: folderId })
-    .eq("id", guestId);
-
-  return folderId;
-}
-
-/**
- * Ensures an "originals" subfolder exists inside the guest's folder.
- * Used when SAVE_CLEAN_ORIGINAL is enabled to keep unfiltered files neatly organized.
- */
-export async function ensureOriginalsFolder(
-  drive: drive_v3.Drive,
-  guestFolderId: string,
-): Promise<string> {
-  // Query if "originals" folder already exists inside guestFolderId
+  // Query if "originals" folder already exists inside rootFolderId
   const listRes = await drive.files.list({
-    q: `'${guestFolderId}' in parents and name = 'originals' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+    q: `'${rootFolderId}' in parents and name = 'originals' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
     fields: "files(id, name)",
     spaces: "drive",
   });
 
   if (listRes.data.files && listRes.data.files.length > 0 && listRes.data.files[0].id) {
-    return listRes.data.files[0].id;
+    const id = listRes.data.files[0].id;
+    originalsFolderCache.set(rootFolderId, id);
+    return id;
   }
 
-  // Create "originals" subfolder
+  // Create "originals" subfolder once for the event
   const createRes = await drive.files.create({
     requestBody: {
       name: "originals",
       mimeType: "application/vnd.google-apps.folder",
-      parents: [guestFolderId],
+      parents: [rootFolderId],
     },
     fields: "id",
   });
@@ -116,5 +66,29 @@ export async function ensureOriginalsFolder(
   if (!folderId) {
     throw new Error("Failed to create originals subfolder in Google Drive");
   }
+  originalsFolderCache.set(rootFolderId, folderId);
   return folderId;
 }
+
+/**
+ * Backward compatibility alias for existing code.
+ */
+export async function ensureOriginalsFolder(
+  drive: drive_v3.Drive,
+  targetFolderId: string,
+): Promise<string> {
+  return ensureEventOriginalsFolder(drive, targetFolderId);
+}
+
+/**
+ * Backward compatibility alias: in flat folder architecture, guest folder is the root folder.
+ */
+export async function ensureGuestFolder(
+  _drive: drive_v3.Drive,
+  rootFolderId: string,
+  _guestId: string,
+  _displayName: string | null,
+): Promise<string> {
+  return rootFolderId;
+}
+

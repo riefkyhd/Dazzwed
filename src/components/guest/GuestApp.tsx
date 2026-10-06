@@ -5,13 +5,15 @@ import type { EventRow } from "@/lib/event-server";
 import { type EventStatus, eventStatus } from "@/lib/event";
 import { type Lang } from "@/lib/i18n";
 import {
-  loadSession,
-  saveSession,
+  loadSessionTriple,
+  saveSessionTriple,
   clearNativePending,
   wasNativePending,
   markSessionActive,
   clearSessionActive,
   wasUncleanExit,
+  computeRollCodeFromGuestId,
+  normalizeRollCode,
 } from "@/lib/guest/session";
 import {
   addShot,
@@ -45,11 +47,12 @@ const CameraScreen = dynamic(
 
 interface GuestAppProps {
   event: EventRow;
+  initialRestoreCode?: string | null;
 }
 
 type Screen = "landing" | "camera" | "thankyou" | "closed";
 
-export function GuestApp({ event }: GuestAppProps) {
+export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
   const initialStatus = useMemo(() => eventStatus(event), [event]);
   const [overrideStatus, setOverrideStatus] = useState<EventStatus | null>(null);
   const status = overrideStatus ?? initialStatus;
@@ -57,18 +60,9 @@ export function GuestApp({ event }: GuestAppProps) {
   const [screen, setScreen] = useState<Screen>(() =>
     initialStatus !== "open" ? "closed" : "landing",
   );
-  const [lang, setLang] = useState<Lang>(() => {
-    if (typeof window !== "undefined") {
-      return loadSession(event.slug)?.lang ?? "en";
-    }
-    return "en";
-  });
-  const [guestId, setGuestId] = useState<string | null>(() => {
-    if (typeof window !== "undefined") {
-      return loadSession(event.slug)?.guestId ?? null;
-    }
-    return null;
-  });
+  const [lang, setLang] = useState<Lang>("en");
+  const [guestId, setGuestId] = useState<string | null>(null);
+  const [rollCode, setRollCode] = useState<string | null>(null);
   const [shotsPerGuest, setShotsPerGuest] = useState(event.shots_per_guest);
   const [shotsLeft, setShotsLeft] = useState(event.shots_per_guest);
 
@@ -108,32 +102,9 @@ export function GuestApp({ event }: GuestAppProps) {
     };
   }, [event.slug]);
 
-  // Restore existing session and counts from IndexedDB asynchronously
-  useEffect(() => {
-    if (status !== "open") return;
-
-    const saved = loadSession(event.slug);
-    if (!saved) return;
-
-    const restoreCounts = async () => {
-      const totalTaken = await countShots(saved.guestId);
-      const remaining = Math.max(0, event.shots_per_guest - totalTaken);
-      setShotsLeft(remaining);
-
-      if (remaining <= 0) {
-        setScreen("thankyou");
-      } else if (wasNativePending(event.slug)) {
-        clearNativePending(event.slug);
-        setScreen("camera");
-      }
-    };
-
-    void restoreCounts();
-  }, [event.slug, event.shots_per_guest, status]);
-
   // Sync / refresh guest data with server
   const initGuest = useCallback(
-    async (guestName: string | null) => {
+    async (guestName: string | null, targetGuestId?: string | null) => {
       try {
         const res = await fetch("/api/guests", {
           method: "POST",
@@ -141,7 +112,7 @@ export function GuestApp({ event }: GuestAppProps) {
           body: JSON.stringify({
             eventSlug: event.slug,
             name: guestName,
-            guestId: guestId ?? undefined,
+            guestId: targetGuestId || guestId || undefined,
           }),
         });
 
@@ -158,12 +129,15 @@ export function GuestApp({ event }: GuestAppProps) {
         const data = (await res.json()) as {
           guestId: string;
           name: string | null;
+          rollCode: string;
           shotsPerGuest: number;
           shotsUsed: number;
         };
 
         const activeGuestId = data.guestId;
+        const code = data.rollCode || computeRollCodeFromGuestId(activeGuestId);
         setGuestId(activeGuestId);
+        setRollCode(code);
         setShotsPerGuest(data.shotsPerGuest);
 
         // Calculate true remaining shots from both server count and local DB
@@ -172,13 +146,14 @@ export function GuestApp({ event }: GuestAppProps) {
         const remaining = Math.max(0, data.shotsPerGuest - taken);
         setShotsLeft(remaining);
 
-        saveSession(event.slug, {
+        await saveSessionTriple(event.slug, {
           guestId: activeGuestId,
           name: data.name,
           lang,
+          rollCode: code,
         });
 
-        return { guestId: activeGuestId, remaining };
+        return { guestId: activeGuestId, rollCode: code, remaining };
       } catch (e) {
         console.error("Init guest failed:", e);
         return null;
@@ -186,6 +161,70 @@ export function GuestApp({ event }: GuestAppProps) {
     },
     [event.slug, guestId, lang],
   );
+
+  // Triple-Healed Multi-Session Identity & ?restore= handling on mount
+  useEffect(() => {
+    if (status !== "open" || typeof window === "undefined") return;
+
+    const resolveSession = async () => {
+      // 1. Check if URL has ?restore=CODE
+      if (initialRestoreCode) {
+        const norm = normalizeRollCode(initialRestoreCode);
+        if (norm.length === 6) {
+          try {
+            const res = await fetch("/api/guests/restore", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ eventSlug: event.slug, rollCode: norm }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setGuestId(data.guestId);
+              setRollCode(data.rollCode);
+              const remaining = Math.max(0, data.shotsPerGuest - data.shotsUsed);
+              setShotsLeft(remaining);
+              await saveSessionTriple(event.slug, {
+                guestId: data.guestId,
+                name: data.name,
+                lang,
+                rollCode: data.rollCode,
+              });
+              setWelcomeToast(true);
+              setTimeout(() => setWelcomeToast(false), 4000);
+              if (remaining <= 0) setScreen("thankyou");
+              else setScreen("camera");
+              return;
+            }
+          } catch {
+            // Restore link failed, fallback to local session
+          }
+        }
+      }
+
+      // 2. Load triple-healed session (Cookie + localStorage + IndexedDB)
+      const saved = await loadSessionTriple(event.slug);
+      if (saved) {
+        setLang(saved.lang);
+        setGuestId(saved.guestId);
+        setRollCode(saved.rollCode || computeRollCodeFromGuestId(saved.guestId));
+
+        // Sync with server source-of-truth for accurate shot count
+        const synced = await initGuest(saved.name, saved.guestId);
+        if (synced) {
+          if (synced.remaining <= 0) {
+            setScreen("thankyou");
+          } else {
+            // Returning guest skipping landing screen directly to camera
+            setScreen("camera");
+            setWelcomeToast(true);
+            setTimeout(() => setWelcomeToast(false), 3500);
+          }
+        }
+      }
+    };
+
+    void resolveSession();
+  }, [event.slug, initialRestoreCode, status, initGuest, lang]);
 
   const handleStartCamera = async (name: string | null) => {
     const res = await initGuest(name);
@@ -200,9 +239,29 @@ export function GuestApp({ event }: GuestAppProps) {
 
   const handleLanguageChange = (newLang: Lang) => {
     setLang(newLang);
-    const saved = loadSession(event.slug);
-    if (saved) {
-      saveSession(event.slug, { ...saved, lang: newLang });
+    void loadSessionTriple(event.slug).then((saved) => {
+      if (saved) {
+        void saveSessionTriple(event.slug, { ...saved, lang: newLang });
+      }
+    });
+  };
+
+  const handleRestoreSuccess = (data: { guestId: string; name: string | null; rollCode: string; shotsLeft: number }) => {
+    setGuestId(data.guestId);
+    setRollCode(data.rollCode);
+    setShotsLeft(data.shotsLeft);
+    void saveSessionTriple(event.slug, {
+      guestId: data.guestId,
+      name: data.name,
+      lang,
+      rollCode: data.rollCode,
+    });
+    setWelcomeToast(true);
+    setTimeout(() => setWelcomeToast(false), 4000);
+    if (data.shotsLeft <= 0) {
+      setScreen("thankyou");
+    } else {
+      setScreen("camera");
     }
   };
 
@@ -238,6 +297,7 @@ export function GuestApp({ event }: GuestAppProps) {
       eventSlug: event.slug,
       guestId: activeId,
       blob,
+      thumbnailBlob: blob,
       ...metadata,
     });
 
@@ -303,6 +363,7 @@ export function GuestApp({ event }: GuestAppProps) {
         eventSlug: event.slug,
         guestId: activeId,
         blob: file,
+        thumbnailBlob: file,
         source: "native",
         tier: "original",
       });
@@ -356,11 +417,15 @@ export function GuestApp({ event }: GuestAppProps) {
         else setScreen("camera");
       }}
     >
-      {/* Unclean exit recovery toast */}
+      {/* Returning guest / unclean exit recovery toast */}
       {welcomeToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-emerald-950/95 border border-emerald-500/50 rounded-full shadow-2xl flex items-center gap-2 text-emerald-200 text-xs font-mono animate-in fade-in slide-in-from-top-4 duration-300">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          <span>{lang === "id" ? "Selamat datang kembali! Foto Anda aman." : "Welcome back! Your photos are safe."}</span>
+          <span>
+            {lang === "id"
+              ? `Selamat datang kembali! Sisa ${shotsLeft} jepretan.`
+              : `Welcome back! ${shotsLeft} shots remaining.`}
+          </span>
         </div>
       )}
 
@@ -402,7 +467,10 @@ export function GuestApp({ event }: GuestAppProps) {
           eventSlug={event.slug}
           coupleNames={event.couple_names}
           shotsLeft={shotsLeft}
+          totalShots={shotsPerGuest}
           pendingCount={pendingCount}
+          guestId={guestId}
+          rollCode={rollCode}
           lang={lang}
           onShotCaptured={handleShotCaptured}
           onNativePhoto={handleNativePhoto}
@@ -423,6 +491,7 @@ export function GuestApp({ event }: GuestAppProps) {
           onLanguageChange={handleLanguageChange}
           onStartCamera={handleStartCamera}
           onNativePhoto={handleNativePhoto}
+          onRestoreSuccess={handleRestoreSuccess}
         />
       )}
     </GuestErrorBoundary>

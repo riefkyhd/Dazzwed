@@ -65,6 +65,21 @@ If the Supabase project was paused due to inactivity:
   - [ ] Turn on Airplane Mode.
   - [ ] Take 1 photo -> Confirm "1 pending sync" indicator appears.
   - [ ] Turn off Airplane Mode -> Confirm badge returns to "Saved" within 5-10 seconds.
-- [ ] **Display Setup**:
-  - [ ] Open `/live` projector view on the venue screen / TV.
-  - [ ] Verify live slideshow streams newly uploaded photos automatically.
+- [ ] **Multi-Session Returning Guest Check**:
+  - [ ] Take 1 photo, note the 6-character roll code (e.g. `7K9X2B`).
+  - [ ] Close the browser tab completely or open private window.
+  - [ ] Visit link -> click "Already took photos? Continue my roll" -> enter code.
+  - [ ] Verify roll resumes seamlessly with exact remaining shot count.
+
+---
+
+## 4. 500-Guest Traffic Spikes & Drive Rate Pacing
+1. **Google Drive Write Pacer**:
+   - Google Drive has a strict 2-3 writes/second sustained rate limit.
+   - The server initiates resumable upload sessions capped at 2.5 req/s via a global token bucket (`global:drive_init_pacer`).
+   - If a sudden spike occurs (e.g. bouquet toss where 50 guests snap simultaneously), excess requests receive HTTP 503 with `Retry-After: 2`.
+   - **Client Behavior**: The client IndexedDB queue handles 503 automatically with jittered exponential backoff. Photos stay safely in IndexedDB and drain smoothly without dropping shots.
+2. **Flat Folder Architecture**:
+   - All filtered photos write directly to the event root folder, and clean originals write to a single shared `originals` subfolder.
+   - Zero per-guest folder creation calls are made during the live wedding, eliminating Google Drive hierarchy rate limits.
+

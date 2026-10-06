@@ -4,6 +4,7 @@ import { getEventBySlug } from "@/lib/event-server";
 import { eventStatus } from "@/lib/event";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { computeRollCodeFromGuestId } from "@/lib/guest/session";
 
 export const dynamic = "force-dynamic";
 
@@ -86,9 +87,12 @@ export async function POST(req: Request) {
     .eq("guest_id", guest.id)
     .neq("status", "failed");
 
+  const rollCode = computeRollCodeFromGuestId(guest.id);
+
   const res = NextResponse.json({
     guestId: guest.id,
     name: guest.display_name,
+    rollCode,
     shotsPerGuest: ev.shots_per_guest,
     shotsUsed: count ?? 0,
   });

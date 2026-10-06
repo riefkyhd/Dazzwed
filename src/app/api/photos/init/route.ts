@@ -1,13 +1,14 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDriveClient, resolveDriveTokens } from "@/lib/drive/client";
-import { ensureGuestFolder } from "@/lib/drive/folders";
+import { ensureEventOriginalsFolder } from "@/lib/drive/folders";
 import { generatePhotoFilename } from "@/lib/drive/upload";
 import { getEventBySlug } from "@/lib/event-server";
 import { eventStatus } from "@/lib/event";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp, verifyTurnstileToken } from "@/lib/rate-limit";
 import { getAdaptiveStorageGuard } from "@/lib/drive/health";
+import { computeRollCodeFromGuestId } from "@/lib/guest/session";
 
 export const dynamic = "force-dynamic";
 
@@ -68,6 +69,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Human verification failed" }, { status: 403 });
     }
 
+    // Global Google Drive Write Pacer: 2.5 sustained session initializations per second
+    // (Translates to ~150 requests/min globally across all guests to respect Google Drive 2-3 writes/sec)
+    const globalPacer = await checkRateLimit("global:drive_init_pacer", 150, 60);
+    if (!globalPacer.allowed) {
+      return NextResponse.json(
+        { error: "Upload traffic spike detected. Queued and smoothing out writes." },
+        { status: 503, headers: { "Retry-After": "2" } }
+      );
+    }
+
     // Rate limit: Per-guest bucket (30 req/min) + Venue WiFi aggregate bucket (300 req/min)
     const guestLimit = await checkRateLimit(`guest:${guestIdParsed.data}`, 30, 60);
     if (!guestLimit.allowed) {
@@ -125,15 +136,17 @@ export async function POST(req: Request) {
       );
     }
     const drive = getDriveClient(refreshToken);
-    const guestFolderId = await ensureGuestFolder(drive, rootFolderId, guest.id, guest.display_name);
 
-    let targetParentFolderId = guestFolderId;
+    // FLAT FOLDER ARCHITECTURE:
+    // Filtered photos are written directly to rootFolderId.
+    // Clean originals are written to a single shared "originals" subfolder inside rootFolderId.
+    // Zero per-guest folder creation calls needed during live event!
+    let targetParentFolderId = rootFolderId;
     let shotsUsed = 1;
 
     if (isOriginal) {
       // Clean original: upload to "originals" subfolder without reserving another shot slot
-      const { ensureOriginalsFolder } = await import("@/lib/drive/folders");
-      targetParentFolderId = await ensureOriginalsFolder(drive, guestFolderId);
+      targetParentFolderId = await ensureEventOriginalsFolder(drive, rootFolderId);
 
       // Verify the parent photo exists
       const { data: existingPhoto } = await sb
@@ -176,8 +189,9 @@ export async function POST(req: Request) {
       shotsUsed = reservation.shots_used;
     }
 
-    const guestNameOrId = guest.display_name?.trim() || guest.id.slice(0, 8);
-    const baseFilename = generatePhotoFilename(guestNameOrId, shotsUsed);
+    const rollCode = computeRollCodeFromGuestId(guest.id);
+    const guestLabel = guest.display_name?.trim() ? `${rollCode}_${guest.display_name.trim()}` : rollCode;
+    const baseFilename = generatePhotoFilename(guestLabel, shotsUsed);
     const filename = isOriginal ? baseFilename.replace(/\.jpg$/, "_original.jpg") : baseFilename;
 
     // Get origin for CORS

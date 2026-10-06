@@ -1,7 +1,7 @@
 /**
- * IndexedDB store for captured shots. A shot is written here the moment it is taken,
- * BEFORE any network call, so tabs closing / reloads / flaky signal can't lose it.
- * Phase 4 adds the uploader on top of this store.
+ * IndexedDB store for captured shots and offline guest gallery.
+ * A shot is written here the moment it is taken, BEFORE any network call,
+ * so tabs closing / reloads / flaky signal can't lose it.
  */
 export type ShotStatus = "queued" | "uploading" | "synced";
 export type OriginalStatus = "none" | "queued" | "uploading" | "synced";
@@ -12,6 +12,7 @@ export interface ShotRecord {
   guestId: string;
   blob: Blob | null; // filtered photo blob (dropped after sync)
   originalBlob?: Blob | null; // clean unfiltered original (dropped after sync)
+  thumbnailBlob?: Blob | null; // permanent lightweight thumbnail for guest gallery (~1200px, WebP/JPEG)
   size: number;
   width?: number;
   height?: number;
@@ -29,6 +30,15 @@ export interface ShotRecord {
   originalNextAttemptAt?: number;
 }
 
+export interface GalleryPhoto {
+  shotId: string;
+  guestId: string;
+  createdAt: number;
+  thumbnailUrl: string; // Object URL or Base64
+  status: ShotStatus;
+  lookId?: string;
+}
+
 /** Request durable browser storage so blobs are not evicted on low disk */
 export async function requestPersistentStorage(): Promise<boolean> {
   if (typeof navigator !== "undefined" && navigator.storage?.persist) {
@@ -42,7 +52,7 @@ export async function requestPersistentStorage(): Promise<boolean> {
 }
 
 const DB_NAME = "disposable-cam";
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for gallery thumbnails & session stores
 const STORE = "shots";
 
 function openDb(): Promise<IDBDatabase> {
@@ -54,6 +64,9 @@ function openDb(): Promise<IDBDatabase> {
         const s = db.createObjectStore(STORE, { keyPath: "shotId" });
         s.createIndex("byGuest", "guestId");
         s.createIndex("byStatus", "status");
+      }
+      if (!db.objectStoreNames.contains("sessions")) {
+        db.createObjectStore("sessions", { keyPath: "slug" });
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -87,14 +100,18 @@ export async function addShot(input: {
   guestId: string;
   blob: Blob;
   originalBlob?: Blob;
+  thumbnailBlob?: Blob;
   width?: number;
   height?: number;
   source?: "inapp" | "native";
   tier?: "original" | "high" | "standard" | "lite";
   filtered?: boolean;
+  lookId?: string;
+  lookVersion?: number;
 }): Promise<ShotRecord> {
   const rec: ShotRecord = {
     ...input,
+    thumbnailBlob: input.thumbnailBlob || input.blob, // Keep copy as gallery thumbnail
     size: input.blob.size + (input.originalBlob ? input.originalBlob.size : 0),
     createdAt: Date.now(),
     status: "queued",
@@ -171,4 +188,31 @@ export async function updateShot(shotId: string, patch: Partial<ShotRecord>): Pr
 export async function pendingCount(guestId: string): Promise<number> {
   const pending = await getPendingShots(guestId);
   return pending.length;
+}
+
+/**
+ * Retrieves all shots for this guest to render the private guest gallery.
+ */
+export async function getGuestGalleryPhotos(guestId: string): Promise<GalleryPhoto[]> {
+  const shots = await listShots(guestId);
+  // Sort reverse chronologically
+  shots.sort((a, b) => b.createdAt - a.createdAt);
+
+  return shots.map((s) => {
+    const blobToUse = s.thumbnailBlob || s.blob;
+    let url = "";
+    if (blobToUse) {
+      try {
+        url = URL.createObjectURL(blobToUse);
+      } catch {}
+    }
+    return {
+      shotId: s.shotId,
+      guestId: s.guestId,
+      createdAt: s.createdAt,
+      thumbnailUrl: url,
+      status: s.status,
+      lookId: s.lookId,
+    };
+  });
 }

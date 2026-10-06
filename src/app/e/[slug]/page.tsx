@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams?: Promise<{ restore?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -20,8 +21,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function GuestPage({ params }: PageProps) {
+export default async function GuestPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const initialRestoreCode = resolvedSearchParams?.restore || null;
+
   const event = await getEventBySlug(slug);
 
   if (!event) {
@@ -35,7 +39,7 @@ export default async function GuestPage({ params }: PageProps) {
       style={themeVars as React.CSSProperties}
       className="min-h-dvh bg-bg text-fg font-sans flex flex-col"
     >
-      <GuestApp event={event} />
+      <GuestApp event={event} initialRestoreCode={initialRestoreCode} />
     </div>
   );
 }

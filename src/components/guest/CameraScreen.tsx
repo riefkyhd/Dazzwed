@@ -17,12 +17,16 @@ import { NativeCameraInput } from "./NativeCameraInput";
 import { CameraErrorView } from "./CameraErrorView";
 import { ReviewModal } from "./ReviewModal";
 import { LookDial } from "./LookDial";
+import { GuestGalleryModal } from "./GuestGalleryModal";
 
 interface CameraScreenProps {
   eventSlug: string;
   coupleNames: string;
   shotsLeft: number;
+  totalShots?: number;
   pendingCount: number;
+  guestId?: string | null;
+  rollCode?: string | null;
   lang: Lang;
   onShotCaptured: (filteredBlob: Blob, originalBlob?: Blob) => Promise<void>;
   onNativePhoto: (file: File, quickThumb?: string) => void;
@@ -33,7 +37,10 @@ export function CameraScreen({
   eventSlug,
   coupleNames,
   shotsLeft,
+  totalShots = 15,
   pendingCount,
+  guestId,
+  rollCode,
   lang,
   onShotCaptured,
   onNativePhoto,
@@ -82,6 +89,9 @@ export function CameraScreen({
   const [showNativeFlashTip, setShowNativeFlashTip] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [reviewBlobs, setReviewBlobs] = useState<{ filteredBlob: Blob; originalBlob?: Blob } | null>(null);
+
+  // Guest Gallery Modal State
+  const [galleryOpen, setGalleryOpen] = useState(false);
 
   // Timer state (0s, 3s, 10s)
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
@@ -400,14 +410,31 @@ export function CameraScreen({
 
             {/* Shutter Row with Native Camera and Flip Camera */}
             <div className="flex items-center justify-between w-full max-w-sm px-4 pt-1">
-              {/* Native OS Camera Fallback */}
+              {/* Guest Gallery Thumbnail or Native OS Camera Fallback */}
               <div className="w-14 flex justify-start">
-                <NativeCameraInput
-                  eventSlug={eventSlug}
-                  onFileSelected={onNativePhoto}
-                  lang={lang}
-                  variant="secondary"
-                />
+                {guestId ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic([20]);
+                      setGalleryOpen(true);
+                    }}
+                    aria-label={t(lang, "myPhotos")}
+                    className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-400/80 flex flex-col items-center justify-center text-zinc-300 hover:text-white transition active:scale-95 shadow-md relative overflow-hidden group cursor-pointer"
+                  >
+                    <span className="text-sm">🎞️</span>
+                    <span className="text-[9px] font-mono tracking-tighter text-amber-300">
+                      {rollCode ? rollCode.slice(0, 4) : "ROLL"}
+                    </span>
+                  </button>
+                ) : (
+                  <NativeCameraInput
+                    eventSlug={eventSlug}
+                    onFileSelected={onNativePhoto}
+                    lang={lang}
+                    variant="secondary"
+                  />
+                )}
               </div>
 
               {/* Shutter Button with Timer Countdown Ring */}
@@ -586,6 +613,19 @@ export function CameraScreen({
             </div>
           </div>
         </div>
+      )}
+      {/* Guest Private Gallery Modal */}
+      {galleryOpen && guestId && (
+        <GuestGalleryModal
+          isOpen={galleryOpen}
+          eventSlug={eventSlug}
+          guestId={guestId}
+          rollCode={rollCode || "ROLL"}
+          shotsLeft={shotsLeft}
+          totalShots={totalShots}
+          lang={lang}
+          onClose={() => setGalleryOpen(false)}
+        />
       )}
     </div>
   );
