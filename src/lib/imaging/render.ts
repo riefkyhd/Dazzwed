@@ -76,7 +76,7 @@ function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
 export interface RenderOptions {
   /** Digital zoom factor (centered crop). Use 1 when native zoom already applied. */
   zoom?: number;
-  /** Camera aspect ratio crop (3:4, 16:9, 1:1) */
+  /** Camera aspect ratio crop (3:4, 16:9, 1:1, 3:2, 4:3) */
   aspect?: CameraAspect;
   /** Active Look Recipe to apply */
   look?: LookRecipe;
@@ -86,6 +86,10 @@ export interface RenderOptions {
   dateStampDate?: Date;
   /** Optional couple names for instant frame caption */
   coupleNames?: string;
+  /** Capture source origin */
+  sourceType?: "in-app" | "native";
+  /** Optional intensity override (e.g. 0.70 for native photos) */
+  intensity?: number;
 }
 
 /**
@@ -96,7 +100,7 @@ export async function renderShot(
   src: Source,
   {
     zoom = 1,
-    aspect = "3:4",
+    aspect,
     maxEdge = 4096,
     quality = 0.92,
     applyFilter = true,
@@ -104,11 +108,16 @@ export async function renderShot(
     seed = 42,
     dateStampDate,
     coupleNames,
+    sourceType = "in-app",
+    intensity,
   }: RenderOptions & { maxEdge?: number; quality?: number; applyFilter?: boolean } = {}
 ): Promise<Blob> {
   const { w, h } = sourceSize(src);
   if (!w || !h) throw new Error("source has no size");
-  const crop = cropForAspectAndZoom(w, h, aspect, zoom);
+
+  // Default aspect ratio to the look's authentic format (e.g. 3:2 for Disposable, 4:3 for CCD, 1:1 for Instant)
+  const targetAspect: CameraAspect = aspect ?? (look.aspectRatio as CameraAspect) ?? "3:4";
+  const crop = cropForAspectAndZoom(w, h, targetAspect, zoom);
   const out = fitLongestEdge(crop.sw, crop.sh, maxEdge);
 
   const canvas = document.createElement("canvas");
@@ -149,13 +158,15 @@ export async function renderShot(
   let rendered = false;
   try {
     const pipeline = new LookEnginePipeline(glCanvas);
+    const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
     rendered = pipeline.render(sourceToRender, look, {
       width: out.width,
       height: out.height,
       isCapture: true,
       seed,
+      isNativeCamera: sourceType === "native",
+      intensity: targetIntensity,
     });
-    pipeline.destroy();
   } catch (err) {
     console.warn("WebGL2 Look Engine failed, falling back to 2D canvas:", err);
   }

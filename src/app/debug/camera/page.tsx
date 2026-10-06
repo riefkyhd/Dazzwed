@@ -26,6 +26,13 @@ export default function CameraDebugPage() {
   const [testingCapture, setTestingCapture] = useState(false);
   const [debugStage, setDebugStage] = useState<number>(0);
   const [debugOverlay, setDebugOverlay] = useState<boolean>(false);
+  const [exposureCompInfo, setExposureCompInfo] = useState<{
+    supported: boolean;
+    min?: number;
+    max?: number;
+    step?: number;
+    current?: number;
+  } | null>(null);
 
   const [ua] = useState(() => (typeof navigator !== "undefined" ? navigator.userAgent : ""));
   const [isSecure] = useState(() => (typeof window !== "undefined" ? window.isSecureContext : true));
@@ -67,12 +74,25 @@ export default function CameraDebugPage() {
       if (track) {
         setActiveDeviceId(track.getSettings().deviceId || "");
         setTrackSettings(track.getSettings());
-        if (track.getCapabilities) {
           const caps = track.getCapabilities();
           setTrackCapabilities(caps);
           // @ts-expect-error zoom may exist on extended capabilities
           if (caps.zoom) setZoomVal(caps.zoom.min || 1);
-        }
+
+          // @ts-expect-error exposureCompensation extended capability
+          const ec = caps.exposureCompensation;
+          if (ec && typeof ec.min === "number") {
+            setExposureCompInfo({
+              supported: true,
+              min: ec.min,
+              max: ec.max,
+              step: ec.step,
+              // @ts-expect-error settings exposureCompensation
+              current: track.getSettings()?.exposureCompensation,
+            });
+          } else {
+            setExposureCompInfo({ supported: false });
+          }
 
         // Check if ImageCapture.takePhoto() is available
         if (typeof window !== "undefined" && "ImageCapture" in window) {
@@ -238,14 +258,12 @@ export default function CameraDebugPage() {
                 onChange={(e) => setDebugStage(parseInt(e.target.value, 10))}
                 className="bg-black border border-zinc-700 text-amber-300 rounded px-2 py-1 text-xs"
               >
-                <option value={0}>All Stages</option>
-                <option value={1}>1. Sharpen</option>
-                <option value={2}>2. Exposure & Flash</option>
-                <option value={3}>3. Filmic Curve</option>
-                <option value={4}>4. Lift/Gamma/Gain</option>
-                <option value={5}>5. Split Tone & White Protect</option>
-                <option value={6}>6. Grain</option>
-                <option value={7}>7. Vignette</option>
+                <option value={0}>All Stages (Full System)</option>
+                <option value={1}>1. Lens Model (Barrel, CA, Softness, Detail)</option>
+                <option value={2}>2. Film Response (Dye Matrix, Curves, Local Contrast)</option>
+                <option value={3}>3. OKLCH Grading & Gamut (24-Node LUT, Skin Guard)</option>
+                <option value={4}>4. Emulsion Optics (Bloom, Halation, Vignette)</option>
+                <option value={5}>5. Film Grain & Exposure Awareness</option>
               </select>
 
               <label className="flex items-center gap-1.5 text-zinc-300 cursor-pointer ml-2">
@@ -257,6 +275,14 @@ export default function CameraDebugPage() {
                 />
                 <span>NaN/Cyan Overlay</span>
               </label>
+
+              {exposureCompInfo && (
+                <span className={`px-2 py-0.5 rounded text-[10px] font-mono border ml-2 ${
+                  exposureCompInfo.supported ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-300" : "bg-zinc-900 border-zinc-700 text-zinc-400"
+                }`}>
+                  Track EV: {exposureCompInfo.supported ? `${exposureCompInfo.current ?? -0.5} EV (Active)` : "Shader Fallback"}
+                </span>
+              )}
             </div>
 
             {/* @ts-expect-error zoom inspection */}

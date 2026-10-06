@@ -6,11 +6,15 @@ import {
   applyTorch,
   hasTorch,
   readZoomRange,
+  readExposureCompRange,
+  applyExposureCompensation,
   type ZoomRange,
+  type ExposureCompRange,
 } from "./caps";
 import { CameraError, openStream, type CameraErrorKind } from "./constraints";
 import { pickDefaultLens, pickerLenses, type Lens } from "./lenses";
 import { renderShot } from "@/lib/imaging/render";
+import type { CameraAspect } from "@/lib/imaging/geometry";
 import type { LookRecipe } from "@/lib/imaging/looks/types";
 import { DISPOSABLE_400_LOOK } from "@/lib/imaging/looks/presets";
 
@@ -49,9 +53,11 @@ export function useCamera(enabled: boolean) {
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [aspect, setAspect] = useState(9 / 16);
-  const [cameraAspect, setCameraAspect] = useState<"3:4" | "16:9" | "1:1">("3:4");
-  const [activeLook, setActiveLook] = useState<LookRecipe>(DISPOSABLE_400_LOOK);
+  const [cameraAspect, setCameraAspect] = useState<CameraAspect>("3:2");
+  const [activeLook, setActiveLookState] = useState<LookRecipe>(DISPOSABLE_400_LOOK);
   const [disableAnimatedGrain, setDisableAnimatedGrain] = useState(false);
+  const [exposureCompRange, setExposureCompRange] = useState<ExposureCompRange | null>(null);
+  const [exposureCompValue, setExposureCompValue] = useState<number>(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -125,6 +131,18 @@ export function useCamera(enabled: boolean) {
         setDigitalZoom(1);
         setTorchAvailable(hasTorch(track));
         setTorchOn(false);
+
+        // Apply track exposure compensation (-0.5 EV) to protect highlights if supported
+        const ec = readExposureCompRange(track);
+        setExposureCompRange(ec);
+        if (ec) {
+          const targetEV = Math.max(ec.min, Math.min(ec.max, -0.5));
+          void applyExposureCompensation(track, targetEV);
+          setExposureCompValue(targetEV);
+        } else {
+          setExposureCompValue(0);
+        }
+
         first = false;
       } catch (e) {
         if (cancelled) return;
@@ -287,9 +305,16 @@ export function useCamera(enabled: boolean) {
     }
   }, [torchOn]);
 
+  const setActiveLook = useCallback((look: LookRecipe) => {
+    setActiveLookState(look);
+    if (look.aspectRatio) {
+      setCameraAspect(look.aspectRatio as CameraAspect);
+    }
+  }, []);
+
   const capture = useCallback(
     async (
-      aspectOverride?: "3:4" | "16:9" | "1:1",
+      aspectOverride?: CameraAspect,
       shotSeed = Math.floor(Math.random() * 100000)
     ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
       const v = videoRef.current;
@@ -329,6 +354,9 @@ export function useCamera(enabled: boolean) {
     setCameraAspect,
     activeLook,
     setActiveLook,
+    exposureCompSupported: !!exposureCompRange,
+    exposureCompValue,
+    exposureCompRange,
     facing,
     flip: () => {
       setLensChoice(undefined);
@@ -347,6 +375,6 @@ export function useCamera(enabled: boolean) {
     toggleTorch,
     capture,
     retry: () => void runRef.current(),
-    hasTrack: () => !!track(),
+    hasTrack: () => !!streamRef.current?.getVideoTracks()[0],
   };
 }

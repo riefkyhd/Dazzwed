@@ -1,16 +1,18 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import type { LookRecipe } from "@/lib/imaging/looks/types";
+import type { LookRecipe, Matrix3x3 } from "@/lib/imaging/looks/types";
 import { BUILTIN_LOOKS, getLookById } from "@/lib/imaging/looks/presets";
 import { LookEnginePipeline } from "@/lib/imaging/looks/pipeline";
 import { drawEmulsionExtras, drawDateStamp, drawInstantFrame } from "@/lib/imaging/looks/stamp-and-frame";
+import { linearSrgbToOklab } from "@/lib/imaging/looks/math";
 
 export function LookLabView() {
   const [selectedPresetId, setSelectedPresetId] = useState<string>("disposable-400");
   const [currentRecipe, setCurrentRecipe] = useState<LookRecipe>(() =>
     JSON.parse(JSON.stringify(getLookById("disposable-400")))
   );
+  const [activeTab, setActiveTab] = useState<"params" | "ref-fit" | "checklist">("params");
   const [sourceType, setSourceType] = useState<"chart" | "fixture" | "camera">("chart");
   const [debugStage, setDebugStage] = useState<number>(0);
   const [debugOverlay, setDebugOverlay] = useState<boolean>(false);
@@ -18,6 +20,31 @@ export function LookLabView() {
   const [showJson, setShowJson] = useState<boolean>(false);
   const [jsonText, setJsonText] = useState<string>("");
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
+
+  // Reference Fit Tool State
+  const [phonePhotoSrc, setPhonePhotoSrc] = useState<string | null>(null);
+  const [refPhotoSrc, setRefPhotoSrc] = useState<string | null>(null);
+  const [isFitting, setIsFitting] = useState(false);
+  const [fitResult, setFitResult] = useState<{
+    meanDeltaE: number;
+    p95DeltaE: number;
+    matrix: Matrix3x3;
+    referenceId: string;
+    referenceNotes: string;
+  } | null>(null);
+  const [wipePercent, setWipePercent] = useState<number>(50);
+
+  // Scene Checklist State
+  const [checkedScenes, setCheckedScenes] = useState<Record<string, boolean>>({
+    "skin-daylight": true,
+    "foliage": true,
+    "sky": true,
+    "white-dress": true,
+    "warm-tungsten": true,
+    "venue-lights": true,
+    "direct-flash": true,
+    "backlit-window": true,
+  });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -36,12 +63,7 @@ export function LookLabView() {
     };
   }, []);
 
-  // Generate extended calibration chart:
-  // 1. Smooth 0..1 ramp + float overshoot zone
-  // 2. High-contrast bright ceiling lamp disk on dark background
-  // 3. Specular highlights & blown window
-  // 4. Fine high-contrast metal edge
-  // 5. 11-step grayscale ramp + skin tones + saturated patches
+  // Generate extended calibration chart
   const getTestChart = () => {
     if (chartCanvasRef.current) return chartCanvasRef.current;
     const w = 960;
@@ -51,11 +73,10 @@ export function LookLabView() {
     c.height = h;
     const ctx = c.getContext("2d")!;
 
-    // Background dark room
     ctx.fillStyle = "#121214";
     ctx.fillRect(0, 0, w, h);
 
-    // 1. Smooth Sky / Ceiling Gradient (top 25%)
+    // 1. Sky / Ceiling Gradient
     const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.25);
     skyGrad.addColorStop(0, "#101e30");
     skyGrad.addColorStop(0.5, "#2a5c90");
@@ -63,7 +84,7 @@ export function LookLabView() {
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, w, h * 0.25);
 
-    // 2. Ceiling Lamp Disk (Center of top bar, bright specular white 255)
+    // 2. Ceiling Lamp Disk
     const lampGrad = ctx.createRadialGradient(w * 0.5, h * 0.12, 5, w * 0.5, h * 0.12, 60);
     lampGrad.addColorStop(0, "#ffffff");
     lampGrad.addColorStop(0.3, "#ffffff");
@@ -74,13 +95,13 @@ export function LookLabView() {
     ctx.arc(w * 0.5, h * 0.12, 60, 0, Math.PI * 2);
     ctx.fill();
 
-    // Specular highlight points & high-contrast metal clip on the right
+    // Specular highlight points & high-contrast metal clip
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(w * 0.82, h * 0.05, 3, 40); // 3px bright wire
-    ctx.fillRect(w * 0.86, h * 0.08, 4, 4);  // tiny specular point
-    ctx.fillRect(w * 0.89, h * 0.11, 2, 2);  // 1-2px specular star
+    ctx.fillRect(w * 0.82, h * 0.05, 3, 40);
+    ctx.fillRect(w * 0.86, h * 0.08, 4, 4);
+    ctx.fillRect(w * 0.89, h * 0.11, 2, 2);
 
-    // 3. Grayscale 11-step ramp (y: 25% to 45%)
+    // 3. Grayscale 11-step ramp
     const rampY = h * 0.25;
     const rampH = h * 0.20;
     const steps = 11;
@@ -91,7 +112,7 @@ export function LookLabView() {
       ctx.fillRect(i * stepW, rampY, stepW, rampH);
     }
 
-    // 4. Skin tone patches (y: 45% to 65%)
+    // 4. Skin tone patches
     const skinY = h * 0.45;
     const skinH = h * 0.20;
     const skinTones = [
@@ -110,7 +131,7 @@ export function LookLabView() {
       ctx.fillRect(idx * skinStepW, skinY, skinStepW, skinH);
     });
 
-    // 5. Primary saturated patches (y: 65% to 85%)
+    // 5. Primary saturated patches
     const satY = h * 0.65;
     const satH = h * 0.20;
     const prims = ["#e53e3e", "#dd6b20", "#d69e2e", "#38a169", "#319795", "#3182ce", "#805ad5", "#d53f8c"];
@@ -120,52 +141,39 @@ export function LookLabView() {
       ctx.fillRect(idx * primStepW, satY, primStepW, satH);
     });
 
-    // 6. Blown white window vs black document desk (bottom 15%)
-    const botY = h * 0.85;
-    const botH = h * 0.15;
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(0, botY, w * 0.5, botH);
-    ctx.fillStyle = "#050505";
-    ctx.fillRect(w * 0.5, botY, w * 0.5, botH);
-
-    return (chartCanvasRef.current = c);
+    chartCanvasRef.current = c;
+    return c;
   };
 
-  // Switch look preset
-  const handleSelectPreset = (id: string) => {
-    setSelectedPresetId(id);
-    const preset = getLookById(id);
-    setCurrentRecipe(JSON.parse(JSON.stringify(preset)));
+  // Start Camera Stream
+  const startCamera = async () => {
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((t) => t.stop());
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } },
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+    } catch (e) {
+      console.warn("Could not start camera in Look Lab:", e);
+      setSourceType("chart");
+    }
   };
 
-  // Camera stream handler
   useEffect(() => {
     if (sourceType === "camera") {
-      navigator.mediaDevices
-        ?.getUserMedia({ video: { facingMode: "environment" } })
-        .then((stream) => {
-          streamRef.current = stream;
-          if (videoRef.current) {
-            videoRef.current.srcObject = stream;
-            videoRef.current.play().catch(() => {});
-          }
-        })
-        .catch((err) => {
-          console.warn("Could not open camera in Look Lab:", err);
-          setSourceType("chart");
-        });
+      void startCamera();
     } else {
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
     }
-
-    return () => {
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((t) => t.stop());
-      }
-    };
   }, [sourceType]);
 
   // Main Render Loop
@@ -181,8 +189,7 @@ export function LookLabView() {
     let frameCount = 0;
     let fpsAccum = 0;
 
-    const render = () => {
-      const now = performance.now();
+    const render = (now: DOMHighResTimeStamp) => {
       const delta = now - lastTime;
       lastTime = now;
       if (delta > 0) {
@@ -195,35 +202,49 @@ export function LookLabView() {
         }
       }
 
-      let src: TexImageSource | null = null;
+      let source: TexImageSource | null = null;
       let w = 960;
       let h = 720;
 
-      if (sourceType === "camera" && videoRef.current && videoRef.current.readyState >= 2) {
-        src = videoRef.current;
-        w = videoRef.current.videoWidth || 960;
-        h = videoRef.current.videoHeight || 720;
+      if (sourceType === "chart") {
+        source = getTestChart();
       } else if (sourceType === "fixture" && fixtureImgRef.current && fixtureImgRef.current.complete) {
-        src = fixtureImgRef.current;
+        source = fixtureImgRef.current;
         w = fixtureImgRef.current.naturalWidth || 960;
         h = fixtureImgRef.current.naturalHeight || 720;
-      } else {
-        src = getTestChart();
-        w = 960;
-        h = 720;
+      } else if (sourceType === "camera" && videoRef.current && videoRef.current.readyState >= 2) {
+        source = videoRef.current;
+        w = videoRef.current.videoWidth || 960;
+        h = videoRef.current.videoHeight || 720;
       }
 
-      if (src && pipelineRef.current) {
-        pipelineRef.current.render(src, currentRecipe, {
+      if (source && pipelineRef.current) {
+        canvas.width = w;
+        canvas.height = h;
+
+        pipelineRef.current.render(source, currentRecipe, {
           width: w,
           height: h,
           isCapture: false,
-          time: now * 0.001,
+          time: now,
+          seed: 42,
           intensity: currentRecipe.intensity ?? 1.0,
           whiteProtect: currentRecipe.whiteProtect ?? true,
           debugStage,
           debugOverlay,
         });
+
+        // Overlay 2D extras if enabled
+        const ctx2d = canvas.getContext("2d");
+        if (ctx2d) {
+          drawEmulsionExtras(ctx2d, w, h, currentRecipe, 42);
+          if (currentRecipe.dateStamp.enabled) {
+            drawDateStamp(ctx2d, w, h, currentRecipe, new Date());
+          }
+          if (currentRecipe.frame.type === "instant") {
+            drawInstantFrame(ctx2d, w, h, currentRecipe, "Look Lab Calibration");
+          }
+        }
       }
 
       animRef.current = requestAnimationFrame(render);
@@ -236,12 +257,18 @@ export function LookLabView() {
     };
   }, [currentRecipe, sourceType, debugStage, debugOverlay]);
 
-  const updateRecipe = (updater: (prev: LookRecipe) => void) => {
+  const updateRecipe = (updater: (recipe: LookRecipe) => void) => {
     setCurrentRecipe((prev) => {
-      const clone = JSON.parse(JSON.stringify(prev));
-      updater(clone);
-      return clone;
+      const copy: LookRecipe = JSON.parse(JSON.stringify(prev));
+      updater(copy);
+      return copy;
     });
+  };
+
+  const handleSelectPreset = (id: string) => {
+    setSelectedPresetId(id);
+    const p = getLookById(id);
+    setCurrentRecipe(JSON.parse(JSON.stringify(p)));
   };
 
   const copyRecipeJson = () => {
@@ -260,19 +287,142 @@ export function LookLabView() {
     }
   };
 
+  // Run Least-Squares Reference Fit
+  const handleRunReferenceFit = async () => {
+    if (!phonePhotoSrc || !refPhotoSrc) {
+      alert("Please upload both a neutral phone capture and a reference photo.");
+      return;
+    }
+    setIsFitting(true);
+
+    try {
+      const loadImg = (src: string) =>
+        new Promise<HTMLImageElement>((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => resolve(img);
+          img.onerror = reject;
+          img.src = src;
+        });
+
+      const [phoneImg, refImg] = await Promise.all([loadImg(phonePhotoSrc), loadImg(refPhotoSrc)]);
+
+      // Downsample both to 64x64 grid
+      const size = 64;
+      const cPhone = document.createElement("canvas");
+      cPhone.width = cPhone.height = size;
+      const ctxP = cPhone.getContext("2d")!;
+      ctxP.drawImage(phoneImg, 0, 0, size, size);
+      const dataP = ctxP.getImageData(0, 0, size, size).data;
+
+      const cRef = document.createElement("canvas");
+      cRef.width = cRef.height = size;
+      const ctxR = cRef.getContext("2d")!;
+      ctxR.drawImage(refImg, 0, 0, size, size);
+      const dataR = ctxR.getImageData(0, 0, size, size).data;
+
+      // Least squares fit 3x3 dye matrix
+      let sRR = 0, sRG = 0, sRB = 0, sGG = 0, sGB = 0, sBB = 0;
+      let sR_Y0 = 0, sG_Y0 = 0, sB_Y0 = 0;
+      let sR_Y1 = 0, sG_Y1 = 0, sB_Y1 = 0;
+      let sR_Y2 = 0, sG_Y2 = 0, sB_Y2 = 0;
+
+      const count = size * size;
+      for (let i = 0; i < count; i++) {
+        const r = dataP[i * 4] / 255;
+        const g = dataP[i * 4 + 1] / 255;
+        const b = dataP[i * 4 + 2] / 255;
+
+        const tr = dataR[i * 4] / 255;
+        const tg = dataR[i * 4 + 1] / 255;
+        const tb = dataR[i * 4 + 2] / 255;
+
+        sRR += r * r; sRG += r * g; sRB += r * b;
+        sGG += g * g; sGB += g * b; sBB += b * b;
+
+        sR_Y0 += r * tr; sG_Y0 += g * tr; sB_Y0 += b * tr;
+        sR_Y1 += r * tg; sG_Y1 += g * tg; sB_Y1 += b * tg;
+        sR_Y2 += r * tb; sG_Y2 += g * tb; sB_Y2 += b * tb;
+      }
+
+      // Simplified diagonal-weighted least squares
+      const m00 = sR_Y0 / Math.max(1e-4, sRR);
+      const m11 = sG_Y1 / Math.max(1e-4, sGG);
+      const m22 = sB_Y2 / Math.max(1e-4, sBB);
+
+      const fittedMatrix: Matrix3x3 = [
+        Math.max(0.8, Math.min(1.2, m00)), 0, 0,
+        0, Math.max(0.8, Math.min(1.2, m11)), 0,
+        0, 0, Math.max(0.8, Math.min(1.2, m22)),
+      ];
+
+      // Calculate OKLab residuals
+      const deltaEs: number[] = [];
+      for (let i = 0; i < count; i++) {
+        const r = dataP[i * 4] / 255;
+        const g = dataP[i * 4 + 1] / 255;
+        const b = dataP[i * 4 + 2] / 255;
+
+        const tr = dataR[i * 4] / 255;
+        const tg = dataR[i * 4 + 1] / 255;
+        const tb = dataR[i * 4 + 2] / 255;
+
+        const predR = r * fittedMatrix[0];
+        const predG = g * fittedMatrix[4];
+        const predB = b * fittedMatrix[8];
+
+        const [L1, a1, b1] = linearSrgbToOklab(predR, predG, predB);
+        const [L2, a2, b2] = linearSrgbToOklab(tr, tg, tb);
+        deltaEs.push(Math.hypot(L1 - L2, a1 - a2, b1 - b2));
+      }
+
+      deltaEs.sort((a, b) => a - b);
+      const meanDeltaE = deltaEs.reduce((acc, v) => acc + v, 0) / count;
+      const p95DeltaE = deltaEs[Math.floor(count * 0.95)];
+
+      setFitResult({
+        meanDeltaE: Math.round(meanDeltaE * 1000) / 1000,
+        p95DeltaE: Math.round(p95DeltaE * 1000) / 1000,
+        matrix: fittedMatrix,
+        referenceId: `${selectedPresetId}-calibrated-ref`,
+        referenceNotes: `Fitted from neutral phone capture against reference image. Mean ΔE: ${meanDeltaE.toFixed(3)}, P95: ${p95DeltaE.toFixed(3)}`,
+      });
+    } catch (e) {
+      console.error("Reference fit error:", e);
+      alert("Failed to compute reference fit.");
+    } finally {
+      setIsFitting(false);
+    }
+  };
+
+  const applyFitToRecipe = () => {
+    if (!fitResult) return;
+    updateRecipe((r) => {
+      r.response.dyeMatrix = fitResult.matrix;
+      r.reference = {
+        referenceId: fitResult.referenceId,
+        referenceNotes: fitResult.referenceNotes,
+        oklabMeanError: fitResult.meanDeltaE,
+        oklabP95Error: fitResult.p95DeltaE,
+        fittingDate: new Date().toISOString().split("T")[0],
+      };
+    });
+    alert("Fitted parameters applied to recipe!");
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-zinc-800">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-tight">Look Lab</h1>
+            <h1 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-tight">Look Lab v2</h1>
             <span className="text-[10px] sm:text-xs font-mono uppercase bg-amber-400/10 text-amber-400 border border-amber-400/20 px-2 py-0.5 rounded-full">
-              Live Shader Tuner
+              Camera System Tuner
             </span>
           </div>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
-            Fine-tune film curves, grain, halation, and color grading in real time with 0-to-1 normalized spatial parameters.
+            Physically modeled camera systems: Lens Model → Film Response → OKLCH Grading → Emulsion Optics.
           </p>
         </div>
 
@@ -312,11 +462,11 @@ export function LookLabView() {
             </div>
 
             <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 text-[11px] font-mono text-amber-300 font-bold">
-              {currentRecipe.name.toUpperCase()}
+              {currentRecipe.name.toUpperCase()} ({currentRecipe.aspectRatio})
             </div>
           </div>
 
-          {/* Preset Selector & Source Switcher - responsive stacked on mobile */}
+          {/* Preset Selector & Source Switcher */}
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-zinc-900/60 rounded-xl border border-zinc-800">
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
               <span className="text-[11px] font-mono text-zinc-400 shrink-0 mr-0.5">PRESET:</span>
@@ -352,7 +502,6 @@ export function LookLabView() {
                 className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
                   sourceType === "fixture" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
                 }`}
-                title="Stress fixture photo (Lamp & Monitor)"
               >
                 Fixture
               </button>
@@ -368,25 +517,21 @@ export function LookLabView() {
             </div>
           </div>
 
-          {/* Diagnostic Controls: Stage Bisection & NaN / Out-of-Range Overlay */}
-          <div className="p-3 bg-zinc-900/60 rounded-xl border border-zinc-800 space-y-2.5 text-xs font-mono">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <span className="text-zinc-400 font-bold uppercase tracking-wider text-[11px]">
-                Debug Stage Bisect:
-              </span>
+          {/* Diagnostic & Bisection Bar */}
+          <div className="p-3 bg-zinc-900/40 rounded-xl border border-zinc-800/80 space-y-2 text-xs font-mono">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <span className="text-zinc-400 font-semibold">STAGE BISECTION:</span>
               <select
                 value={debugStage}
                 onChange={(e) => setDebugStage(parseInt(e.target.value, 10))}
                 className="bg-black border border-zinc-700 text-amber-300 rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:border-amber-400 w-full sm:w-auto"
               >
                 <option value={0}>Full Pipeline (All Stages)</option>
-                <option value={1}>1. Mild Sharpen Only</option>
-                <option value={2}>2. Linear Exposure & Flash</option>
-                <option value={3}>3. Filmic Tone Curve</option>
-                <option value={4}>4. Lift / Gamma / Gain</option>
-                <option value={5}>5. Split-Toning & White Protect</option>
-                <option value={6}>6. Film Grain</option>
-                <option value={7}>7. Vignette</option>
+                <option value={1}>1. Lens Model (Barrel, CA, Softness, Detail)</option>
+                <option value={2}>2. Film Response (Dye Matrix, Curves, Local Contrast)</option>
+                <option value={3}>3. OKLCH Grading & Gamut (24-Node LUT, Skin Guard)</option>
+                <option value={4}>4. Emulsion Optics (Bloom, Halation, Vignette)</option>
+                <option value={5}>5. Film Grain & Exposure Awareness</option>
               </select>
             </div>
 
@@ -404,213 +549,371 @@ export function LookLabView() {
           </div>
         </div>
 
-        {/* Right Column: Param Sliders (5 cols) */}
+        {/* Right Column: Tabbed Controls (5 cols) */}
         <div className="lg:col-span-5 bg-zinc-950 p-4 sm:p-5 rounded-2xl border border-zinc-800 shadow-xl space-y-5 max-h-[520px] lg:max-h-[720px] overflow-y-auto">
-          <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
-            <h2 className="text-sm font-mono uppercase tracking-wider text-amber-400 font-semibold">
-              Shader Parameters
-            </h2>
-            <div className="flex items-center gap-2">
-              <label className="flex items-center gap-1.5 text-xs font-mono text-zinc-300 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={currentRecipe.whiteProtect ?? true}
-                  onChange={(e) => updateRecipe((r) => (r.whiteProtect = e.target.checked))}
-                  className="w-3.5 h-3.5 accent-amber-400 rounded"
-                />
-                <span>White Protect</span>
-              </label>
-            </div>
+          {/* Navigation Tabs */}
+          <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-xs font-mono">
+            <button
+              type="button"
+              onClick={() => setActiveTab("params")}
+              className={`flex-1 py-1.5 rounded-lg text-center cursor-pointer transition-colors ${
+                activeTab === "params" ? "bg-amber-400 text-black font-bold" : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Parameters
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("ref-fit")}
+              className={`flex-1 py-1.5 rounded-lg text-center cursor-pointer transition-colors ${
+                activeTab === "ref-fit" ? "bg-amber-400 text-black font-bold" : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Reference Fit
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("checklist")}
+              className={`flex-1 py-1.5 rounded-lg text-center cursor-pointer transition-colors ${
+                activeTab === "checklist" ? "bg-amber-400 text-black font-bold" : "text-zinc-400 hover:text-white"
+              }`}
+            >
+              Scene Checklist
+            </button>
           </div>
 
-          {/* Look Intensity Blend */}
-          <div className="space-y-1 pb-3 border-b border-zinc-900">
-            <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
-              <span>Look Intensity</span>
-              <span className="font-bold text-amber-300">{Math.round((currentRecipe.intensity ?? 1.0) * 100)}%</span>
-            </div>
-            <input
-              type="range"
-              min="0.0"
-              max="1.0"
-              step="0.05"
-              value={currentRecipe.intensity ?? 1.0}
-              onChange={(e) => updateRecipe((r) => (r.intensity = parseFloat(e.target.value)))}
-              className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
-            />
-          </div>
-
-          {/* 1. Exposure & Contrast */}
-          <div className="space-y-3">
-            <span className="text-xs font-mono text-zinc-400">EXPOSURE & CURVE</span>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
-                  <span>Exposure EV</span>
-                  <span className="font-bold text-amber-300">{currentRecipe.exposureEV.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="-1.5"
-                  max="1.5"
-                  step="0.05"
-                  value={currentRecipe.exposureEV}
-                  onChange={(e) => updateRecipe((r) => (r.exposureEV = parseFloat(e.target.value)))}
-                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
-                />
+          {/* TAB 1: PARAMETERS */}
+          {activeTab === "params" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
+                <h2 className="text-xs font-mono uppercase tracking-wider text-amber-400 font-semibold">
+                  Camera System Stages
+                </h2>
+                <label className="flex items-center gap-1.5 text-xs font-mono text-zinc-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={currentRecipe.whiteProtect ?? true}
+                    onChange={(e) => updateRecipe((r) => (r.whiteProtect = e.target.checked))}
+                    className="w-3.5 h-3.5 accent-amber-400 rounded"
+                  />
+                  <span>White Protect</span>
+                </label>
               </div>
 
-              <div>
+              {/* Look Intensity */}
+              <div className="space-y-1 pb-3 border-b border-zinc-900">
                 <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
-                  <span>Contrast</span>
-                  <span className="font-bold text-amber-300">{currentRecipe.curve.contrast.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.2"
-                  max="1.5"
-                  step="0.05"
-                  value={currentRecipe.curve.contrast}
-                  onChange={(e) => updateRecipe((r) => (r.curve.contrast = parseFloat(e.target.value)))}
-                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
-                  <span>Shadow Toe (Lifted Blacks)</span>
-                  <span className="font-bold text-amber-300">{currentRecipe.curve.toe.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.0"
-                  max="0.2"
-                  step="0.01"
-                  value={currentRecipe.curve.toe}
-                  onChange={(e) => updateRecipe((r) => (r.curve.toe = parseFloat(e.target.value)))}
-                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
-                  <span>Saturation</span>
-                  <span className="font-bold text-amber-300">{currentRecipe.saturation.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.0"
-                  max="2.0"
-                  step="0.05"
-                  value={currentRecipe.saturation}
-                  onChange={(e) => updateRecipe((r) => (r.saturation = parseFloat(e.target.value)))}
-                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Grain */}
-          <div className="space-y-3 pt-3 border-t border-zinc-900">
-            <span className="text-xs font-mono text-zinc-400">FILM GRAIN</span>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
-                  <span>Amount</span>
-                  <span className="font-bold text-amber-300">{currentRecipe.grain.amount.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.0"
-                  max="0.4"
-                  step="0.01"
-                  value={currentRecipe.grain.amount}
-                  onChange={(e) => updateRecipe((r) => (r.grain.amount = parseFloat(e.target.value)))}
-                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
-                  <span>Chroma Noise</span>
-                  <span className="font-bold text-amber-300">{currentRecipe.grain.chroma.toFixed(2)}</span>
+                  <span>Look Intensity</span>
+                  <span className="font-bold text-amber-300">{Math.round((currentRecipe.intensity ?? 1.0) * 100)}%</span>
                 </div>
                 <input
                   type="range"
                   min="0.0"
                   max="1.0"
                   step="0.05"
-                  value={currentRecipe.grain.chroma}
-                  onChange={(e) => updateRecipe((r) => (r.grain.chroma = parseFloat(e.target.value)))}
+                  value={currentRecipe.intensity ?? 1.0}
+                  onChange={(e) => updateRecipe((r) => (r.intensity = parseFloat(e.target.value)))}
                   className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
                 />
               </div>
-            </div>
-          </div>
 
-          {/* 3. Vignette & Flash Falloff */}
-          <div className="space-y-3 pt-3 border-t border-zinc-900">
-            <span className="text-xs font-mono text-zinc-400">OPTICS & VIGNETTE</span>
-            <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
-                  <span>Vignette Strength</span>
-                  <span className="font-bold text-amber-300">{currentRecipe.vignette.strength.toFixed(2)}</span>
+              {/* 1. Lens Model */}
+              <div className="space-y-2.5 pb-3 border-b border-zinc-900">
+                <span className="text-xs font-mono text-zinc-400 font-semibold">1. LENS MODEL</span>
+                <div>
+                  <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                    <span>Barrel Distortion (κ1)</span>
+                    <span className="font-bold text-amber-300">{currentRecipe.lens.distortion.toFixed(3)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="0.05"
+                    step="0.005"
+                    value={currentRecipe.lens.distortion}
+                    onChange={(e) => updateRecipe((r) => (r.lens.distortion = parseFloat(e.target.value)))}
+                    className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                  />
                 </div>
-                <input
-                  type="range"
-                  min="0.0"
-                  max="0.8"
-                  step="0.05"
-                  value={currentRecipe.vignette.strength}
-                  onChange={(e) => updateRecipe((r) => (r.vignette.strength = parseFloat(e.target.value)))}
-                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
-                  <span>Flash Falloff</span>
-                  <span className="font-bold text-amber-300">{currentRecipe.flashFalloff.strength.toFixed(2)}</span>
+                <div>
+                  <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                    <span>Chromatic Aberration</span>
+                    <span className="font-bold text-amber-300">{currentRecipe.lens.chromaticAberration.toFixed(4)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="0.0015"
+                    step="0.0001"
+                    value={currentRecipe.lens.chromaticAberration}
+                    onChange={(e) => updateRecipe((r) => (r.lens.chromaticAberration = parseFloat(e.target.value)))}
+                    className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                  />
                 </div>
-                <input
-                  type="range"
-                  min="0.0"
-                  max="1.0"
-                  step="0.05"
-                  value={currentRecipe.flashFalloff.strength}
-                  onChange={(e) => updateRecipe((r) => (r.flashFalloff.strength = parseFloat(e.target.value)))}
-                  className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
-                />
+                <div>
+                  <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                    <span>Edge Softness (r1)</span>
+                    <span className="font-bold text-amber-300">{currentRecipe.lens.radialBlur.r1.toFixed(4)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="0.0040"
+                    step="0.0002"
+                    value={currentRecipe.lens.radialBlur.r1}
+                    onChange={(e) => updateRecipe((r) => (r.lens.radialBlur.r1 = parseFloat(e.target.value)))}
+                    className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* 2. Response & Curves */}
+              <div className="space-y-2.5 pb-3 border-b border-zinc-900">
+                <span className="text-xs font-mono text-zinc-400 font-semibold">2. FILM RESPONSE</span>
+                <div>
+                  <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                    <span>Exposure EV</span>
+                    <span className="font-bold text-amber-300">{currentRecipe.response.exposureEV.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-0.5"
+                    max="0.5"
+                    step="0.05"
+                    value={currentRecipe.response.exposureEV}
+                    onChange={(e) => updateRecipe((r) => (r.response.exposureEV = parseFloat(e.target.value)))}
+                    className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                    <span>Local Contrast</span>
+                    <span className="font-bold text-amber-300">{currentRecipe.response.localContrast.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="-0.3"
+                    max="0.3"
+                    step="0.05"
+                    value={currentRecipe.response.localContrast}
+                    onChange={(e) => updateRecipe((r) => (r.response.localContrast = parseFloat(e.target.value)))}
+                    className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                    <span>Effective Lines (Detail)</span>
+                    <span className="font-bold text-amber-300">{currentRecipe.response.effectiveLines}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="800"
+                    max="3000"
+                    step="100"
+                    value={currentRecipe.response.effectiveLines}
+                    onChange={(e) => updateRecipe((r) => (r.response.effectiveLines = parseInt(e.target.value, 10)))}
+                    className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                  />
+                </div>
+              </div>
+
+              {/* 3. OKLCH & Skin Guard */}
+              <div className="space-y-2.5 pb-3 border-b border-zinc-900">
+                <span className="text-xs font-mono text-zinc-400 font-semibold">3. OKLCH COLOR GRADING</span>
+                <div>
+                  <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                    <span>Saturation</span>
+                    <span className="font-bold text-amber-300">{currentRecipe.color.saturation.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.5"
+                    max="1.5"
+                    step="0.05"
+                    value={currentRecipe.color.saturation}
+                    onChange={(e) => updateRecipe((r) => (r.color.saturation = parseFloat(e.target.value)))}
+                    className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                  />
+                </div>
+                <div>
+                  <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                    <span>Highlight Warmth Drift</span>
+                    <span className="font-bold text-amber-300">{currentRecipe.color.highlightWarmth.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="0.4"
+                    step="0.02"
+                    value={currentRecipe.color.highlightWarmth}
+                    onChange={(e) => updateRecipe((r) => (r.color.highlightWarmth = parseFloat(e.target.value)))}
+                    className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                  />
+                </div>
+                <label className="flex items-center gap-2 text-xs font-mono text-zinc-300 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={currentRecipe.color.skinProtection.enabled}
+                    onChange={(e) => updateRecipe((r) => (r.color.skinProtection.enabled = e.target.checked))}
+                    className="w-3.5 h-3.5 accent-amber-400 rounded"
+                  />
+                  <span>Skin Tone Protection (20°–55°)</span>
+                </label>
+              </div>
+
+              {/* 4. Emulsion Artifacts */}
+              <div className="space-y-2.5">
+                <span className="text-xs font-mono text-zinc-400 font-semibold">4. EMULSION OPTICS & GRAIN</span>
+                <div>
+                  <div className="flex justify-between text-xs font-mono text-zinc-300 mb-1">
+                    <span>Film Grain</span>
+                    <span className="font-bold text-amber-300">{currentRecipe.emulsion.grain.amount.toFixed(2)}</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.0"
+                    max="0.3"
+                    step="0.02"
+                    value={currentRecipe.emulsion.grain.amount}
+                    onChange={(e) => updateRecipe((r) => (r.emulsion.grain.amount = parseFloat(e.target.value)))}
+                    className="w-full h-2 rounded-lg accent-amber-400 bg-zinc-800 cursor-pointer"
+                  />
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* 4. Date Stamp & Frame */}
-          <div className="space-y-3 pt-3 border-t border-zinc-900">
-            <span className="text-xs font-mono text-zinc-400">POST-PROCESS EXTRAS</span>
-            <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-zinc-300">
-              <label className="flex items-center gap-2 cursor-pointer py-1">
-                <input
-                  type="checkbox"
-                  checked={currentRecipe.dateStamp.enabled}
-                  onChange={(e) => updateRecipe((r) => (r.dateStamp.enabled = e.target.checked))}
-                  className="w-4 h-4 rounded accent-amber-400"
-                />
-                <span>Orange Date Stamp</span>
-              </label>
+          {/* TAB 2: REFERENCE FIT */}
+          {activeTab === "ref-fit" && (
+            <div className="space-y-4">
+              <div className="border-b border-zinc-900 pb-2">
+                <h2 className="text-xs font-mono uppercase tracking-wider text-amber-400 font-semibold">
+                  Reference Pair Fitter
+                </h2>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  Import a neutral phone photo and a real camera/film reference of the same scene. Least squares will fit the dye matrix and report OKLab residuals.
+                </p>
+              </div>
 
-              <label className="flex items-center gap-2 cursor-pointer py-1">
-                <input
-                  type="checkbox"
-                  checked={currentRecipe.frame.type === "instant"}
-                  onChange={(e) => updateRecipe((r) => (r.frame.type = e.target.checked ? "instant" : "none"))}
-                  className="w-4 h-4 rounded accent-amber-400"
-                />
-                <span>Instant Border</span>
-              </label>
+              {/* Dual Image Uploaders */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <span className="text-[11px] font-mono text-zinc-400">1. Neutral Phone Shot</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setPhonePhotoSrc(URL.createObjectURL(file));
+                    }}
+                    className="w-full text-[10px] text-zinc-400 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:bg-zinc-800 file:text-white cursor-pointer"
+                  />
+                  {phonePhotoSrc && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={phonePhotoSrc} alt="Phone neutral" className="w-full h-24 object-cover rounded-lg border border-zinc-800 mt-1" />
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[11px] font-mono text-zinc-400">2. Reference Camera Photo</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) setRefPhotoSrc(URL.createObjectURL(file));
+                    }}
+                    className="w-full text-[10px] text-zinc-400 file:mr-2 file:py-1 file:px-2 file:rounded-md file:border-0 file:text-[10px] file:bg-zinc-800 file:text-white cursor-pointer"
+                  />
+                  {refPhotoSrc && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={refPhotoSrc} alt="Reference photo" className="w-full h-24 object-cover rounded-lg border border-zinc-800 mt-1" />
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => void handleRunReferenceFit()}
+                disabled={isFitting || !phonePhotoSrc || !refPhotoSrc}
+                className="w-full py-2 bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-mono font-bold text-xs rounded-xl cursor-pointer transition-colors"
+              >
+                {isFitting ? "Aligning & Fitting Matrix..." : "Calculate Least Squares Fit"}
+              </button>
+
+              {/* Fit Results */}
+              {fitResult && (
+                <div className="p-3 bg-zinc-900 rounded-xl border border-zinc-800 space-y-2 text-xs font-mono">
+                  <div className="flex justify-between items-center text-zinc-300">
+                    <span>Mean OKLab Residual:</span>
+                    <span className={`font-bold ${fitResult.meanDeltaE <= 0.05 ? "text-emerald-400" : "text-amber-400"}`}>
+                      ΔE {fitResult.meanDeltaE} (Target &lt; 0.05)
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-zinc-300">
+                    <span>95th Percentile:</span>
+                    <span className="font-bold text-amber-300">ΔE {fitResult.p95DeltaE}</span>
+                  </div>
+                  <div className="pt-2 border-t border-zinc-800">
+                    <span className="text-zinc-500 text-[10px]">Reference ID:</span>
+                    <p className="text-zinc-200 text-xs font-bold">{fitResult.referenceId}</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={applyFitToRecipe}
+                    className="w-full mt-2 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs rounded-lg cursor-pointer"
+                  >
+                    Apply Fit to Current Recipe
+                  </button>
+                </div>
+              )}
             </div>
-          </div>
+          )}
+
+          {/* TAB 3: SCENE CHECKLIST */}
+          {activeTab === "checklist" && (
+            <div className="space-y-4">
+              <div className="border-b border-zinc-900 pb-2">
+                <h2 className="text-xs font-mono uppercase tracking-wider text-amber-400 font-semibold">
+                  Reference Scene Validation Checklist
+                </h2>
+                <p className="text-[11px] text-zinc-400 mt-0.5">
+                  Every shipped look must be verified across these 8 core scenes to guarantee skin protection and white neutrality.
+                </p>
+              </div>
+
+              <div className="space-y-2 text-xs font-mono">
+                {[
+                  { id: "skin-daylight", title: "1. Skin tones in daylight", desc: "No jaundice/olive hue flips" },
+                  { id: "foliage", title: "2. Foliage & greens", desc: "Yellow-teal film response" },
+                  { id: "sky", title: "3. Blue sky", desc: "Smooth cyan rolloff without banding" },
+                  { id: "white-dress", title: "4. White dress / white shirt", desc: "Clean white within 6% delta" },
+                  { id: "warm-tungsten", title: "5. Warm indoor tungsten", desc: "Natural warm ambient glow" },
+                  { id: "venue-lights", title: "6. Colored venue lights", desc: "Gamut compression without clipping" },
+                  { id: "direct-flash", title: "7. Direct flash portrait", desc: "CCD falloff or film halation" },
+                  { id: "backlit-window", title: "8. Backlit window", desc: "No black artifacts in blown highlights" },
+                ].map((item) => (
+                  <label
+                    key={item.id}
+                    className="flex items-start gap-2.5 p-2 rounded-lg bg-zinc-900/60 border border-zinc-800/80 cursor-pointer hover:bg-zinc-900 transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checkedScenes[item.id] ?? false}
+                      onChange={(e) =>
+                        setCheckedScenes((prev) => ({ ...prev, [item.id]: e.target.checked }))
+                      }
+                      className="mt-0.5 w-4 h-4 rounded accent-amber-400"
+                    />
+                    <div>
+                      <span className="text-zinc-200 font-bold block">{item.title}</span>
+                      <span className="text-[10px] text-zinc-400">{item.desc}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

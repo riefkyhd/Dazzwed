@@ -17,12 +17,11 @@ export function fitLongestEdge(w: number, h: number, max: number): Size {
   return { width: Math.max(1, Math.round(w * k)), height: Math.max(1, Math.round(h * k)) };
 }
 
-export type CameraAspect = "3:4" | "16:9" | "1:1";
+export type CameraAspect = "3:4" | "16:9" | "1:1" | "3:2" | "4:3";
 
 /**
  * Centered crop for target aspect ratio and digital zoom.
- * Original camera sensor is portrait 3:4 (or landscape 4:3).
- * Other aspect ratios (16:9, 1:1) are center-cropped from the full sensor.
+ * Adapts to portrait (w < h) or landscape (w >= h) orientation.
  */
 export function cropForAspectAndZoom(
   w: number,
@@ -30,9 +29,22 @@ export function cropForAspectAndZoom(
   aspect: CameraAspect = "3:4",
   zoom: number = 1
 ): Crop {
-  // Target ratio width / height in portrait orientation
-  const targetRatio =
-    aspect === "1:1" ? 1 : aspect === "16:9" ? 9 / 16 : 3 / 4;
+  const isPortrait = w < h;
+
+  // Target ratio width / height
+  let targetRatio: number;
+  if (aspect === "1:1") {
+    targetRatio = 1.0;
+  } else if (aspect === "16:9") {
+    targetRatio = isPortrait ? 9 / 16 : 16 / 9;
+  } else if (aspect === "3:2") {
+    targetRatio = isPortrait ? 2 / 3 : 3 / 2;
+  } else if (aspect === "4:3") {
+    targetRatio = isPortrait ? 3 / 4 : 4 / 3;
+  } else {
+    // "3:4"
+    targetRatio = isPortrait ? 3 / 4 : 4 / 3;
+  }
 
   const currentRatio = w / h;
 

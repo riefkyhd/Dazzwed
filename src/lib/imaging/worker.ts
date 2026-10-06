@@ -4,12 +4,16 @@
  * Falls back to main thread execution if Worker or OffscreenCanvas is unsupported.
  */
 
+import { renderShot } from "./render";
+import type { LookRecipe } from "./looks/types";
+
 export interface ProcessImageMessage {
   id: string;
   blob: Blob;
   maxEdge?: number;
   quality?: number;
   applyFilter?: boolean;
+  look?: LookRecipe;
 }
 
 export interface ProcessImageResponse {
@@ -179,6 +183,7 @@ export async function processImageOffThread(
     maxEdge?: number;
     quality?: number;
     applyFilter?: boolean;
+    look?: LookRecipe;
     onProgress?: (stage: "decoding" | "filtering" | "encoding") => void;
   } = {}
 ): Promise<{ blob: Blob; width: number; height: number }> {
@@ -220,68 +225,21 @@ export async function processImageOffThread(
     bitmap = await createImageBitmap(blob);
   }
 
-  const origW = bitmap.width;
-  const origH = bitmap.height;
-  const maxEdge = options.maxEdge ?? 4096;
-  const longest = Math.max(origW, origH);
-  let targetW = origW;
-  let targetH = origH;
-  if (longest > maxEdge) {
-    const scale = maxEdge / longest;
-    targetW = Math.max(1, Math.round(origW * scale));
-    targetH = Math.max(1, Math.round(origH * scale));
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = targetW;
-  canvas.height = targetH;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new Error("Canvas context unavailable");
-
-  ctx.imageSmoothingQuality = "high";
-  ctx.drawImage(bitmap, 0, 0, targetW, targetH);
-  bitmap.close();
-
   options.onProgress?.("filtering");
   await new Promise((r) => setTimeout(r, 0)); // yield to paint
 
-  if (options.applyFilter !== false) {
-    ctx.save();
-    ctx.globalCompositeOperation = "multiply";
-    ctx.fillStyle = "rgba(255, 236, 205, 0.35)";
-    ctx.fillRect(0, 0, targetW, targetH);
+  const origW = bitmap.width;
+  const origH = bitmap.height;
 
-    ctx.globalCompositeOperation = "soft-light";
-    ctx.fillStyle = "rgba(255, 170, 70, 0.16)";
-    ctx.fillRect(0, 0, targetW, targetH);
-
-    ctx.globalCompositeOperation = "source-over";
-    const g = ctx.createRadialGradient(
-      targetW / 2,
-      targetH / 2,
-      Math.min(targetW, targetH) * 0.35,
-      targetW / 2,
-      targetH / 2,
-      Math.hypot(targetW, targetH) / 2
-    );
-    g.addColorStop(0, "rgba(0,0,0,0)");
-    g.addColorStop(1, "rgba(0,0,0,0.28)");
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, targetW, targetH);
-    ctx.restore();
-  }
+  const outBlob = await renderShot(bitmap, {
+    maxEdge: options.maxEdge ?? 8192,
+    quality: options.quality ?? 0.95,
+    applyFilter: options.applyFilter ?? true,
+    sourceType: "native",
+    look: options.look,
+  });
+  bitmap.close();
 
   options.onProgress?.("encoding");
-  await new Promise((r) => setTimeout(r, 0)); // yield to paint
-
-  const outBlob = await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("Encoding failed"))),
-      "image/jpeg",
-      options.quality ?? 0.92
-    );
-  });
-
-  canvas.width = canvas.height = 0;
-  return { blob: outBlob, width: targetW, height: targetH };
+  return { blob: outBlob, width: origW, height: origH };
 }

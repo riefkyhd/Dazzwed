@@ -174,7 +174,9 @@ export function CameraScreen({
       ? "aspect-square max-h-[72vh] w-full"
       : cameraAspect === "16:9"
         ? "aspect-[9/16] h-full max-w-full"
-        : "aspect-[3/4] max-h-[78vh] w-full";
+        : cameraAspect === "3:2"
+          ? "aspect-[2/3] max-h-[78vh] w-full"
+          : "aspect-[3/4] max-h-[78vh] w-full";
 
   return (
     <div className="relative w-full h-dvh bg-black flex flex-col justify-between overflow-hidden select-none touch-manipulation">
