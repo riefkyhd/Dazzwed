@@ -19,7 +19,7 @@ export function CameraDebugView() {
   } | null>(null);
 
   const [isSecure] = useState(() => (typeof window !== "undefined" ? window.isSecureContext : true));
-  const [browserCaps, setBrowserCaps] = useState<Record<string, boolean | string>>({});
+  const [browserCaps, setBrowserCaps] = useState<Record<string, boolean | string | number>>({});
 
   const refreshDevices = useCallback(async () => {
     try {
