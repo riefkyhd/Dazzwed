@@ -156,8 +156,9 @@ export async function renderShot(
   glCanvas.height = out.height;
 
   let rendered = false;
+  let pipeline: LookEnginePipeline | null = null;
   try {
-    const pipeline = new LookEnginePipeline(glCanvas);
+    pipeline = new LookEnginePipeline(glCanvas);
     const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
     rendered = pipeline.render(sourceToRender, look, {
       width: out.width,
@@ -169,6 +170,8 @@ export async function renderShot(
     });
   } catch (err) {
     console.warn("WebGL2 Look Engine failed, falling back to 2D canvas:", err);
+  } finally {
+    if (pipeline) pipeline.destroy();
   }
 
   if (interCanvas) {

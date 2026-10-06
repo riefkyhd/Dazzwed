@@ -14,7 +14,7 @@ import {
 import { CameraError, openStream, type CameraErrorKind } from "./constraints";
 import { pickDefaultLens, pickerLenses, type Lens } from "./lenses";
 import { renderShot } from "@/lib/imaging/render";
-import type { CameraAspect } from "@/lib/imaging/geometry";
+import { cropForAspectAndZoom, fitLongestEdge, type CameraAspect } from "@/lib/imaging/geometry";
 import type { LookRecipe } from "@/lib/imaging/looks/types";
 import { DISPOSABLE_400_LOOK } from "@/lib/imaging/looks/presets";
 
@@ -53,7 +53,7 @@ export function useCamera(enabled: boolean) {
   const [torchAvailable, setTorchAvailable] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [aspect, setAspect] = useState(9 / 16);
-  const [cameraAspect, setCameraAspect] = useState<CameraAspect>("3:2");
+  const [cameraAspect, setCameraAspect] = useState<CameraAspect>("3:4");
   const [activeLook, setActiveLookState] = useState<LookRecipe>(DISPOSABLE_400_LOOK);
   const [disableAnimatedGrain, setDisableAnimatedGrain] = useState(false);
   const [exposureCompRange, setExposureCompRange] = useState<ExposureCompRange | null>(null);
@@ -243,15 +243,33 @@ export function useCamera(enabled: boolean) {
 
           if (v.readyState >= 2 && lookPipelineRef.current) {
             const longEdge = previewTier === "high" ? 1280 : previewTier === "standard" ? 960 : 720;
-            const aspectVal = (v.videoWidth && v.videoHeight) ? v.videoWidth / v.videoHeight : 9 / 16;
-            const w = aspectVal >= 1 ? longEdge : Math.round(longEdge * aspectVal);
-            const h = aspectVal >= 1 ? Math.round(longEdge / aspectVal) : longEdge;
+            const vw = v.videoWidth || 1920;
+            const vh = v.videoHeight || 1080;
+            const targetAspect = cameraAspect || "3:4";
+            const effectiveDigitalZoom = zoomRange ? 1 : digitalZoom;
+
+            const crop = cropForAspectAndZoom(vw, vh, targetAspect, effectiveDigitalZoom);
+            const out = fitLongestEdge(crop.sw, crop.sh, longEdge);
+
+            // Resize canvas if needed
+            if (canvasRef.current && (canvasRef.current.width !== out.width || canvasRef.current.height !== out.height)) {
+              canvasRef.current.width = out.width;
+              canvasRef.current.height = out.height;
+            }
+
+            const normCropRect = {
+              x: crop.sx / vw,
+              y: crop.sy / vh,
+              width: crop.sw / vw,
+              height: crop.sh / vh,
+            };
 
             lookPipelineRef.current.render(v, activeLook, {
-              width: w,
-              height: h,
+              width: out.width,
+              height: out.height,
               isCapture: false,
               disableAnimatedGrain,
+              cropRect: normCropRect,
             });
           }
 
@@ -278,7 +296,7 @@ export function useCamera(enabled: boolean) {
       v.removeEventListener("loadedmetadata", sync);
       v.removeEventListener("resize", sync);
     };
-  }, [stream, previewTier, activeLook, disableAnimatedGrain]);
+  }, [stream, previewTier, activeLook, disableAnimatedGrain, cameraAspect, digitalZoom, zoomRange]);
 
   const track = () => streamRef.current?.getVideoTracks()[0];
 

@@ -65,7 +65,7 @@ export function LensBar({
       <button
         type="button"
         onClick={() => {
-          if (main) onSelectLens(main.deviceId);
+          if (main && activeId !== main.deviceId) onSelectLens(main.deviceId);
           if (zoomRange) onSetZoom(1);
           onSetDigitalZoom(1);
         }}
@@ -82,10 +82,11 @@ export function LensBar({
       <button
         type="button"
         onClick={() => {
-          if (tele) {
+          if (tele && activeId !== tele.deviceId) {
             onSelectLens(tele.deviceId);
           } else if (zoomRange && zoomRange.max >= 2) {
             onSetZoom(2);
+            onSetDigitalZoom(1);
           } else {
             onSetDigitalZoom(2);
           }
@@ -105,7 +106,10 @@ export function LensBar({
       {zoomRange && zoomRange.max >= 3 && (
         <button
           type="button"
-          onClick={() => onSetZoom(3)}
+          onClick={() => {
+            onSetZoom(3);
+            onSetDigitalZoom(1);
+          }}
           className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold transition-all active:scale-95 ${
             currentZoom >= 2.8 ? "bg-amber-400 text-black shadow" : "text-zinc-400 hover:text-white"
           }`}

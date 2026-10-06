@@ -39,6 +39,7 @@ uniform float u_seed;
 uniform bool u_isCapture;
 uniform float u_frameHeight;
 uniform bool u_isNativeCamera;
+uniform vec4 u_cropRect; // xy: offset, zw: scale (in source texture coords)
 
 // 1. Lens Model
 uniform vec2 u_radialBlur; // r0, r1
@@ -187,9 +188,13 @@ float evalChannelCurve(float x, vec4 curve, int shoulderType) {
   return clamp(val, 0.0, 1.0);
 }
 
+vec2 mapCropUv(vec2 normUv) {
+  return clamp(u_cropRect.xy + normUv * u_cropRect.zw, vec2(0.0), vec2(1.0));
+}
+
 void main() {
   vec2 uv = v_texCoord;
-  vec4 baseColor = texture(u_image, uv);
+  vec4 baseColor = texture(u_image, mapCropUv(uv));
   vec3 origRgb = clamp(baseColor.rgb, 0.0, 1.0);
   vec3 rgb = origRgb;
 
@@ -211,21 +216,21 @@ void main() {
   // 1b. Lateral Chromatic Aberration
   if (u_chromaticAberration > 0.00001) {
     vec2 caOffset = p * (u_chromaticAberration * rho2);
-    rgb.r = texture(u_image, distUv + caOffset).r;
-    rgb.g = texture(u_image, distUv).g;
-    rgb.b = texture(u_image, distUv - caOffset).b;
+    rgb.r = texture(u_image, mapCropUv(distUv + caOffset)).r;
+    rgb.g = texture(u_image, mapCropUv(distUv)).g;
+    rgb.b = texture(u_image, mapCropUv(distUv - caOffset)).b;
   } else if (u_distortion > 0.0001) {
-    rgb = texture(u_image, distUv).rgb;
+    rgb = texture(u_image, mapCropUv(distUv)).rgb;
   }
 
   // 1c. Radial Softness
   float blurRad = u_radialBlur.x + u_radialBlur.y * rho2;
   if (blurRad > 0.0005) {
     vec2 bStep = vec2(blurRad) * (u_resolution.y / max(vec2(1.0), u_resolution));
-    vec3 bTap = texture(u_image, distUv + vec2(bStep.x, bStep.y)).rgb +
-                texture(u_image, distUv - vec2(bStep.x, bStep.y)).rgb +
-                texture(u_image, distUv + vec2(-bStep.x, bStep.y)).rgb +
-                texture(u_image, distUv + vec2(bStep.x, -bStep.y)).rgb;
+    vec3 bTap = texture(u_image, mapCropUv(distUv + vec2(bStep.x, bStep.y))).rgb +
+                texture(u_image, mapCropUv(distUv - vec2(bStep.x, bStep.y))).rgb +
+                texture(u_image, mapCropUv(distUv + vec2(-bStep.x, bStep.y))).rgb +
+                texture(u_image, mapCropUv(distUv + vec2(bStep.x, -bStep.y))).rgb;
     rgb = mix(rgb, (rgb + bTap) * 0.2, clamp(blurRad * 250.0, 0.0, 0.7));
   }
 
@@ -233,10 +238,10 @@ void main() {
   if (u_effectiveLines > 100.0 && u_resolution.y > u_effectiveLines) {
     float lineStep = 1.0 / u_effectiveLines;
     vec3 lowPass = (
-      texture(u_image, distUv + vec2(0.0, lineStep)).rgb +
-      texture(u_image, distUv - vec2(0.0, lineStep)).rgb +
-      texture(u_image, distUv + vec2(lineStep, 0.0)).rgb +
-      texture(u_image, distUv - vec2(lineStep, 0.0)).rgb
+      texture(u_image, mapCropUv(distUv + vec2(0.0, lineStep))).rgb +
+      texture(u_image, mapCropUv(distUv - vec2(0.0, lineStep))).rgb +
+      texture(u_image, mapCropUv(distUv + vec2(lineStep, 0.0))).rgb +
+      texture(u_image, mapCropUv(distUv - vec2(lineStep, 0.0))).rgb
     ) * 0.25;
     rgb = mix(rgb, lowPass, 0.18);
   }
@@ -245,10 +250,10 @@ void main() {
   if (u_isNativeCamera) {
     vec2 wideStep = 6.0 / max(vec2(1.0), u_resolution);
     vec3 wideBlur = (
-      texture(u_image, distUv + wideStep).rgb +
-      texture(u_image, distUv - wideStep).rgb +
-      texture(u_image, distUv + vec2(wideStep.x, -wideStep.y)).rgb +
-      texture(u_image, distUv + vec2(-wideStep.x, wideStep.y)).rgb
+      texture(u_image, mapCropUv(distUv + wideStep)).rgb +
+      texture(u_image, mapCropUv(distUv - wideStep)).rgb +
+      texture(u_image, mapCropUv(distUv + vec2(wideStep.x, -wideStep.y))).rgb +
+      texture(u_image, mapCropUv(distUv + vec2(-wideStep.x, wideStep.y))).rgb
     ) * 0.25;
     rgb = mix(rgb, wideBlur, 0.20);
   }
@@ -509,6 +514,7 @@ export interface LookEngineRenderOptions {
   debugOverlay?: boolean;
   isNativeCamera?: boolean;
   sceneExposure?: number; // mean log-luminance (default 0.5)
+  cropRect?: { x: number; y: number; width: number; height: number }; // normalized [0, 1] texture coordinates
 }
 
 export class LookEnginePipeline {
@@ -525,6 +531,7 @@ export class LookEnginePipeline {
   private uIsCaptureLoc: WebGLUniformLocation | null = null;
   private uFrameHeightLoc: WebGLUniformLocation | null = null;
   private uIsNativeCamLoc: WebGLUniformLocation | null = null;
+  private uCropRectLoc: WebGLUniformLocation | null = null;
 
   // Lens
   private uRadialBlurLoc: WebGLUniformLocation | null = null;
@@ -635,6 +642,7 @@ export class LookEnginePipeline {
     this.uIsCaptureLoc = gl.getUniformLocation(prog, "u_isCapture");
     this.uFrameHeightLoc = gl.getUniformLocation(prog, "u_frameHeight");
     this.uIsNativeCamLoc = gl.getUniformLocation(prog, "u_isNativeCamera");
+    this.uCropRectLoc = gl.getUniformLocation(prog, "u_cropRect");
 
     this.uRadialBlurLoc = gl.getUniformLocation(prog, "u_radialBlur");
     this.uCaLoc = gl.getUniformLocation(prog, "u_chromaticAberration");
@@ -708,6 +716,9 @@ export class LookEnginePipeline {
     gl.uniform1i(this.uIsCaptureLoc, options.isCapture ? 1 : 0);
     gl.uniform1f(this.uFrameHeightLoc, options.height);
     gl.uniform1i(this.uIsNativeCamLoc, options.isNativeCamera ? 1 : 0);
+
+    const cr = options.cropRect ?? { x: 0, y: 0, width: 1, height: 1 };
+    gl.uniform4f(this.uCropRectLoc, cr.x, cr.y, cr.width, cr.height);
 
     // 1. Lens Model
     const lens = look.lens;
@@ -791,5 +802,31 @@ export class LookEnginePipeline {
     // Draw full-screen quad
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     return true;
+  }
+
+  public destroy(): void {
+    const gl = this.gl;
+    if (!gl) return;
+    try {
+      if (this.texture) {
+        gl.deleteTexture(this.texture);
+        this.texture = null;
+      }
+      if (this.positionBuffer) {
+        gl.deleteBuffer(this.positionBuffer);
+        this.positionBuffer = null;
+      }
+      if (this.texCoordBuffer) {
+        gl.deleteBuffer(this.texCoordBuffer);
+        this.texCoordBuffer = null;
+      }
+      if (this.program) {
+        gl.deleteProgram(this.program);
+        this.program = null;
+      }
+    } catch (e) {
+      console.warn("LookEnginePipeline destroy error:", e);
+    }
+    this.gl = null;
   }
 }
