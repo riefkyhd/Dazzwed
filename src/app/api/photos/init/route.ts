@@ -68,10 +68,19 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Human verification failed" }, { status: 403 });
     }
 
-    const ipLimit = await checkRateLimit(`ip:${ip}`, 60, 60);
+    // Rate limit: Per-guest bucket (30 req/min) + Venue WiFi aggregate bucket (300 req/min)
+    const guestLimit = await checkRateLimit(`guest:${guestIdParsed.data}`, 30, 60);
+    if (!guestLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many upload requests for this guest" },
+        { status: 429, headers: { "Retry-After": String(guestLimit.retryAfter) } }
+      );
+    }
+
+    const ipLimit = await checkRateLimit(`ip:${ip}`, 300, 60);
     if (!ipLimit.allowed) {
       return NextResponse.json(
-        { error: "Too many upload requests" },
+        { error: "Venue network upload limit reached. Retrying soon." },
         { status: 429, headers: { "Retry-After": String(ipLimit.retryAfter) } }
       );
     }

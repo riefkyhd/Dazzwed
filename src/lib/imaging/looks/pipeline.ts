@@ -572,8 +572,21 @@ export class LookEnginePipeline {
   private uDebugOverlayLoc: WebGLUniformLocation | null = null;
 
   constructor(private canvas: HTMLCanvasElement) {
+    this.canvas.addEventListener("webglcontextlost", this.handleContextLost, false);
+    this.canvas.addEventListener("webglcontextrestored", this.handleContextRestored, false);
     this.initWebGL();
   }
+
+  private handleContextLost = (e: Event) => {
+    e.preventDefault();
+    console.warn("Look Engine WebGL2 context lost");
+    this.gl = null;
+  };
+
+  private handleContextRestored = () => {
+    console.info("Look Engine WebGL2 context restored. Rebuilding shaders.");
+    this.initWebGL();
+  };
 
   private initWebGL() {
     const gl = this.canvas.getContext("webgl2", {

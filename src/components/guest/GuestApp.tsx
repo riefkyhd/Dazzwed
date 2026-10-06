@@ -18,11 +18,27 @@ import {
 } from "@/lib/queue/store";
 import { useQueue } from "@/lib/queue/useQueue";
 import { processImageOffThread } from "@/lib/imaging/worker";
+import dynamic from "next/dynamic";
 import { NativeDevelopingModal, type NativeProcessingState } from "./NativeDevelopingModal";
 import { LandingScreen } from "./LandingScreen";
-import { CameraScreen } from "./CameraScreen";
 import { ThankYouScreen } from "./ThankYouScreen";
 import { ClosedScreen } from "./ClosedScreen";
+import { GuestErrorBoundary } from "./GuestErrorBoundary";
+import { initGlobalTelemetry } from "@/lib/telemetry";
+
+// Code-split CameraScreen & WebGL Look Engine out of initial landing page bundle
+const CameraScreen = dynamic(
+  () => import("./CameraScreen").then((m) => m.CameraScreen),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="fixed inset-0 bg-black flex flex-col items-center justify-center text-white">
+        <div className="w-8 h-8 rounded-full border-2 border-amber-400 border-t-transparent animate-spin mb-3" />
+        <p className="text-xs font-mono uppercase tracking-widest text-zinc-400">Loading Camera…</p>
+      </div>
+    ),
+  }
+);
 
 interface GuestAppProps {
   event: EventRow;
@@ -55,6 +71,12 @@ export function GuestApp({ event }: GuestAppProps) {
 
   // Background IndexedDB upload queue with real-time pending badge
   const { pendingCount, enqueue } = useQueue(guestId);
+
+  // Global window unhandled error & rejection trap
+  useEffect(() => {
+    const cleanup = initGlobalTelemetry(event.slug, guestId || undefined);
+    return cleanup;
+  }, [event.slug, guestId]);
 
   // Restore existing session and counts from IndexedDB asynchronously
   useEffect(() => {
@@ -296,7 +318,14 @@ export function GuestApp({ event }: GuestAppProps) {
   };
 
   return (
-    <>
+    <GuestErrorBoundary
+      eventSlug={event.slug}
+      guestId={guestId || undefined}
+      onReset={() => {
+        if (shotsLeft <= 0) setScreen("thankyou");
+        else setScreen("camera");
+      }}
+    >
       {nativeModalVisible && (
         <NativeDevelopingModal
           state={nativeProcessingState}
@@ -358,6 +387,6 @@ export function GuestApp({ event }: GuestAppProps) {
           onNativePhoto={handleNativePhoto}
         />
       )}
-    </>
+    </GuestErrorBoundary>
   );
 }
