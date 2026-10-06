@@ -76,19 +76,19 @@ export function ReviewModal({
         </span>
       </div>
 
-      {/* Retro Print Frame Card */}
-      <div className="relative w-full max-w-xs aspect-[3/4] bg-zinc-900 border-2 border-zinc-700/80 rounded-2xl shadow-2xl p-3 flex flex-col justify-between overflow-hidden">
+      {/* Retro Print Frame Card (Flexible height scaled to remaining viewport) */}
+      <div className="relative w-full max-w-xs flex-1 min-h-0 max-h-[68vh] my-auto bg-zinc-900 border-2 border-zinc-700/80 rounded-2xl shadow-2xl p-2.5 flex flex-col justify-between overflow-hidden">
         {/* Subtle light-leak along edge */}
         <div className="absolute top-0 right-0 w-28 h-28 bg-amber-500/15 rounded-full blur-2xl pointer-events-none" />
 
         {/* The Photo Itself */}
-        <div className="relative w-full h-[88%] bg-zinc-950 rounded-lg overflow-hidden border border-zinc-800 flex items-center justify-center">
+        <div className="relative w-full flex-1 min-h-0 bg-zinc-950 rounded-lg overflow-hidden border border-zinc-800 flex items-center justify-center">
           {photoUrl && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={photoUrl}
               alt="Developed shot"
-              className={`w-full h-full object-cover transition-all duration-1000 ease-out ${
+              className={`w-full h-full object-contain transition-all duration-1000 ease-out ${
                 isDeveloped
                   ? "filter brightness-100 contrast-100 opacity-100"
                   : "filter brightness-50 contrast-150 opacity-40 blur-xs"
@@ -110,14 +110,14 @@ export function ReviewModal({
         </div>
 
         {/* Bottom Film Card Margin */}
-        <div className="w-full flex items-center justify-between px-1 text-[10px] font-mono text-zinc-500">
+        <div className="w-full flex items-center justify-between px-1 pt-1.5 text-[10px] font-mono text-zinc-500">
           <span>KODAK FILM EMULSION</span>
           <span>EXP. 24</span>
         </div>
       </div>
 
-      {/* Keep vs Retake Action Buttons */}
-      <div className="w-full max-w-sm flex items-center gap-3 pb-4">
+      {/* Keep vs Retake Action Buttons (Fixed height, safe area padding) */}
+      <div className="w-full max-w-sm flex items-center gap-3 pt-2 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] shrink-0">
         {/* Retake Button (Discards, 0 shots used) */}
         <button
           type="button"
@@ -128,7 +128,7 @@ export function ReviewModal({
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-zinc-400">
             <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0-.75.75v4.482a.75.75 0 0 0 1.5 0v-2.073l.235.234a7 7 0 0 0 11.956-3.136.75.75 0 0 0-1.379-.412ZM4.688 8.576a5.5 5.5 0 0 1 9.201-2.466l.312.311H11.77a.75.75 0 0 0 0 1.5h4.48a.75.75 0 0 0 .75-.75V2.689a.75.75 0 0 0-1.5 0v2.073l-.235-.234A7 7 0 0 0 3.309 7.664a.75.75 0 0 0 1.379.412Z" clipRule="evenodd" />
           </svg>
-          <span>Retake (No Shot Used)</span>
+          <span>Retake</span>
         </button>
 
         {/* Keep Button (Enqueues upload & consumes shot) */}

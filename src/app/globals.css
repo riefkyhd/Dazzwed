@@ -21,19 +21,29 @@
   --font-serif: var(--font-serif-head);
 }
 
+:root {
+  --sat: env(safe-area-inset-top, 0px);
+  --sar: env(safe-area-inset-right, 0px);
+  --sab: env(safe-area-inset-bottom, 0px);
+  --sal: env(safe-area-inset-left, 0px);
+  --vvw: 100vw;
+  --vvh: 100dvh;
+}
+
 html {
   color-scheme: dark;
   -webkit-text-size-adjust: 100%;
   -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
 }
 
 body {
   background: var(--bg);
   color: var(--fg);
   font-family: var(--font-sans-body), system-ui, sans-serif;
-  /* respect notches / home indicator */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
-    env(safe-area-inset-left);
+  padding: 0;
+  margin: 0;
+  overscroll-behavior: none;
 }
 
 @utility no-scrollbar {

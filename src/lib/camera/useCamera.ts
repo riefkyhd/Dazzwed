@@ -257,20 +257,20 @@ export function useCamera(enabled: boolean) {
             const targetAspect = cameraAspect || "3:4";
             const effectiveDigitalZoom = zoomRange ? 1 : digitalZoom;
 
-            const crop = cropForAspectAndZoom(vw, vh, targetAspect, effectiveDigitalZoom);
-            const out = fitLongestEdge(crop.sw, crop.sh, longEdge);
+            const targetCrop = cropForAspectAndZoom(vw, vh, targetAspect, effectiveDigitalZoom);
+            const out = fitLongestEdge(targetCrop.sw, targetCrop.sh, longEdge);
 
-            // Resize canvas if needed
+            // Keep canvas backing buffer smooth; only change if long edge tier changed
             if (canvasRef.current && (canvasRef.current.width !== out.width || canvasRef.current.height !== out.height)) {
               canvasRef.current.width = out.width;
               canvasRef.current.height = out.height;
             }
 
-            const normCropRect = {
-              x: crop.sx / vw,
-              y: crop.sy / vh,
-              width: crop.sw / vw,
-              height: crop.sh / vh,
+            const normTargetCropRect = {
+              x: targetCrop.sx / vw,
+              y: targetCrop.sy / vh,
+              width: targetCrop.sw / vw,
+              height: targetCrop.sh / vh,
             };
 
             lookPipelineRef.current.render(v, activeLook, {
@@ -278,7 +278,7 @@ export function useCamera(enabled: boolean) {
               height: out.height,
               isCapture: false,
               disableAnimatedGrain,
-              cropRect: normCropRect,
+              cropRect: normTargetCropRect,
             });
           }
 
@@ -336,6 +336,17 @@ export function useCamera(enabled: boolean) {
     setActiveLookState(look);
   }, []);
 
+  const setExposureCompensation = useCallback(
+    async (ev: number) => {
+      const t = streamRef.current?.getVideoTracks()[0];
+      if (!t || !exposureCompRange) return;
+      const clamped = Math.max(exposureCompRange.min, Math.min(exposureCompRange.max, ev));
+      setExposureCompValue(clamped);
+      await applyExposureCompensation(t, clamped);
+    },
+    [exposureCompRange]
+  );
+
   const capture = useCallback(
     async (
       aspectOverride?: CameraAspect,
@@ -381,6 +392,7 @@ export function useCamera(enabled: boolean) {
     exposureCompSupported: !!exposureCompRange,
     exposureCompValue,
     exposureCompRange,
+    setExposureCompensation,
     facing,
     flip: () => {
       setLensChoice(undefined);
