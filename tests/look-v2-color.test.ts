@@ -10,6 +10,7 @@ import {
   evaluateToneCurve,
 } from "../src/lib/imaging/looks/math";
 import type { HueNode } from "../src/lib/imaging/looks/types";
+import { CLASSIC_NEG_LOOK, CPM35_LOOK } from "../src/lib/imaging/looks/presets";
 
 describe("Look Engine v2 Color & Math Engine", () => {
   it("converts round-trip sRGB -> OKLab -> sRGB accurately", () => {
@@ -104,5 +105,39 @@ describe("Look Engine v2 Color & Math Engine", () => {
     expect(softVal).toBeLessThanOrEqual(1.0);
     expect(hardVal).toBeGreaterThan(0.8);
     expect(hardVal).toBeLessThanOrEqual(1.0);
+  });
+
+  describe("Fujifilm & Dazz Cam Color Science Recipes", () => {
+    it("Classic Neg produces signature teal foliage greens while protecting skin", () => {
+      expect(CLASSIC_NEG_LOOK.id).toBe("classic-neg");
+      expect(CLASSIC_NEG_LOOK.color.hueTable).toHaveLength(24);
+
+      // Evaluate green foliage hue (~105 degrees)
+      const foliageNode = evaluateHueTable(105, CLASSIC_NEG_LOOK.color.hueTable);
+      // Foliage shifted toward teal/cyan (negative hue shift)
+      expect(foliageNode.dHue).toBeLessThan(-10);
+      expect(foliageNode.dChroma).toBeLessThan(1.0); // Muted organic greens
+
+      // Skin tones (~35 degrees) must be preserved
+      const skinDamping = calculateSkinDamping(35, CLASSIC_NEG_LOOK.color.skinProtection);
+      expect(skinDamping).toBeLessThan(0.3); // Heavily protected from aggressive green shift
+    });
+
+    it("CPM 35 produces warm rangefinder palette with golden undertones and soft rolloff", () => {
+      expect(CPM35_LOOK.id).toBe("cpm-35");
+      expect(CPM35_LOOK.response.curveR.type).toBe("soft");
+      expect(CPM35_LOOK.response.curveR.shoulder).toBeLessThanOrEqual(0.82); // Soft highlight compression
+
+      // Golden warmth in highlights
+      expect(CPM35_LOOK.color.highlightWarmth).toBeGreaterThan(0.15);
+
+      // Evaluate green hues (~105 degrees): CPM35 shifts warm positive
+      const foliageNode = evaluateHueTable(105, CPM35_LOOK.color.hueTable);
+      expect(foliageNode.dHue).toBeGreaterThan(0);
+
+      // Cyan-teal shift on blue sky (~225 degrees)
+      const blueNode = evaluateHueTable(225, CPM35_LOOK.color.hueTable);
+      expect(blueNode.dHue).toBeLessThan(0);
+    });
   });
 });

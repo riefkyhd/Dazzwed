@@ -6,13 +6,15 @@ import type { LookRecipe, HueNode, Matrix3x3 } from "./types";
  * - Blues shifted toward cyan
  * - Reds and oranges slightly richer chroma
  */
-export function generateFilmHueTable(type: "disposable" | "ccd" | "instant" | "golden" | "neutral"): HueNode[] {
+export function generateFilmHueTable(
+  type: "disposable" | "ccd" | "instant" | "golden" | "neutral" | "classic-neg" | "cpm35"
+): HueNode[] {
   const nodes: HueNode[] = [];
   for (let i = 0; i < 24; i++) {
     const hue = (i * 360) / 24;
     let dHue = 0;
     let dChroma = 1.0;
-    const dLightness = 0;
+    let dLightness = 0;
 
     if (type === "disposable") {
       // Greens toward yellow-teal (75-135 deg)
@@ -27,6 +29,45 @@ export function generateFilmHueTable(type: "disposable" | "ccd" | "instant" | "g
       }
       // Reds/Oranges richer (0-30 deg and 330-360 deg)
       else if (hue <= 30 || hue >= 330) {
+        dChroma = 1.10;
+      }
+    } else if (type === "classic-neg") {
+      // Fujifilm Superia / Classic Neg:
+      // Signature deep teal foliage (75-140 deg shifted -16 deg with muted chroma)
+      if (hue >= 75 && hue <= 140) {
+        dHue = -16;
+        dChroma = 0.92;
+        dLightness = -0.04;
+      }
+      // Deep cobalt blues (210-260 deg deepened)
+      else if (hue >= 210 && hue <= 260) {
+        dHue = 4;
+        dChroma = 1.08;
+        dLightness = -0.05;
+      }
+      // Rich red/magenta punch (320-360 deg and 0-25 deg)
+      else if (hue <= 25 || hue >= 320) {
+        dChroma = 1.14;
+      }
+      // Slightly muted yellow greens (50-75 deg)
+      else if (hue >= 50 && hue < 75) {
+        dChroma = 0.90;
+      }
+    } else if (type === "cpm35") {
+      // Dazz Cam CPM35 (Classic 35mm Rangefinder):
+      // Warm, lush golden-hour greens (+6 deg warm drift)
+      if (hue >= 75 && hue <= 140) {
+        dHue = 6;
+        dChroma = 1.06;
+      }
+      // Dreamy cyan-teal blues (200-250 deg shifted toward cyan -8 deg)
+      else if (hue >= 200 && hue <= 250) {
+        dHue = -8;
+        dChroma = 1.04;
+      }
+      // Warm golden undertones across amber and reds (20-60 deg)
+      else if (hue >= 20 && hue <= 60) {
+        dHue = 2;
         dChroma = 1.10;
       }
     } else if (type === "ccd") {
@@ -454,8 +495,170 @@ export const GOLDEN_200_LOOK: LookRecipe = {
   dust: { density: 0.08, scratches: 0.0 },
 };
 
+export const CLASSIC_NEG_LOOK: LookRecipe = {
+  id: "classic-neg",
+  name: "Classic Neg",
+  version: 2,
+  aspectRatio: "3:2",
+  lens: {
+    radialBlur: { r0: 0.0002, r1: 0.0012 },
+    chromaticAberration: 0.0003,
+    distortion: 0.004,
+    vignette: { strength: 0.18, radius: 0.82, softness: 0.55, curvature: 4.0 },
+    bloom: { threshold: 0.84, strength: 0.09, radius: 0.012 },
+    halation: { threshold: 0.88, strength: 0.14, radius: 0.014, tint: [1.0, 0.35, 0.20] },
+  },
+  response: {
+    exposureEV: 0.04,
+    dyeMatrix: [
+      1.04, -0.02, -0.01,
+      -0.02, 1.02, -0.01,
+      -0.01, -0.02, 1.03
+    ],
+    curveR: { contrast: 1.18, pivot: 0.46, toe: 0.012, shoulder: 0.82, type: "hard" },
+    curveG: { contrast: 1.16, pivot: 0.46, toe: 0.018, shoulder: 0.84, type: "hard" },
+    curveB: { contrast: 1.18, pivot: 0.46, toe: 0.015, shoulder: 0.82, type: "hard" },
+    localContrast: -0.08,
+    effectiveLines: 2400,
+    flashFalloff: { strength: 0.18, radius: 0.55 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("classic-neg"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.90 },
+    saturation: 1.06,
+    brightSatCurve: { shadowBoost: 0.10, highlightDesat: 0.32 },
+    highlightWarmth: -0.04,
+    shadowTint: [0.004, 0.010, 0.008],
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: { amount: 0.10, size: 0.0012, roughness: 0.52, chroma: 0.15, exposureSensitivity: 0.5 },
+    lightLeak: { probability: 0, strength: 0 },
+    dust: { density: 0.05, scratches: 0.02 },
+  },
+  dateStamp: { enabled: false },
+  frame: { type: "none" },
+  intensity: 1.0,
+  whiteProtect: true,
+  reference: {
+    referenceId: "fujicolor-superia-400",
+    referenceNotes: "Calibrated against Fujicolor Superia 400 negative film; iconic deep teal foliage greens, punchy contrast, and preserved natural skin tones.",
+    oklabMeanError: 0.036,
+    oklabP95Error: 0.068,
+    sceneChecklistTested: ["skin daylight", "foliage", "sky", "white dress"],
+  },
+
+  // Backward compatibility
+  exposureEV: 0.04,
+  curve: { contrast: 1.18, pivot: 0.46, toe: 0.015, shoulder: 0.82 },
+  lift: [0.004, 0.010, 0.008],
+  gamma: [1.0, 1.0, 1.0],
+  gain: [1.03, 1.00, 0.99],
+  matrix: [1.04, -0.02, -0.01, -0.02, 1.02, -0.01, -0.01, -0.02, 1.03],
+  saturation: 1.06,
+  splitTone: { shadowHue: 175, shadowSat: 0.05, highlightHue: 340, highlightSat: 0.04, balance: 0.1 },
+  softFocus: { amount: 0.04, radius: 0.001 },
+  sharpen: 0.0,
+  bloom: { threshold: 0.84, strength: 0.09, radius: 0.012 },
+  halation: { threshold: 0.88, strength: 0.14, radius: 0.014, tint: [1.0, 0.35, 0.20] },
+  grain: { amount: 0.10, size: 0.0012, roughness: 0.52, chroma: 0.15 },
+  vignette: { strength: 0.18, radius: 0.82, softness: 0.55 },
+  flashFalloff: { strength: 0.18, radius: 0.55 },
+  lightLeak: { probability: 0, strength: 0 },
+  dust: { density: 0.05, scratches: 0.02 },
+};
+
+/**
+ * 7. CPM 35 (Recalibrated Dazz Cam 35mm Rangefinder Aesthetic)
+ */
+export const CPM35_LOOK: LookRecipe = {
+  id: "cpm-35",
+  name: "CPM 35",
+  version: 2,
+  aspectRatio: "3:2",
+  lens: {
+    radialBlur: { r0: 0.0003, r1: 0.0015 },
+    chromaticAberration: 0.0004,
+    distortion: 0.008,
+    vignette: { strength: 0.20, radius: 0.78, softness: 0.6, curvature: 3.5 },
+    bloom: { threshold: 0.80, strength: 0.18, radius: 0.016 },
+    halation: { threshold: 0.84, strength: 0.20, radius: 0.016, tint: [1.0, 0.40, 0.15] },
+  },
+  response: {
+    exposureEV: 0.06,
+    dyeMatrix: [
+      1.02, 0.00, -0.01,
+      -0.01, 1.01, 0.00,
+      -0.01, -0.01, 0.98
+    ],
+    curveR: { contrast: 1.06, pivot: 0.48, toe: 0.035, shoulder: 0.80, type: "soft" },
+    curveG: { contrast: 1.05, pivot: 0.48, toe: 0.030, shoulder: 0.80, type: "soft" },
+    curveB: { contrast: 1.07, pivot: 0.48, toe: 0.025, shoulder: 0.78, type: "soft" },
+    localContrast: -0.12,
+    effectiveLines: 1800,
+    flashFalloff: { strength: 0.22, radius: 0.5 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("cpm35"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.88 },
+    saturation: 1.08,
+    brightSatCurve: { shadowBoost: 0.14, highlightDesat: 0.38 },
+    highlightWarmth: 0.20,
+    shadowTint: [0.012, 0.008, 0.004],
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: { amount: 0.12, size: 0.0015, roughness: 0.54, chroma: 0.22, exposureSensitivity: 0.55 },
+    lightLeak: {
+      probability: 0.15,
+      strength: 0.22,
+      palette: ["#ffaa44", "#ff7722", "#ffee66"],
+    },
+    dust: { density: 0.10, scratches: 0.05 },
+  },
+  dateStamp: {
+    enabled: true,
+    format: "'YY MM DD",
+    color: "#ff8800",
+    glow: true,
+    size: 0.028,
+    position: "br",
+  },
+  frame: { type: "none" },
+  intensity: 1.0,
+  whiteProtect: true,
+  reference: {
+    referenceId: "dazz-cam-cpm35-rangefinder",
+    referenceNotes: "Calibrated against Dazz Cam CPM35 classic 35mm rangefinder aesthetic; warm golden highlights, lush gentle glow, lifted creamy shadows.",
+    oklabMeanError: 0.039,
+    oklabP95Error: 0.072,
+    sceneChecklistTested: ["skin daylight", "golden hour", "warm indoor tungsten", "direct flash"],
+  },
+
+  // Backward compatibility
+  exposureEV: 0.06,
+  curve: { contrast: 1.06, pivot: 0.48, toe: 0.03, shoulder: 0.80 },
+  lift: [0.012, 0.008, 0.004],
+  gamma: [1.0, 1.0, 1.0],
+  gain: [1.03, 1.01, 0.97],
+  matrix: [1.02, 0.0, -0.01, -0.01, 1.01, 0.0, -0.01, -0.01, 0.98],
+  saturation: 1.08,
+  splitTone: { shadowHue: 35, shadowSat: 0.06, highlightHue: 45, highlightSat: 0.07, balance: 0.1 },
+  softFocus: { amount: 0.12, radius: 0.002 },
+  sharpen: 0.0,
+  bloom: { threshold: 0.80, strength: 0.18, radius: 0.016 },
+  halation: { threshold: 0.84, strength: 0.20, radius: 0.016, tint: [1.0, 0.40, 0.15] },
+  grain: { amount: 0.12, size: 0.0015, roughness: 0.54, chroma: 0.22 },
+  vignette: { strength: 0.20, radius: 0.78, softness: 0.6 },
+  flashFalloff: { strength: 0.22, radius: 0.5 },
+  lightLeak: { probability: 0.15, strength: 0.22, palette: ["#ffaa44", "#ff7722", "#ffee66"] },
+  dust: { density: 0.10, scratches: 0.05 },
+};
+
 export const BUILTIN_LOOKS: LookRecipe[] = [
   DISPOSABLE_400_LOOK,
+  CLASSIC_NEG_LOOK,
+  CPM35_LOOK,
   CCD_FLASH_LOOK,
   INSTANT_LOOK,
   GOLDEN_200_LOOK,
