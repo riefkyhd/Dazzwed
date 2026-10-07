@@ -83,6 +83,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
     let restartTimer: ReturnType<typeof setTimeout> | undefined;
     let first = true;
 
+    let knownDevices: MediaDeviceInfo[] = [];
+
     const scheduleRestart = (delay = 300) => {
       clearTimeout(restartTimer);
       restartTimer = setTimeout(() => !cancelled && void run(true), delay);
@@ -92,9 +94,11 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
       track.onended = () => scheduleRestart();
       track.onmute = () => {
         clearTimeout(muteTimer);
+        // On iOS Safari / Android Camera2, track temporarily mutes during sensor exposure adaptation or switching.
+        // Wait 4 seconds before concluding the track is actually dead.
         muteTimer = setTimeout(() => {
           if (!cancelled && track.muted && document.visibilityState === "visible") scheduleRestart(0);
-        }, 3000);
+        }, 4000);
       };
       track.onunmute = () => clearTimeout(muteTimer);
     };
@@ -106,29 +110,48 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
       } else {
         setStarting(true);
       }
+
       if (streamRef.current) {
         stopStream(streamRef.current);
         streamRef.current = null;
-        // Small delay to allow mobile camera hardware daemon (AVFoundation / Camera2) to release sensor
-        await new Promise((r) => setTimeout(r, 150));
+        // Hardware daemon cooldown (AVFoundation / Camera2) to release camera sensor lock
+        await new Promise((r) => setTimeout(r, 200));
       }
+
       try {
-        let s = await openStream({ deviceId: lensChoice, facing });
+        // Enumerate devices if not yet known so we can directly pick the best lens
+        if (knownDevices.length === 0 && typeof navigator !== "undefined" && navigator.mediaDevices?.enumerateDevices) {
+          try {
+            knownDevices = await navigator.mediaDevices.enumerateDevices();
+          } catch {
+            /* ignore */
+          }
+        }
+
+        // If flipping to environment and no explicit lens was chosen, check if we already know the default lens deviceId
+        let targetDeviceId = lensChoice;
+        if (facing === "environment" && !targetDeviceId && knownDevices.length > 0) {
+          targetDeviceId = pickDefaultLens(knownDevices);
+        }
+
+        let s = await openStream({ deviceId: targetDeviceId, facing });
         if (cancelled) return stopStream(s);
 
-        // Labels (and thus lens info) are only available after permission is granted.
-        let devices: MediaDeviceInfo[] = [];
+        // Refresh device list now that permissions are guaranteed
         try {
-          devices = await navigator.mediaDevices.enumerateDevices();
+          knownDevices = await navigator.mediaDevices.enumerateDevices();
         } catch {
           /* no lens info: stay on whatever we got */
         }
+
         const cur = s.getVideoTracks()[0]?.getSettings().deviceId;
         if (facing === "environment" && !lensChoice) {
-          // iOS: facingMode alone may pick the ultra-wide / a virtual camera. Prefer the main lens.
-          const def = pickDefaultLens(devices, cur);
+          // If we didn't have deviceId initially or the device picked isn't the primary main lens
+          const def = pickDefaultLens(knownDevices, cur);
           if (def && def !== cur) {
             stopStream(s);
+            // Wait brief cooldown so the previous hardware stream terminates cleanly before switching lens
+            await new Promise((r) => setTimeout(r, 180));
             try {
               s = await openStream({ deviceId: def, facing });
             } catch (e) {
@@ -145,7 +168,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         streamRef.current = s;
         setStream(s);
         setActiveId(track.getSettings().deviceId);
-        setLenses(facing === "environment" ? pickerLenses(devices) : []);
+        setLenses(facing === "environment" ? pickerLenses(knownDevices) : []);
         const zr = readZoomRange(track);
         setZoomRange(zr);
         setZoomValue(zr?.min ?? 1);
@@ -194,6 +217,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
         if (cancelled) return;
+        knownDevices = devices;
         if (facing === "environment") setLenses(pickerLenses(devices));
         const id = streamRef.current?.getVideoTracks()[0]?.getSettings().deviceId;
         if (id && !devices.some((d) => d.deviceId === id)) scheduleRestart(0);
@@ -230,9 +254,30 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         setAspect(v.videoWidth / v.videoHeight);
       }
     };
+
+    // Ensure playback starts and recovers if paused/stalled
+    const ensurePlay = () => {
+      if (!destroyed && v.paused) {
+        v.play().catch(() => {});
+      }
+    };
+
     v.addEventListener("loadedmetadata", sync);
     v.addEventListener("resize", sync);
-    v.play().catch(() => {});
+    v.addEventListener("canplay", ensurePlay);
+    v.addEventListener("playing", sync);
+    ensurePlay();
+
+    // Watchdog: If video element gets paused or stalled while stream is active, kick it back to life
+    const watchdogTimer = setInterval(() => {
+      if (destroyed) return;
+      const track = stream?.getVideoTracks()[0];
+      if (track && track.readyState === "live") {
+        if (v.paused || v.readyState < 2) {
+          v.play().catch(() => {});
+        }
+      }
+    }, 1000);
 
     // Lazy load and start Look Engine WebGL2 viewfinder loop
     if (c) {
@@ -242,6 +287,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         lookPipelineRef.current = pipeline;
 
         let lastTime = performance.now();
+        let loopTimer: number | null = null;
+
         const renderLoop = (now: DOMHighResTimeStamp) => {
           if (destroyed) return;
 
@@ -267,10 +314,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
             }
           }
 
-          if (v.readyState >= 2 && lookPipelineRef.current) {
+          if (v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0 && lookPipelineRef.current) {
             const longEdge = previewTier === "high" ? 1280 : previewTier === "standard" ? 960 : 720;
-            const vw = v.videoWidth || 1920;
-            const vh = v.videoHeight || 1080;
+            const vw = v.videoWidth;
+            const vh = v.videoHeight;
             const targetAspect = cameraAspect || "3:4";
             const effectiveDigitalZoom = zoomRange ? 1 : digitalZoom;
 
@@ -299,34 +346,24 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
             });
           }
 
-          const videoWithRvfc = v as HTMLVideoElement & {
-            requestVideoFrameCallback?: (cb: (now: DOMHighResTimeStamp) => void) => number;
-          };
-          if (typeof videoWithRvfc.requestVideoFrameCallback === "function") {
-            videoWithRvfc.requestVideoFrameCallback(renderLoop);
-          } else {
-            animFrameRef.current = requestAnimationFrame(renderLoop);
-          }
+          // Schedule next frame using requestAnimationFrame
+          animFrameRef.current = requestAnimationFrame(renderLoop);
         };
 
-        const videoWithRvfc = v as HTMLVideoElement & {
-          requestVideoFrameCallback?: (cb: (now: DOMHighResTimeStamp) => void) => number;
-        };
-        if (typeof videoWithRvfc.requestVideoFrameCallback === "function") {
-          videoWithRvfc.requestVideoFrameCallback(renderLoop);
-        } else {
-          animFrameRef.current = requestAnimationFrame(renderLoop);
-        }
+        animFrameRef.current = requestAnimationFrame(renderLoop);
       });
     }
 
     return () => {
       destroyed = true;
+      clearInterval(watchdogTimer);
       if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (lookPipelineRef.current) lookPipelineRef.current.destroy();
       lookPipelineRef.current = null;
       v.removeEventListener("loadedmetadata", sync);
       v.removeEventListener("resize", sync);
+      v.removeEventListener("canplay", ensurePlay);
+      v.removeEventListener("playing", sync);
     };
   }, [stream, previewTier, activeLook, disableAnimatedGrain, cameraAspect, digitalZoom, zoomRange]);
 
