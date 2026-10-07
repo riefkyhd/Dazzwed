@@ -282,7 +282,7 @@ export function CameraScreen({
         {/* WebGL Canvas */}
         <canvas
           ref={canvasRef}
-          className={`w-full h-full object-cover pointer-events-none transition-transform duration-300 ${
+          className={`w-full h-full object-cover pointer-events-none ${
             facing === "user" && mirrorFront ? "-scale-x-100" : ""
           }`}
         />
