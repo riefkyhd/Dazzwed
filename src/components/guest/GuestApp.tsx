@@ -227,6 +227,11 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
   }, [event.slug, initialRestoreCode, status, initGuest, lang]);
 
   const handleStartCamera = async (name: string | null) => {
+    // Best-effort fullscreen request on user gesture (Android Chrome, ignores on iOS)
+    if (typeof document !== "undefined" && document.documentElement?.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+
     const res = await initGuest(name);
     if (!res) return;
 

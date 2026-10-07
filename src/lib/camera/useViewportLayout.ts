@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import type { CameraAspect } from "@/lib/imaging/geometry";
 
+export type DensityLevel = "L0" | "L1" | "L2";
+
 export interface ViewportLayout {
   width: number;
   height: number;
@@ -14,6 +16,7 @@ export interface ViewportLayout {
     right: number;
   };
   mode: "banded" | "full-bleed";
+  density: DensityLevel;
   viewfinderRect: {
     width: number;
     height: number;
@@ -26,6 +29,7 @@ export interface ViewportLayout {
 
 /**
  * Calculates responsive viewfinder sizing and control zones based on visualViewport and safe areas.
+ * Frame is derived first from the selected ratio; all elements respect strict bounds.
  */
 export function calculateLayout(
   vw: number,
@@ -52,24 +56,22 @@ export function calculateLayout(
     targetRatio = isLandscape ? 4 / 3 : 3 / 4;
   }
 
-  // Minimum reserved height for controls in portrait
-  const minTopBar = 54;
-  const minBottomBar = 150;
-  const totalReservedBars = minTopBar + minBottomBar;
+  // Slim unified top bar height (52px)
+  const topBarH = 52 + safeArea.top;
 
   if (isLandscape) {
-    // Landscape Mode: Side rail layout (rail on the right)
-    const railWidth = 100;
-    const maxVfW = availW - railWidth;
+    // Landscape Mode: Side rail layout (rail on the right, 96px width)
+    const railWidth = 96 + safeArea.right;
+    const maxVfW = availW - 96;
     let vfH = availH;
-    let vfW = vfH * targetRatio;
+    let vfW = Math.round(vfH * targetRatio);
     if (vfW > maxVfW) {
       vfW = maxVfW;
-      vfH = vfW / targetRatio;
+      vfH = Math.round(vfW / targetRatio);
     }
 
-    const top = safeArea.top + (availH - vfH) / 2;
-    const left = safeArea.left + (maxVfW - vfW) / 2;
+    const top = safeArea.top + Math.round((availH - vfH) / 2);
+    const left = safeArea.left + Math.round((maxVfW - vfW) / 2);
 
     return {
       width: vw,
@@ -77,11 +79,12 @@ export function calculateLayout(
       isLandscape: true,
       safeArea,
       mode: "banded",
+      density: "L0",
       viewfinderRect: {
-        width: Math.round(vfW),
-        height: Math.round(vfH),
-        top: Math.max(0, Math.round(top)),
-        left: Math.max(0, Math.round(left)),
+        width: vfW,
+        height: vfH,
+        top: Math.max(0, top),
+        left: Math.max(0, left),
       },
       topBarHeight: 0,
       bottomBarHeight: railWidth,
@@ -89,22 +92,20 @@ export function calculateLayout(
   }
 
   // Portrait Mode:
-  const maxBandedH = availH - totalReservedBars;
-  const isFullBleed = aspect === "16:9" || maxBandedH < 200;
+  const isFullBleed = aspect === "16:9";
 
   if (isFullBleed) {
-    // Full-bleed mode: viewfinder fills available portrait bounds
+    // Full-bleed mode: viewfinder fills portrait width (9:16)
     let vfW = availW;
-    let vfH = vfW / targetRatio;
+    let vfH = Math.round(vfW / targetRatio);
 
-    // Must not exceed availH
-    if (vfH > availH) {
-      vfH = availH;
-      vfW = vfH * targetRatio;
+    if (vfH > vh) {
+      vfH = vh;
+      vfW = Math.round(vfH * targetRatio);
     }
 
-    const top = safeArea.top + (availH - vfH) / 2;
-    const left = safeArea.left + (availW - vfW) / 2;
+    const top = Math.round((vh - vfH) / 2);
+    const left = safeArea.left + Math.round((availW - vfW) / 2);
 
     return {
       width: vw,
@@ -112,31 +113,48 @@ export function calculateLayout(
       isLandscape: false,
       safeArea,
       mode: "full-bleed",
+      density: "L1",
       viewfinderRect: {
-        width: Math.round(vfW),
-        height: Math.round(vfH),
-        top: Math.max(0, Math.round(top)),
-        left: Math.max(0, Math.round(left)),
+        width: vfW,
+        height: vfH,
+        top: Math.max(0, top),
+        left: Math.max(0, left),
       },
-      topBarHeight: minTopBar,
-      bottomBarHeight: minBottomBar,
+      topBarHeight: topBarH,
+      bottomBarHeight: Math.max(140, vh - (top + vfH)),
     };
   }
 
-  // Banded mode: Top and bottom solid black bars framing the central viewfinder (like iPhone 4:3)
+  // Banded mode: Top and bottom solid black bars framing the central viewfinder.
+  // Viewfinder placed directly below the 52px top bar.
+  // Reserve minimum bottom bar space (100px) so viewfinder does not exceed viewport height on tablets
+  const minBottomReserved = 100 + safeArea.bottom;
+  const maxAllowedH = availH - 52 - minBottomReserved;
+
   let vfW = availW;
-  let vfH = vfW / targetRatio;
-  if (vfH > maxBandedH) {
-    vfH = maxBandedH;
-    vfW = vfH * targetRatio;
+  let vfH = Math.round(vfW / targetRatio);
+
+  if (vfH > maxAllowedH) {
+    vfH = maxAllowedH;
+    vfW = Math.round(vfH * targetRatio);
   }
 
-  const remainingH = availH - vfH;
-  const topBarH = Math.max(minTopBar, remainingH * 0.28);
-  const bottomBarH = Math.max(minBottomBar, remainingH - topBarH);
+  // Check remaining bottom space for density ladder
+  // L0: >= 180px bottom space (all controls in bottom band)
+  // L1: 130px - 179px bottom space (lens chips float over lower ~8% of viewfinder)
+  // L2: < 130px bottom space (look selector collapses into drawer button)
+  const availableBottomH = vh - topBarH - vfH;
 
-  const top = safeArea.top + topBarH;
-  const left = safeArea.left + (availW - vfW) / 2;
+  let density: DensityLevel = "L0";
+  if (availableBottomH < 130) {
+    density = "L2";
+  } else if (availableBottomH < 180) {
+    density = "L1";
+  }
+
+  const top = topBarH;
+  const left = safeArea.left + Math.round((availW - vfW) / 2);
+  const bottomBarH = Math.max(0, vh - (top + vfH));
 
   return {
     width: vw,
@@ -144,14 +162,15 @@ export function calculateLayout(
     isLandscape: false,
     safeArea,
     mode: "banded",
+    density,
     viewfinderRect: {
-      width: Math.round(vfW),
-      height: Math.round(vfH),
-      top: Math.max(0, Math.round(top)),
-      left: Math.max(0, Math.round(left)),
+      width: vfW,
+      height: vfH,
+      top,
+      left: Math.max(0, left),
     },
-    topBarHeight: Math.round(topBarH),
-    bottomBarHeight: Math.round(bottomBarH),
+    topBarHeight: topBarH,
+    bottomBarHeight: bottomBarH,
   };
 }
 
@@ -204,6 +223,7 @@ export function useViewportLayout(aspect: CameraAspect = "3:4"): ViewportLayout 
     }
     window.addEventListener("resize", update);
     window.addEventListener("orientationchange", update);
+    document.addEventListener("fullscreenchange", update);
 
     return () => {
       cancelAnimationFrame(rafId);
@@ -213,6 +233,7 @@ export function useViewportLayout(aspect: CameraAspect = "3:4"): ViewportLayout 
       }
       window.removeEventListener("resize", update);
       window.removeEventListener("orientationchange", update);
+      document.removeEventListener("fullscreenchange", update);
     };
   }, [update]);
 

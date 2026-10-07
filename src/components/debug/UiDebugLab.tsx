@@ -206,6 +206,7 @@ export function UiDebugLab() {
                     onChangeAspect={setAspect}
                     timerSeconds={timerSec}
                     onChangeTimer={setTimerSec}
+                    pendingCount={0}
                     onOpenSettings={() => {}}
                     lang={lang}
                   />
@@ -262,6 +263,7 @@ export function UiDebugLab() {
                     onChangeAspect={setAspect}
                     timerSeconds={timerSec}
                     onChangeTimer={setTimerSec}
+                    pendingCount={0}
                     onOpenSettings={() => {}}
                     lang={lang}
                   />

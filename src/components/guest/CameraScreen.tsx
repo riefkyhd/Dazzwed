@@ -7,12 +7,10 @@ import { useViewportLayout } from "@/lib/camera/useViewportLayout";
 import { triggerHaptic } from "@/lib/camera/haptics";
 import { CameraTopBar } from "./CameraTopBar";
 import { ViewfinderGestures } from "./ViewfinderGestures";
+import { ViewfinderFrame } from "./ViewfinderFrame";
 import { CameraSettingsSheet } from "./CameraSettingsSheet";
 import { ShutterButton } from "./ShutterButton";
-import { ShotCounter } from "./ShotCounter";
 import { LensBar } from "./LensBar";
-import { ZoomControl } from "./ZoomControl";
-import { SyncBadge } from "./SyncBadge";
 import { NativeCameraInput } from "./NativeCameraInput";
 import { CameraErrorView } from "./CameraErrorView";
 import { ReviewModal } from "./ReviewModal";
@@ -108,16 +106,39 @@ export function CameraScreen({
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [aeAfLocked, setAeAfLocked] = useState(false);
 
+  // Transient Look Name Caption
+  const [lookCaption, setLookCaption] = useState<string | null>(null);
+  const captionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Look Drawer State for L2 density
+  const [lookDrawerOpen, setLookDrawerOpen] = useState(false);
+
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
     };
   }, []);
 
+  // Transient look selection with caption toast
+  const handleSelectLook = useCallback(
+    (look: Parameters<typeof setActiveLook>[0]) => {
+      setActiveLook(look);
+      setLookCaption(look.name);
+      if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
+      captionTimerRef.current = setTimeout(() => {
+        setLookCaption(null);
+      }, 2000);
+    },
+    [setActiveLook]
+  );
+
+  // Sync status modal state
+  const [syncStatusOpen, setSyncStatusOpen] = useState(false);
+
   // Web Audio click / mechanical shutter sound synthesizer
   const playShutterSound = useCallback(() => {
-    if (!soundEnabled || typeof window === "undefined") return;
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
@@ -303,13 +324,22 @@ export function CameraScreen({
           onToggleAeAfLock={() => setAeAfLocked((v) => !v)}
         />
 
-        {/* Subtle retro camera frame watermark (only shown in banded mode so full-bleed stays clean) */}
-        {mode === "banded" && (
-          <div className="absolute inset-2 pointer-events-none border border-white/10 rounded-xl">
-            <div className="absolute top-1.5 left-1.5 w-3 h-3 border-t border-l border-amber-400/50" />
-            <div className="absolute top-1.5 right-1.5 w-3 h-3 border-t border-r border-amber-400/50" />
-            <div className="absolute bottom-1.5 left-1.5 w-3 h-3 border-b border-l border-amber-400/50" />
-            <div className="absolute bottom-1.5 right-1.5 w-3 h-3 border-b border-r border-amber-400/50" />
+        {/* Retro 4 Corner Brackets (always inside viewfinder, hidden in full-bleed 16:9) */}
+        <ViewfinderFrame visible={mode === "banded"} />
+
+        {/* L1 Floating Lens Chips (Floating over lower ~8% of viewfinder like iPhone) */}
+        {layout.density === "L1" && facing === "environment" && lenses.length > 1 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
+            <LensBar
+              lenses={lenses}
+              activeId={activeId}
+              zoomRange={zoomRange}
+              currentZoom={zoom}
+              digitalZoom={digitalZoom}
+              onSelectLens={chooseLens}
+              onSetZoom={setZoom}
+              onSetDigitalZoom={setDigitalZoom}
+            />
           </div>
         )}
 
@@ -327,17 +357,18 @@ export function CameraScreen({
       {/* PORTRAIT LAYOUT */}
       {!isLandscape && (
         <>
-          {/* Top Bar Zone */}
+          {/* Top Bar Zone (Strict 52px slim single row, NO overlap) */}
           <header
             style={{
-              paddingTop: "max(env(safe-area-inset-top), 8px)",
+              paddingTop: "max(env(safe-area-inset-top), 0px)",
+              height: `${layout.topBarHeight}px`,
               minHeight: `${layout.topBarHeight}px`,
+              maxHeight: `${layout.topBarHeight}px`,
             }}
-            className={`relative z-20 flex flex-col justify-center w-full transition-colors ${
+            className={`relative z-20 flex items-center w-full transition-colors ${
               mode === "banded" ? "bg-black" : "bg-gradient-to-b from-black/80 via-black/40 to-transparent"
             }`}
           >
-            {/* Top Bar Controls */}
             <CameraTopBar
               flashAvailable={hasHardwareFlash || facing === "user"}
               flashMode={flashMode}
@@ -346,47 +377,47 @@ export function CameraScreen({
               onChangeAspect={setCameraAspect}
               timerSeconds={timerSeconds}
               onChangeTimer={setTimerSeconds}
+              pendingCount={pendingCount}
+              onOpenSyncStatus={() => setSyncStatusOpen(true)}
               onOpenSettings={() => setSettingsOpen(true)}
               onNativeTipClick={() => setShowNativeFlashTip(true)}
               lang={lang}
             />
-
-            {/* Sync & Developing Pill */}
-            <div className="flex items-center justify-between px-4 mt-0.5 text-xs">
-              <ShotCounter shotsLeft={shotsLeft} lang={lang} />
-              {isProcessing ? (
-                <div className="px-2.5 py-0.5 rounded-full bg-amber-950/80 border border-amber-600/60 text-amber-200 font-mono text-[11px] flex items-center gap-1.5 animate-pulse">
-                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-ping" />
-                  {t(lang, "processing")}
-                </div>
-              ) : (
-                <SyncBadge pendingCount={pendingCount} lang={lang} />
-              )}
-            </div>
           </header>
 
           {/* Bottom Bar Zone */}
           <footer
             style={{
-              paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
+              paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
               minHeight: `${layout.bottomBarHeight}px`,
             }}
-            className={`relative z-20 flex flex-col items-center justify-end w-full px-4 gap-2 transition-colors ${
+            className={`relative z-20 flex flex-col items-center justify-between w-full px-4 pt-1 transition-colors ${
               mode === "banded" ? "bg-black" : "bg-gradient-to-t from-black/90 via-black/50 to-transparent"
             }`}
           >
-            {/* Look Dial Switcher */}
-            <div className="w-full flex justify-center">
+            {/* Transient Look Caption Toast above controls */}
+            <div className="h-5 flex items-center justify-center">
+              {lookCaption && (
+                <div className="px-3 py-0.5 rounded-full bg-amber-400 text-black font-mono text-[10px] font-bold uppercase tracking-wider animate-in fade-in zoom-in-95 duration-150 shadow-md">
+                  {lookCaption}
+                </div>
+              )}
+            </div>
+
+            {/* Look Dial Switcher (Short chips or collapsed drawer trigger) */}
+            <div className="w-full flex justify-center py-0.5">
               <LookDial
                 activeLook={activeLook}
-                onSelectLook={setActiveLook}
+                onSelectLook={handleSelectLook}
                 allowedLookIds={allowedLookIds}
+                isCollapsed={layout.density === "L2"}
+                onOpenLookDrawer={() => setLookDrawerOpen(true)}
               />
             </div>
 
-            {/* Lens Bar and Zoom Controls */}
-            <div className="flex items-center justify-center gap-2 w-full min-h-[36px]">
-              {facing === "environment" && (
+            {/* Lens Bar (Shown in bottom cluster for L0; in L1 it floats over viewfinder) */}
+            {layout.density === "L0" && facing === "environment" && (
+              <div className="flex items-center justify-center w-full min-h-[36px]">
                 <LensBar
                   lenses={lenses}
                   activeId={activeId}
@@ -397,50 +428,31 @@ export function CameraScreen({
                   onSetZoom={setZoom}
                   onSetDigitalZoom={setDigitalZoom}
                 />
-              )}
+              </div>
+            )}
 
-              {(!zoomRange || lenses.length <= 1) && (
-                <ZoomControl
-                  zoomRange={zoomRange}
-                  nativeZoom={zoom}
-                  onNativeZoomChange={setZoom}
-                  digitalZoom={digitalZoom}
-                  onDigitalZoomChange={setDigitalZoom}
-                  lang={lang}
-                />
-              )}
-            </div>
-
-            {/* Shutter Row with Native Camera and Flip Camera */}
-            <div className="flex items-center justify-between w-full max-w-sm px-4 pt-1">
-              {/* Guest Gallery Thumbnail or Native OS Camera Fallback */}
-              <div className="w-14 flex justify-start">
-                {guestId ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      triggerHaptic([20]);
-                      setGalleryOpen(true);
-                    }}
-                    aria-label={t(lang, "myPhotos")}
-                    className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-400/80 flex flex-col items-center justify-center text-zinc-300 hover:text-white transition active:scale-95 shadow-md relative overflow-hidden group cursor-pointer"
-                  >
-                    <span className="text-sm">🎞️</span>
-                    <span className="text-[9px] font-mono tracking-tighter text-amber-300">
-                      {rollCode ? rollCode.slice(0, 4) : "ROLL"}
-                    </span>
-                  </button>
-                ) : (
-                  <NativeCameraInput
-                    eventSlug={eventSlug}
-                    onFileSelected={onNativePhoto}
-                    lang={lang}
-                    variant="secondary"
-                  />
-                )}
+            {/* Shutter Row with Film Badge and Flip Camera */}
+            <div className="flex items-center justify-between w-full max-w-sm px-2 pt-1 pb-1">
+              {/* Left slot: Film Roll thumbnail with shots badge */}
+              <div className="w-16 flex justify-start">
+                <button
+                  type="button"
+                  onClick={() => {
+                    triggerHaptic([20]);
+                    setGalleryOpen(true);
+                  }}
+                  aria-label={t(lang, "myPhotos")}
+                  className="w-13 h-13 rounded-2xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-400/80 flex flex-col items-center justify-center text-zinc-300 hover:text-white transition active:scale-95 shadow-md relative overflow-hidden group cursor-pointer"
+                >
+                  <span className="text-base">🎞️</span>
+                  {/* Single Clean Film Shots Counter Badge */}
+                  <span className="absolute bottom-1 px-1.5 py-0.2 rounded-full bg-amber-400 text-black font-mono font-bold text-[9px] leading-tight shadow-sm">
+                    {shotsLeft}
+                  </span>
+                </button>
               </div>
 
-              {/* Shutter Button with Timer Countdown Ring */}
+              {/* Center slot: Shutter Button (78px with countdown ring) */}
               <ShutterButton
                 onShoot={handleShoot}
                 disabled={shotsLeft <= 0 || !live}
@@ -449,8 +461,8 @@ export function CameraScreen({
                 timerTotal={timerSeconds}
               />
 
-              {/* Flip Camera Button */}
-              <div className="w-14 flex justify-end">
+              {/* Right slot: Flip Camera Button (48x48 hit target) */}
+              <div className="w-16 flex justify-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -458,7 +470,7 @@ export function CameraScreen({
                     flip();
                   }}
                   aria-label={t(lang, "flip")}
-                  className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition-all active:scale-90 touch-manipulation shadow-md cursor-pointer"
+                  className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition-transform active:scale-90 touch-manipulation shadow-md cursor-pointer"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -482,10 +494,22 @@ export function CameraScreen({
       {/* LANDSCAPE LAYOUT (Side Rail on Right) */}
       {isLandscape && (
         <div className="absolute inset-0 z-20 flex justify-between pointer-events-none">
-          {/* Top Left info overlay */}
+          {/* Top Left film badge overlay */}
           <div className="p-4 flex items-center gap-3 pointer-events-auto">
-            <ShotCounter shotsLeft={shotsLeft} lang={lang} />
-            <SyncBadge pendingCount={pendingCount} lang={lang} />
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic([20]);
+                setGalleryOpen(true);
+              }}
+              aria-label={t(lang, "myPhotos")}
+              className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-300 relative"
+            >
+              <span className="text-sm">🎞️</span>
+              <span className="absolute bottom-0.5 px-1.5 py-0.2 rounded-full bg-amber-400 text-black font-mono font-bold text-[8px]">
+                {shotsLeft}
+              </span>
+            </button>
           </div>
 
           {/* Right-hand side control rail */}
@@ -506,6 +530,8 @@ export function CameraScreen({
                 onChangeAspect={setCameraAspect}
                 timerSeconds={timerSeconds}
                 onChangeTimer={setTimerSeconds}
+                pendingCount={pendingCount}
+                onOpenSyncStatus={() => setSyncStatusOpen(true)}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onNativeTipClick={() => setShowNativeFlashTip(true)}
                 lang={lang}
@@ -564,8 +590,99 @@ export function CameraScreen({
         onToggleMirrorFront={() => setMirrorFront((v) => !v)}
         soundEnabled={soundEnabled}
         onToggleSound={() => setSoundEnabled((v) => !v)}
+        rollCode={rollCode}
+        eventSlug={eventSlug}
         lang={lang}
       />
+
+      {/* Sync Status Sheet */}
+      {syncStatusOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-xs select-none">
+          <div className="flex-1" onClick={() => setSyncStatusOpen(false)} />
+          <div className="w-full max-w-md mx-auto bg-zinc-900 border-t border-zinc-700 rounded-t-3xl p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                {lang === "id" ? "Status Sinkronisasi" : "Upload & Sync Status"}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setSyncStatusOpen(false)}
+                className="p-1 rounded-full text-zinc-400 hover:text-white"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                </svg>
+              </button>
+            </div>
+            <div className="py-2 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center bg-zinc-800">
+                <span
+                  className={`w-4 h-4 rounded-full ${
+                    pendingCount > 0 ? "bg-amber-400 animate-pulse" : "bg-emerald-400"
+                  }`}
+                />
+              </div>
+              <p className="text-sm text-zinc-200 font-medium">
+                {pendingCount > 0
+                  ? t(lang, "pending", { n: pendingCount })
+                  : t(lang, "synced")}
+              </p>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                {pendingCount > 0
+                  ? lang === "id"
+                    ? "Foto sedang diunggah secara aman di latar belakang. Jangan tutup tab."
+                    : "Photos are being safely uploaded in the background. Keep this tab open."
+                  : lang === "id"
+                    ? "Semua foto telah tersimpan dengan aman."
+                    : "All captured photos are safely synced."}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSyncStatusOpen(false)}
+              className="w-full py-2.5 rounded-xl bg-zinc-800 text-white font-medium text-xs hover:bg-zinc-700 active:scale-95 transition-all"
+            >
+              {t(lang, "close")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* L2 Density: Film Look Bottom Drawer */}
+      {lookDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-xs select-none">
+          <div className="flex-1" onClick={() => setLookDrawerOpen(false)} />
+          <div className="w-full max-w-md mx-auto bg-zinc-900 border-t border-zinc-700 rounded-t-3xl p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                {lang === "id" ? "Pilih Filter Film" : "Select Film Look"}
+              </h2>
+              <button
+                type="button"
+                onClick={() => setLookDrawerOpen(false)}
+                className="p-1 rounded-full text-zinc-400 hover:text-white"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
+                </svg>
+              </button>
+            </div>
+            <div className="py-2">
+              <div className="w-full">
+                <LookDial
+                  activeLook={activeLook}
+                  onSelectLook={(l) => {
+                    handleSelectLook(l);
+                    setLookDrawerOpen(false);
+                  }}
+                  allowedLookIds={allowedLookIds}
+                  isCollapsed={false}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Retro Review & Print Develop Modal (Keep vs Retake) */}
       {reviewBlobs && (

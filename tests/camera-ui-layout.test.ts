@@ -4,10 +4,12 @@ import type { CameraAspect } from "@/lib/imaging/geometry";
 
 describe("Camera Viewport Layout Engine", () => {
   const viewports = [
-    { name: "iPhone SE (compact)", w: 320, h: 568, safe: { top: 20, bottom: 0, left: 0, right: 0 } },
-    { name: "iPhone 8/Standard", w: 375, h: 667, safe: { top: 20, bottom: 0, left: 0, right: 0 } },
+    { name: "Android Chrome (toolbar visible)", w: 412, h: 802, safe: { top: 0, bottom: 0, left: 0, right: 0 } },
+    { name: "Android Chrome (toolbar hidden)", w: 412, h: 858, safe: { top: 0, bottom: 0, left: 0, right: 0 } },
     { name: "iPhone 13/14 Pro", w: 390, h: 844, safe: { top: 47, bottom: 34, left: 0, right: 0 } },
     { name: "iPhone 15/16 Pro Max", w: 430, h: 932, safe: { top: 59, bottom: 34, left: 0, right: 0 } },
+    { name: "Budget Android (compact)", w: 360, h: 640, safe: { top: 24, bottom: 0, left: 0, right: 0 } },
+    { name: "iPhone SE (compact)", w: 375, h: 667, safe: { top: 20, bottom: 0, left: 0, right: 0 } },
     { name: "Galaxy S24 (20:9 tall)", w: 412, h: 915, safe: { top: 32, bottom: 16, left: 0, right: 0 } },
     { name: "iPad Portrait", w: 768, h: 1024, safe: { top: 24, bottom: 20, left: 0, right: 0 } },
     { name: "Desktop Wide", w: 1200, h: 900, safe: { top: 0, bottom: 0, left: 0, right: 0 } },
@@ -17,7 +19,7 @@ describe("Camera Viewport Layout Engine", () => {
 
   for (const vp of viewports) {
     for (const asp of aspects) {
-      it(`computes valid non-NaN geometry for ${vp.name} with aspect ${asp}`, () => {
+      it(`computes valid non-NaN geometry and strict bounds for ${vp.name} with aspect ${asp}`, () => {
         const layout: ViewportLayout = calculateLayout(vp.w, vp.h, asp, vp.safe);
 
         expect(layout.width).toBe(vp.w);
@@ -38,29 +40,54 @@ describe("Camera Viewport Layout Engine", () => {
         expect(layout.viewfinderRect.left + layout.viewfinderRect.width).toBeLessThanOrEqual(vp.w + 1);
         expect(layout.viewfinderRect.top + layout.viewfinderRect.height).toBeLessThanOrEqual(vp.h + 1);
 
-        // Control bands must reserve required minimums
+        // Frame aspect ratio precision checks
+        const measuredRatio = layout.viewfinderRect.width / layout.viewfinderRect.height;
         if (!layout.isLandscape) {
-          expect(layout.topBarHeight).toBeGreaterThanOrEqual(50);
-          expect(layout.bottomBarHeight).toBeGreaterThanOrEqual(140);
-        } else {
-          expect(layout.bottomBarHeight).toBeGreaterThanOrEqual(90);
+          if (asp === "3:4") {
+            expect(Math.abs(measuredRatio - 0.75)).toBeLessThan(0.006);
+          } else if (asp === "1:1") {
+            expect(Math.abs(measuredRatio - 1.0)).toBeLessThan(0.005);
+          } else if (asp === "16:9") {
+            expect(Math.abs(measuredRatio - 9 / 16)).toBeLessThan(0.01);
+          }
+        }
+
+        // NO INTERSECTION: in portrait banded mode, top bar must not overlap the viewfinder
+        if (!layout.isLandscape && layout.mode === "banded") {
+          expect(layout.viewfinderRect.top).toBeGreaterThanOrEqual(layout.topBarHeight);
         }
       });
     }
   }
+
+  it("assigns appropriate density level for reference viewports", () => {
+    // 412x802 Android Chrome toolbar visible has ~201px bottom space => L0
+    const l412x802 = calculateLayout(412, 802, "3:4", { top: 0, bottom: 0, left: 0, right: 0 });
+    expect(l412x802.density).toBe("L0");
+
+    // 412x858 Android Chrome toolbar hidden has ~257px bottom space => L0
+    const l412x858 = calculateLayout(412, 858, "3:4", { top: 0, bottom: 0, left: 0, right: 0 });
+    expect(l412x858.density).toBe("L0");
+
+    // 390x844 iPhone 14 Pro has ~225px bottom space => L0
+    const l390x844 = calculateLayout(390, 844, "3:4", { top: 47, bottom: 34, left: 0, right: 0 });
+    expect(l390x844.density).toBe("L0");
+
+    // 360x640 Budget Android has ~108px bottom space => L2
+    const l360x640 = calculateLayout(360, 640, "3:4", { top: 0, bottom: 0, left: 0, right: 0 });
+    expect(l360x640.density).toBe("L2");
+  });
 
   it("handles landscape orientation with right-hand side rail", () => {
     const layout = calculateLayout(844, 390, "3:4", { top: 0, bottom: 0, left: 47, right: 34 });
     expect(layout.isLandscape).toBe(true);
     expect(layout.viewfinderRect.width).toBeGreaterThan(0);
     expect(layout.viewfinderRect.height).toBeGreaterThan(0);
-    // Rail width is assigned to bottomBarHeight in landscape
-    expect(layout.bottomBarHeight).toBe(100);
-    expect(layout.viewfinderRect.left + layout.viewfinderRect.width).toBeLessThanOrEqual(844 - 100 + 1);
+    expect(layout.bottomBarHeight).toBeGreaterThanOrEqual(96);
+    expect(layout.viewfinderRect.left + layout.viewfinderRect.width).toBeLessThanOrEqual(844 - 96 + 1);
   });
 
   it("chooses full-bleed mode for 16:9 aspect on modern tall smartphones", () => {
-    // iPhone 14 Pro aspect 390x844 with aspect 16:9 (390 * 16/9 = 693.3px)
     const layout = calculateLayout(390, 844, "16:9", { top: 47, bottom: 34, left: 0, right: 0 });
     expect(layout.mode).toBe("full-bleed");
     expect(layout.viewfinderRect.height).toBeGreaterThan(680);
