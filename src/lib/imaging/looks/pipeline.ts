@@ -571,6 +571,14 @@ export class LookEnginePipeline {
   private uDebugStageLoc: WebGLUniformLocation | null = null;
   private uDebugOverlayLoc: WebGLUniformLocation | null = null;
 
+  // Cached buffers & dirty checking state to prevent per-frame allocations and uniform churn
+  private cachedDyeMatrix = new Float32Array(9);
+  private cachedHueNodes = new Float32Array(24 * 4);
+  private lastUploadedLookId: string | null = null;
+  private lastUploadedIntensity: number | null = null;
+  private lastUploadedWhiteProtect: boolean | null = null;
+  private lastUploadedDisableGrain: boolean | null = null;
+
   constructor(private canvas: HTMLCanvasElement) {
     this.canvas.addEventListener("webglcontextlost", this.handleContextLost, false);
     this.canvas.addEventListener("webglcontextrestored", this.handleContextRestored, false);
@@ -581,10 +589,12 @@ export class LookEnginePipeline {
     e.preventDefault();
     console.warn("Look Engine WebGL2 context lost");
     this.gl = null;
+    this.lastUploadedLookId = null;
   };
 
   private handleContextRestored = () => {
     console.info("Look Engine WebGL2 context restored. Rebuilding shaders.");
+    this.lastUploadedLookId = null;
     this.initWebGL();
   };
 
@@ -732,88 +742,113 @@ export class LookEnginePipeline {
     const cr = options.cropRect ?? { x: 0, y: 0, width: 1, height: 1 };
     gl.uniform4f(this.uCropRectLoc, cr.x, cr.y, cr.width, cr.height);
 
-    // 1. Lens Model
-    const lens = look.lens;
-    gl.uniform2f(this.uRadialBlurLoc, lens?.radialBlur?.r0 ?? 0, lens?.radialBlur?.r1 ?? 0);
-    gl.uniform1f(this.uCaLoc, lens?.chromaticAberration ?? 0);
-    gl.uniform1f(this.uDistortionLoc, lens?.distortion ?? 0);
-    const vig = lens?.vignette ?? look.vignette;
-    gl.uniform4f(this.uVigLoc, vig.strength, vig.radius, vig.softness, vig.curvature ?? 4.0);
-    const bloom = lens?.bloom ?? look.bloom;
-    gl.uniform4f(this.uBloomLoc, bloom.threshold, bloom.strength, bloom.radius, 0.0);
-    const halation = lens?.halation ?? look.halation;
-    gl.uniform4f(this.uHalationLoc, halation.threshold, halation.strength, halation.radius, halation.tint ? 1.0 : 0.0);
-    const hTint = halation.tint ?? [1.0, 0.4, 0.15];
-    gl.uniform3f(this.uHalationTintLoc, hTint[0], hTint[1], hTint[2]);
-
-    // 2. Film Response
-    const resp = look.response;
-    gl.uniform1f(this.uExpLoc, resp?.exposureEV ?? look.exposureEV);
-    const matrix: Matrix3x3 = resp?.dyeMatrix ?? look.matrix ?? [1, 0, 0, 0, 1, 0, 0, 0, 1];
-    gl.uniformMatrix3fv(this.uDyeMatrixLoc, false, new Float32Array(matrix));
-
-    const curveR = resp?.curveR ?? look.curve;
-    const curveG = resp?.curveG ?? look.curve;
-    const curveB = resp?.curveB ?? look.curve;
-    gl.uniform4f(this.uCurveRLoc, curveR.contrast, curveR.pivot, curveR.toe, curveR.shoulder);
-    gl.uniform4f(this.uCurveGLoc, curveG.contrast, curveG.pivot, curveG.toe, curveG.shoulder);
-    gl.uniform4f(this.uCurveBLoc, curveB.contrast, curveB.pivot, curveB.toe, curveB.shoulder);
-    gl.uniform1i(this.uShoulderTypeLoc, (curveR.type ?? look.curve?.type) === "hard" ? 1 : 0);
-    gl.uniform1f(this.uLocalContrastLoc, resp?.localContrast ?? 0.0);
-    gl.uniform1f(this.uEffectiveLinesLoc, resp?.effectiveLines ?? 2000.0);
-
-    const flash = resp?.flashFalloff ?? look.flashFalloff;
-    gl.uniform4f(this.uFlashLoc, flash.strength, flash.radius, flash.centerX ?? 0.5, flash.centerY ?? 0.5);
-
-    // 3. OKLCH Color Grading
-    const col = look.color;
-    // Pack 24 hue nodes
-    const packedHue = new Float32Array(24 * 4);
-    const hueTable = col?.hueTable ?? [];
-    for (let i = 0; i < 24; i++) {
-      const node = hueTable[i];
-      packedHue[i * 4 + 0] = node ? node.hue : (i * 360) / 24;
-      packedHue[i * 4 + 1] = node ? node.dHue : 0.0;
-      packedHue[i * 4 + 2] = node ? node.dChroma : 1.0;
-      packedHue[i * 4 + 3] = node ? node.dLightness : 0.0;
-    }
-    gl.uniform4fv(this.uHueNodesLoc, packedHue);
-
-    const skin = col?.skinProtection;
-    gl.uniform4f(
-      this.uSkinProtectLoc,
-      skin?.enabled ? 1.0 : 0.0,
-      skin?.minHue ?? 20.0,
-      skin?.maxHue ?? 55.0,
-      skin?.strength ?? 0.75
-    );
-    gl.uniform1f(this.uSatLoc, col?.saturation ?? look.saturation);
-    gl.uniform2f(
-      this.uBrightSatLoc,
-      col?.brightSatCurve?.shadowBoost ?? 0.1,
-      col?.brightSatCurve?.highlightDesat ?? 0.3
-    );
-    gl.uniform1f(this.uHighlightWarmthLoc, col?.highlightWarmth ?? 0.15);
-    const sTint = col?.shadowTint ?? [0.0, 0.0, 0.0];
-    gl.uniform3f(this.uShadowTintLoc, sTint[0], sTint[1], sTint[2]);
-    gl.uniform1f(this.uWhiteProtectLoc, (options.whiteProtect ?? look.whiteProtect ?? true) ? 1.0 : 0.0);
-
-    // 4. Emulsion Artifacts
-    const grain = look.emulsion?.grain ?? look.grain;
-    const grainAmt = options.disableAnimatedGrain && !options.isCapture ? grain.amount * 0.7 : grain.amount;
-    gl.uniform4f(this.uGrainLoc, grainAmt, grain.size, grain.roughness, grain.chroma);
-    gl.uniform1f(this.uGrainExpSensLoc, grain.exposureSensitivity ?? 0.5);
-    gl.uniform1f(this.uSceneExpLoc, options.sceneExposure ?? 0.5);
-
-    // Runtime intensity & Debug Controls
+    // Runtime intensity & flags
     const intensityVal = options.intensity ?? look.intensity ?? (options.isNativeCamera ? 0.7 : 1.0);
-    gl.uniform1f(this.uIntensityLoc, intensityVal);
+    const whiteProtectVal = (options.whiteProtect ?? look.whiteProtect ?? true) ? 1.0 : 0.0;
+    const disableGrainVal = !!options.disableAnimatedGrain;
+
+    // Check if static look uniforms need re-upload (look recipe changed, capture snapshot, or flags changed)
+    const needsStaticUpload =
+      options.isCapture ||
+      this.lastUploadedLookId !== look.id ||
+      this.lastUploadedIntensity !== intensityVal ||
+      this.lastUploadedWhiteProtect !== (whiteProtectVal === 1.0) ||
+      this.lastUploadedDisableGrain !== disableGrainVal;
+
+    if (needsStaticUpload) {
+      // 1. Lens Model
+      const lens = look.lens;
+      gl.uniform2f(this.uRadialBlurLoc, lens?.radialBlur?.r0 ?? 0, lens?.radialBlur?.r1 ?? 0);
+      gl.uniform1f(this.uCaLoc, lens?.chromaticAberration ?? 0);
+      gl.uniform1f(this.uDistortionLoc, lens?.distortion ?? 0);
+      const vig = lens?.vignette ?? look.vignette;
+      gl.uniform4f(this.uVigLoc, vig.strength, vig.radius, vig.softness, vig.curvature ?? 4.0);
+      const bloom = lens?.bloom ?? look.bloom;
+      gl.uniform4f(this.uBloomLoc, bloom.threshold, bloom.strength, bloom.radius, 0.0);
+      const halation = lens?.halation ?? look.halation;
+      gl.uniform4f(this.uHalationLoc, halation.threshold, halation.strength, halation.radius, halation.tint ? 1.0 : 0.0);
+      const hTint = halation.tint ?? [1.0, 0.4, 0.15];
+      gl.uniform3f(this.uHalationTintLoc, hTint[0], hTint[1], hTint[2]);
+
+      // 2. Film Response
+      const resp = look.response;
+      gl.uniform1f(this.uExpLoc, resp?.exposureEV ?? look.exposureEV);
+      const matrix: Matrix3x3 = resp?.dyeMatrix ?? look.matrix ?? [1, 0, 0, 0, 1, 0, 0, 0, 1];
+      this.cachedDyeMatrix.set(matrix);
+      gl.uniformMatrix3fv(this.uDyeMatrixLoc, false, this.cachedDyeMatrix);
+
+      const curveR = resp?.curveR ?? look.curve;
+      const curveG = resp?.curveG ?? look.curve;
+      const curveB = resp?.curveB ?? look.curve;
+      gl.uniform4f(this.uCurveRLoc, curveR.contrast, curveR.pivot, curveR.toe, curveR.shoulder);
+      gl.uniform4f(this.uCurveGLoc, curveG.contrast, curveG.pivot, curveG.toe, curveG.shoulder);
+      gl.uniform4f(this.uCurveBLoc, curveB.contrast, curveB.pivot, curveB.toe, curveB.shoulder);
+      gl.uniform1i(this.uShoulderTypeLoc, (curveR.type ?? look.curve?.type) === "hard" ? 1 : 0);
+      gl.uniform1f(this.uLocalContrastLoc, resp?.localContrast ?? 0.0);
+      gl.uniform1f(this.uEffectiveLinesLoc, resp?.effectiveLines ?? 2000.0);
+
+      const flash = resp?.flashFalloff ?? look.flashFalloff;
+      gl.uniform4f(this.uFlashLoc, flash.strength, flash.radius, flash.centerX ?? 0.5, flash.centerY ?? 0.5);
+
+      // 3. OKLCH Color Grading
+      const col = look.color;
+      const hueTable = col?.hueTable ?? [];
+      for (let i = 0; i < 24; i++) {
+        const node = hueTable[i];
+        this.cachedHueNodes[i * 4 + 0] = node ? node.hue : (i * 360) / 24;
+        this.cachedHueNodes[i * 4 + 1] = node ? node.dHue : 0.0;
+        this.cachedHueNodes[i * 4 + 2] = node ? node.dChroma : 1.0;
+        this.cachedHueNodes[i * 4 + 3] = node ? node.dLightness : 0.0;
+      }
+      gl.uniform4fv(this.uHueNodesLoc, this.cachedHueNodes);
+
+      const skin = col?.skinProtection;
+      gl.uniform4f(
+        this.uSkinProtectLoc,
+        skin?.enabled ? 1.0 : 0.0,
+        skin?.minHue ?? 20.0,
+        skin?.maxHue ?? 55.0,
+        skin?.strength ?? 0.75
+      );
+      gl.uniform1f(this.uSatLoc, col?.saturation ?? look.saturation);
+      gl.uniform2f(
+        this.uBrightSatLoc,
+        col?.brightSatCurve?.shadowBoost ?? 0.1,
+        col?.brightSatCurve?.highlightDesat ?? 0.3
+      );
+      gl.uniform1f(this.uHighlightWarmthLoc, col?.highlightWarmth ?? 0.15);
+      const sTint = col?.shadowTint ?? [0.0, 0.0, 0.0];
+      gl.uniform3f(this.uShadowTintLoc, sTint[0], sTint[1], sTint[2]);
+      gl.uniform1f(this.uWhiteProtectLoc, whiteProtectVal);
+
+      // 4. Emulsion Artifacts
+      const grain = look.emulsion?.grain ?? look.grain;
+      const grainAmt = options.disableAnimatedGrain && !options.isCapture ? grain.amount * 0.7 : grain.amount;
+      gl.uniform4f(this.uGrainLoc, grainAmt, grain.size, grain.roughness, grain.chroma);
+      gl.uniform1f(this.uGrainExpSensLoc, grain.exposureSensitivity ?? 0.5);
+      gl.uniform1f(this.uSceneExpLoc, options.sceneExposure ?? 0.5);
+
+      gl.uniform1f(this.uIntensityLoc, intensityVal);
+
+      if (!options.isCapture) {
+        this.lastUploadedLookId = look.id;
+        this.lastUploadedIntensity = intensityVal;
+        this.lastUploadedWhiteProtect = whiteProtectVal === 1.0;
+        this.lastUploadedDisableGrain = disableGrainVal;
+      }
+    }
+
+    // Dynamic Debug Controls
     gl.uniform1i(this.uDebugStageLoc, options.debugStage ?? 0);
     gl.uniform1i(this.uDebugOverlayLoc, options.debugOverlay ? 1 : 0);
 
     // Draw full-screen quad
     gl.drawArrays(gl.TRIANGLES, 0, 6);
-    gl.finish();
+
+    // Only synchronize during capture if readback is imminent, never during live preview loop
+    if (options.isCapture) {
+      gl.finish();
+    }
     return true;
   }
 

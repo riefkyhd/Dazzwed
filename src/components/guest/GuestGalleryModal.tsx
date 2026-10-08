@@ -33,17 +33,31 @@ export function GuestGalleryModal({
   useEffect(() => {
     if (!isOpen || !guestId) return;
     let isMounted = true;
+    let loadedPhotos: GalleryPhoto[] = [];
     setLoading(true);
 
     void getGuestGalleryPhotos(guestId).then((items) => {
       if (isMounted) {
+        loadedPhotos = items;
         setPhotos(items);
         setLoading(false);
+      } else {
+        // If unmounted before fetch completed, revoke immediately
+        items.forEach((p) => {
+          if (p.thumbnailUrl?.startsWith("blob:")) {
+            URL.revokeObjectURL(p.thumbnailUrl);
+          }
+        });
       }
     });
 
     return () => {
       isMounted = false;
+      loadedPhotos.forEach((p) => {
+        if (p.thumbnailUrl?.startsWith("blob:")) {
+          URL.revokeObjectURL(p.thumbnailUrl);
+        }
+      });
     };
   }, [isOpen, guestId]);
 

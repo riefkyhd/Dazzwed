@@ -41,6 +41,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
   const animFrameRef = useRef<number | null>(null);
   const frameTimes = useRef<number[]>([]);
   const isFrozenRef = useRef(false);
+  const lastFpsUpdateRef = useRef<number>(0);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<CameraErrorKind | null>(null);
@@ -307,7 +308,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
             frameTimes.current.push(1000 / delta);
             if (frameTimes.current.length > 30) frameTimes.current.shift();
             const avg = frameTimes.current.reduce((a, b) => a + b, 0) / frameTimes.current.length;
-            setMeasuredFps(Math.round(avg));
+
+            // Throttle React state update to at most once per 2.5s to prevent 60Hz component re-render churn
+            if (now - lastFpsUpdateRef.current > 2500) {
+              lastFpsUpdateRef.current = now;
+              setMeasuredFps(Math.round(avg));
+            }
 
             // Performance degradation ladder:
             // 1. animated grain off (< 24 fps)
