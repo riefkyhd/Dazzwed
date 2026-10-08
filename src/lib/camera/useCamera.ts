@@ -40,6 +40,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
   const lookPipelineRef = useRef<LookEnginePipeline | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const frameTimes = useRef<number[]>([]);
+  const isFrozenRef = useRef(false);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<CameraErrorKind | null>(null);
@@ -236,6 +237,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
       stopStream(streamRef.current);
       streamRef.current = null;
       setStream(null);
+      isFrozenRef.current = false;
     };
   }, [enabled, facing, lensChoice]);
 
@@ -291,6 +293,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
 
         const renderLoop = (now: DOMHighResTimeStamp) => {
           if (destroyed) return;
+
+          // If viewfinder is frozen for capture / review, pause frame updates on canvas
+          if (isFrozenRef.current) {
+            animFrameRef.current = requestAnimationFrame(renderLoop);
+            return;
+          }
 
           // Measure fps over rolling window
           const delta = now - lastTime;
@@ -405,11 +413,16 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
     [exposureCompRange]
   );
 
+  const unfreezeViewfinder = useCallback(() => {
+    isFrozenRef.current = false;
+  }, []);
+
   const capture = useCallback(
     async (
       aspectOverride?: CameraAspect,
       shotSeed = Math.floor(Math.random() * 100000),
-      mirrorOverride?: boolean
+      mirrorOverride?: boolean,
+      onFilteredReady?: (blob: Blob) => void
     ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
       const v = videoRef.current;
       const track = streamRef.current?.getVideoTracks()[0];
@@ -427,32 +440,57 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         shouldFireFlash = luminance < 0.28;
       }
 
-      const performRender = async (): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
-        const [filteredBlob, originalBlob] = await Promise.all([
-          renderShot(v, {
-            zoom: zoomRange ? 1 : digitalZoom,
-            aspect: targetAspect,
-            applyFilter: true,
-            look: activeLook,
-            seed: shotSeed,
-            mirror: isMirrored,
-          }),
-          renderShot(v, {
-            zoom: zoomRange ? 1 : digitalZoom,
-            aspect: targetAspect,
-            applyFilter: false,
-            mirror: isMirrored,
-          }),
-        ]);
-        return { filteredBlob, originalBlob };
-      };
+      // Freeze viewfinder immediately so the screen holds the exact captured frame
+      isFrozenRef.current = true;
 
-      // Rear camera with torch support: pulse torch strictly during capture
+      // Acquire frame snapshot (~45ms on modern mobile)
+      let frozenSource: ImageBitmap | HTMLVideoElement = v;
       if (shouldFireFlash && facing === "environment" && track && hasTorch(track)) {
-        return await pulseTorch(track, performRender);
+        frozenSource = await pulseTorch(track, async () => {
+          return typeof createImageBitmap === "function" ? await createImageBitmap(v) : v;
+        });
+      } else {
+        try {
+          if (typeof createImageBitmap === "function") {
+            frozenSource = await createImageBitmap(v);
+          }
+        } catch {
+          frozenSource = v;
+        }
       }
 
-      return await performRender();
+      try {
+        // Phase 1: Fast filtered render for instantaneous review modal display (~250ms)
+        const filteredBlob = await renderShot(frozenSource, {
+          zoom: zoomRange ? 1 : digitalZoom,
+          aspect: targetAspect,
+          applyFilter: true,
+          look: activeLook,
+          seed: shotSeed,
+          mirror: isMirrored,
+          maxEdge: 2048,
+          quality: 0.88,
+        });
+
+        // Notify caller as soon as filtered image is ready so ReviewModal can appear immediately!
+        onFilteredReady?.(filteredBlob);
+
+        // Phase 2: Render clean unedited backup original in background
+        const originalBlob = await renderShot(frozenSource, {
+          zoom: zoomRange ? 1 : digitalZoom,
+          aspect: targetAspect,
+          applyFilter: false,
+          mirror: isMirrored,
+          maxEdge: 2560,
+          quality: 0.90,
+        });
+
+        return { filteredBlob, originalBlob };
+      } finally {
+        if (frozenSource instanceof ImageBitmap) {
+          frozenSource.close();
+        }
+      }
     },
     [zoomRange, digitalZoom, cameraAspect, activeLook, flashMode, facing]
   );
@@ -495,6 +533,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
     flashMode,
     setFlashMode,
     capture,
+    unfreezeViewfinder,
     retry: () => void runRef.current(),
     hasTrack: () => !!streamRef.current?.getVideoTracks()[0],
   };

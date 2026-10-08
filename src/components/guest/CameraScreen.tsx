@@ -78,6 +78,7 @@ export function CameraScreen({
     exposureCompSupported,
     exposureCompValue,
     setExposureCompensation,
+    unfreezeViewfinder,
   } = useCamera(true, defaultLookId);
 
   // Responsive Layout Engine
@@ -177,26 +178,40 @@ export function CameraScreen({
     if (shotsLeft <= 0 || isProcessing || !live || isExecutingCaptureRef.current) return;
     isExecutingCaptureRef.current = true;
 
+    // Instant sensory feedback (0ms)
     triggerHaptic([40]);
     playShutterSound();
 
-    // If front camera and flash enabled (or auto), trigger warm-white screen flash
+    // If front camera and flash enabled (or auto), trigger warm-white screen flash (80ms)
     const shouldFrontFlash = facing === "user" && flashMode !== "off";
     if (shouldFrontFlash) {
       setIsScreenFlashActive(true);
-      await new Promise((r) => setTimeout(r, 220));
+      await new Promise((r) => setTimeout(r, 80));
+    } else {
+      // Shutter lag sync: 50ms (0.05s) wait time for mechanical shutter curtain snap
+      await new Promise((r) => setTimeout(r, 50));
     }
 
+    // Shutter curtain snap animation
     setIsShutterActive(true);
     setTimeout(() => setIsShutterActive(false), 180);
 
     try {
       setIsProcessing(true);
       const isMirrored = facing === "user" && mirrorFront;
-      const { filteredBlob, originalBlob } = await capture(cameraAspect, undefined, isMirrored);
-      setReviewBlobs({ filteredBlob, originalBlob });
+      const { filteredBlob, originalBlob } = await capture(
+        cameraAspect,
+        undefined,
+        isMirrored,
+        (fastFilteredBlob) => {
+          // Instant ReviewModal pop-up (~250-300ms)
+          setReviewBlobs({ filteredBlob: fastFilteredBlob });
+        }
+      );
+      setReviewBlobs((prev) => (prev ? { ...prev, originalBlob } : { filteredBlob, originalBlob }));
     } catch (err) {
       console.error("Capture error:", err);
+      unfreezeViewfinder();
       showToast(t(lang, "captureFailed"));
       triggerHaptic([100, 50, 100]);
     } finally {
@@ -204,7 +219,7 @@ export function CameraScreen({
       setIsScreenFlashActive(false);
       isExecutingCaptureRef.current = false;
     }
-  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, flashMode, mirrorFront, showToast, lang]);
+  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, flashMode, mirrorFront, showToast, lang, unfreezeViewfinder]);
 
   // Shutter button trigger with timer countdown
   const handleShoot = () => {
@@ -244,12 +259,14 @@ export function CameraScreen({
   const handleKeepPhoto = async () => {
     if (!reviewBlobs) return;
     const toSave = reviewBlobs;
+    unfreezeViewfinder();
     // Keep reviewBlobs visible until onShotCaptured finishes successfully
     await onShotCaptured(toSave.filteredBlob, toSave.originalBlob);
     setReviewBlobs(null);
   };
 
   const handleRetakePhoto = () => {
+    unfreezeViewfinder();
     setReviewBlobs(null);
   };
 

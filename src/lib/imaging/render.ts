@@ -98,8 +98,8 @@ export async function renderShot(
   {
     zoom = 1,
     aspect,
-    maxEdge = 4096,
-    quality = 0.92,
+    maxEdge = 2560,
+    quality = 0.90,
     applyFilter = true,
     look = DISPOSABLE_400_LOOK,
     seed = 42,

@@ -68,7 +68,7 @@ export async function pulseTorch<T>(
   captureAction: () => Promise<T>,
   options: { maxStabilizeMs?: number } = {}
 ): Promise<T> {
-  const maxWait = options.maxStabilizeMs ?? 350;
+  const maxWait = options.maxStabilizeMs ?? 80;
 
   // Respect minimum LED cooldown interval
   const now = Date.now();
@@ -82,8 +82,8 @@ export async function pulseTorch<T>(
   lastTorchPulseTime = Date.now();
 
   try {
-    // Wait brief moment for exposure/sensor auto-gain to adapt to illumination
-    await new Promise((r) => setTimeout(r, Math.min(400, maxWait)));
+    // Wait brief moment for exposure/sensor auto-gain to adapt to illumination (80ms)
+    await new Promise((r) => setTimeout(r, Math.min(80, maxWait)));
     return await captureAction();
   } finally {
     // ALWAYS turn torch off
