@@ -45,6 +45,8 @@ const en = {
   close: "Close",
   keep: "Keep Photo",
   retake: "Retake",
+  captureFailed: "Unable to capture photo. Please try again.",
+  keepFailed: "Could not save photo to device. Tap to retry.",
   // Roll restoration & Gallery
   continueRoll: "Already took photos? Continue my roll",
   restoreTitle: "Continue Your Film Roll",
@@ -111,6 +113,8 @@ const id: Dict = {
   close: "Tutup",
   keep: "Simpan Foto",
   retake: "Foto Ulang",
+  captureFailed: "Gagal mengambil foto. Silakan coba lagi.",
+  keepFailed: "Gagal menyimpan foto ke perangkat. Ketuk untuk coba lagi.",
   // Roll restoration & Gallery
   continueRoll: "Sudah pernah foto? Lanjutkan roll saya",
   restoreTitle: "Lanjutkan Roll Film",

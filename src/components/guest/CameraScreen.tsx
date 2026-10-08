@@ -159,9 +159,23 @@ export function CameraScreen({
     }
   }, [soundEnabled]);
 
-  // Actual capture execution
+  // Transient Capture / System feedback toast
+  const [captureToast, setCaptureToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isExecutingCaptureRef = useRef(false);
+
+  const showToast = useCallback((msg: string, duration = 3000) => {
+    setCaptureToast(msg);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      setCaptureToast(null);
+    }, duration);
+  }, []);
+
+  // Actual capture execution with fail-safe error handling
   const executeCapture = useCallback(async () => {
-    if (shotsLeft <= 0 || isProcessing || !live) return;
+    if (shotsLeft <= 0 || isProcessing || !live || isExecutingCaptureRef.current) return;
+    isExecutingCaptureRef.current = true;
 
     triggerHaptic([40]);
     playShutterSound();
@@ -183,15 +197,18 @@ export function CameraScreen({
       setReviewBlobs({ filteredBlob, originalBlob });
     } catch (err) {
       console.error("Capture error:", err);
+      showToast(t(lang, "captureFailed"));
+      triggerHaptic([100, 50, 100]);
     } finally {
       setIsProcessing(false);
       setIsScreenFlashActive(false);
+      isExecutingCaptureRef.current = false;
     }
-  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, flashMode, mirrorFront]);
+  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, flashMode, mirrorFront, showToast, lang]);
 
   // Shutter button trigger with timer countdown
   const handleShoot = () => {
-    if (shotsLeft <= 0 || isProcessing || !live) return;
+    if (shotsLeft <= 0 || isProcessing || !live || isExecutingCaptureRef.current) return;
 
     if (timerCountdown > 0) {
       // Cancel active countdown
@@ -227,8 +244,9 @@ export function CameraScreen({
   const handleKeepPhoto = async () => {
     if (!reviewBlobs) return;
     const toSave = reviewBlobs;
-    setReviewBlobs(null);
+    // Keep reviewBlobs visible until onShotCaptured finishes successfully
     await onShotCaptured(toSave.filteredBlob, toSave.originalBlob);
+    setReviewBlobs(null);
   };
 
   const handleRetakePhoto = () => {
@@ -268,7 +286,7 @@ export function CameraScreen({
     <div className="relative w-full h-dvh bg-black overflow-hidden select-none touch-manipulation flex flex-col justify-between">
       {/* Warm-white front camera screen flash overlay */}
       <div
-        className={`fixed inset-0 z-50 pointer-events-none transition-opacity duration-150 bg-[#fff9ea] ${
+        className={`fixed inset-0 z-45 pointer-events-none transition-opacity duration-150 bg-[#fff9ea] ${
           isScreenFlashActive ? "opacity-100" : "opacity-0"
         }`}
       />
@@ -395,13 +413,17 @@ export function CameraScreen({
               mode === "banded" ? "bg-black" : "bg-gradient-to-t from-black/90 via-black/50 to-transparent"
             }`}
           >
-            {/* Transient Look Caption Toast above controls */}
+            {/* Transient Look Caption or Capture Error Toast above controls */}
             <div className="h-5 flex items-center justify-center">
-              {lookCaption && (
+              {captureToast ? (
+                <div className="px-3 py-0.5 rounded-full bg-red-500 text-white font-mono text-[10px] font-bold tracking-wider animate-in fade-in zoom-in-95 duration-150 shadow-md">
+                  {captureToast}
+                </div>
+              ) : lookCaption ? (
                 <div className="px-3 py-0.5 rounded-full bg-amber-400 text-black font-mono text-[10px] font-bold uppercase tracking-wider animate-in fade-in zoom-in-95 duration-150 shadow-md">
                   {lookCaption}
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Look Dial Switcher (Short chips or collapsed drawer trigger) */}
@@ -688,6 +710,10 @@ export function CameraScreen({
       {reviewBlobs && (
         <ReviewModal
           photoBlob={reviewBlobs.filteredBlob}
+          aspect={cameraAspect}
+          lookName={activeLook.name}
+          shotsLeft={shotsLeft}
+          totalShots={totalShots}
           lang={lang}
           onKeep={handleKeepPhoto}
           onRetake={handleRetakePhoto}
