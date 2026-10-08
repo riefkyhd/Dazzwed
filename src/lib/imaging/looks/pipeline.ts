@@ -813,6 +813,7 @@ export class LookEnginePipeline {
 
     // Draw full-screen quad
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+    gl.finish();
     return true;
   }
 

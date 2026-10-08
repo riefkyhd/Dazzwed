@@ -298,13 +298,23 @@ export function CameraScreen({
         }`}
       />
 
-      {/* Hidden video element feeding WebGL canvas */}
+      {/* Off-screen video element feeding WebGL canvas (avoid display:none which suspends decoding in mobile Chrome) */}
       <video
         ref={videoRef}
         playsInline
         muted
         autoPlay
-        className="hidden"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: "1px",
+          height: "1px",
+          opacity: 0,
+          pointerEvents: "none",
+          zIndex: -999,
+        }}
+        aria-hidden="true"
       />
 
       {/* Central Viewfinder Container anchored to calculated geometry */}

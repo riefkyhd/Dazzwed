@@ -109,12 +109,22 @@ export async function renderWithPostProcessing(
 
   composer.render();
 
+  // Copy to 2D canvas before disposing WebGL renderer context
+  const outCanvas = document.createElement("canvas");
+  outCanvas.width = width;
+  outCanvas.height = height;
+  const outCtx = outCanvas.getContext("2d");
+  if (outCtx) {
+    outCtx.drawImage(canvas, 0, 0);
+  }
+
   // Dispose GPU memory
   composer.dispose();
   geometry.dispose();
   material.dispose();
   texture.dispose();
   renderer.dispose();
+  canvas.width = canvas.height = 0;
 
-  return canvas;
+  return outCanvas;
 }

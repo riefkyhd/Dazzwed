@@ -142,10 +142,10 @@ export async function renderShot(
     return blob;
   }
 
-  // Intermediate crop canvas if digital zoom applied or mirroring needed
+  // Intermediate crop canvas if digital zoom applied, video source, or mirroring needed
   let sourceToRender: TexImageSource = src;
   let interCanvas: HTMLCanvasElement | null = null;
-  if (zoom > 1 || crop.sw !== w || crop.sh !== h || mirror) {
+  if (src instanceof HTMLVideoElement || zoom > 1 || crop.sw !== w || crop.sh !== h || mirror) {
     interCanvas = document.createElement("canvas");
     interCanvas.width = out.width;
     interCanvas.height = out.height;
@@ -165,32 +165,16 @@ export async function renderShot(
     }
   }
 
-  // 1. Run 3D LUT PostProcessing or WebGL2 Look Engine pipeline
+  // 1. Run WebGL2 Look Engine pipeline or 3D LUT PostProcessing
   let rendered = false;
   let processedCanvas: HTMLCanvasElement | null = null;
+  let pipeline: LookEnginePipeline | null = null;
 
-  if (look.lutUrl) {
-    try {
-      const { renderWithPostProcessing } = await import("./renderThree");
-      processedCanvas = await renderWithPostProcessing(sourceToRender, {
-        width: out.width,
-        height: out.height,
-        lutUrl: look.lutUrl,
-        bloomThreshold: look.lens?.bloom?.threshold ?? 0.82,
-        bloomIntensity: look.lens?.bloom?.strength ?? 0.35,
-        grainAmount: look.emulsion?.grain?.amount ?? 0.12,
-      });
-      rendered = true;
-    } catch (err) {
-      console.warn("3D LUT PostProcessing failed, falling back to WebGL2 Look Engine:", err);
-    }
-  }
-
-  if (!rendered) {
+  // Prioritize Look Engine v2 pipeline for calibrated recipes to match live viewfinder 1:1
+  if (look.version === 2 || !look.lutUrl) {
     const glCanvas = document.createElement("canvas");
     glCanvas.width = out.width;
     glCanvas.height = out.height;
-    let pipeline: LookEnginePipeline | null = null;
     try {
       pipeline = new LookEnginePipeline(glCanvas);
       const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
@@ -204,14 +188,26 @@ export async function renderShot(
       });
       if (rendered) processedCanvas = glCanvas;
     } catch (err) {
-      console.warn("WebGL2 Look Engine failed, falling back to 2D canvas:", err);
-    } finally {
-      if (pipeline) pipeline.destroy();
+      console.warn("WebGL2 Look Engine failed, falling back to 3D LUT / 2D canvas:", err);
     }
   }
 
-  if (interCanvas) {
-    interCanvas.width = interCanvas.height = 0;
+  // Fallback to custom 3D LUT postprocessing if not rendered and LUT provided
+  if (!rendered && look.lutUrl) {
+    try {
+      const { renderWithPostProcessing } = await import("./renderThree");
+      processedCanvas = await renderWithPostProcessing(sourceToRender, {
+        width: out.width,
+        height: out.height,
+        lutUrl: look.lutUrl,
+        bloomThreshold: look.lens?.bloom?.threshold ?? 0.82,
+        bloomIntensity: look.lens?.bloom?.strength ?? 0.35,
+        grainAmount: look.emulsion?.grain?.amount ?? 0.12,
+      });
+      rendered = true;
+    } catch (err) {
+      console.warn("3D LUT PostProcessing failed, falling back to 2D canvas:", err);
+    }
   }
 
   // 2. Composite onto 2D canvas to support post-shader 2D extras
@@ -221,8 +217,10 @@ export async function renderShot(
 
   if (rendered && processedCanvas) {
     ctx2d.drawImage(processedCanvas, 0, 0);
+    if (pipeline) pipeline.destroy();
     processedCanvas.width = processedCanvas.height = 0; // free WebGL memory
   } else {
+    if (pipeline) pipeline.destroy();
     // Fallback 2D if WebGL unavailable
     if (mirror) {
       ctx2d.save();
@@ -234,6 +232,10 @@ export async function renderShot(
       ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
     }
     applyFilmLook(ctx2d, out.width, out.height);
+  }
+
+  if (interCanvas) {
+    interCanvas.width = interCanvas.height = 0;
   }
 
   // 3. Post-shader 2D extras pass (Light leaks, dust, date stamp, instant frame)
