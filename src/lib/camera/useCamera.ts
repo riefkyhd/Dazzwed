@@ -16,11 +16,12 @@ import {
 } from "./caps";
 import { CameraError, openStream, type CameraErrorKind } from "./constraints";
 import { pickDefaultLens, pickerLenses, type Lens } from "./lenses";
-import { renderShot } from "@/lib/imaging/render";
+import { renderShot, prewarmCapturePipeline } from "@/lib/imaging/render";
 import { cropForAspectAndZoom, fitLongestEdge, type CameraAspect } from "@/lib/imaging/geometry";
 import type { LookRecipe } from "@/lib/imaging/looks/types";
 import { CPM35_LOOK, getLookById } from "@/lib/imaging/looks/presets";
 import type { LookEnginePipeline } from "@/lib/imaging/looks/pipeline";
+import { diagnostics } from "./diagnostics";
 
 export type Facing = "environment" | "user";
 
@@ -42,6 +43,11 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
   const frameTimes = useRef<number[]>([]);
   const isFrozenRef = useRef(false);
   const lastFpsUpdateRef = useRef<number>(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    prewarmCapturePipeline();
+  }, []);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<CameraErrorKind | null>(null);
@@ -196,10 +202,22 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         }
 
         first = false;
+        setError(null);
+        diagnostics.logEvent("TRACK_ACQUIRED", `${track.getSettings().width}x${track.getSettings().height}`);
       } catch (e) {
         if (cancelled) return;
         setStream(null);
-        setError(e instanceof CameraError ? e.kind : "unknown");
+        let kind: CameraErrorKind = e instanceof CameraError ? e.kind : "unknown";
+        if (kind === "denied" && typeof navigator !== "undefined" && navigator.permissions?.query) {
+          try {
+            const perm = await navigator.permissions.query({ name: "camera" as PermissionName });
+            if (perm.state === "prompt") kind = "prompt";
+          } catch {
+            /* ignore */
+          }
+        }
+        setError(kind);
+        diagnostics.logEvent("CAMERA_ERROR", kind);
       } finally {
         if (!cancelled) {
           setStarting(false);
@@ -210,11 +228,43 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
     runRef.current = () => run(true);
     void run(!first);
 
-    const onVisible = () => {
-      if (document.visibilityState !== "visible" || cancelled) return;
-      const t = streamRef.current?.getVideoTracks()[0];
-      if (!t || t.readyState !== "live") scheduleRestart(0);
+    let suspendTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const onVisibility = () => {
+      if (cancelled) return;
+      if (document.visibilityState === "hidden") {
+        diagnostics.logEvent("VISIBILITY_CHANGE", "hidden");
+        if (suspendTimer) clearTimeout(suspendTimer);
+        // Stop tracks after 45s hidden to preserve battery and privacy
+        suspendTimer = setTimeout(() => {
+          diagnostics.logEvent("TRACKS_SUSPENDED", "45s background timeout");
+          stopStream(streamRef.current);
+          streamRef.current = null;
+          setStream(null);
+        }, 45000);
+      } else if (document.visibilityState === "visible") {
+        diagnostics.logEvent("VISIBILITY_CHANGE", "visible");
+        if (suspendTimer) {
+          clearTimeout(suspendTimer);
+          suspendTimer = null;
+        }
+        const t = streamRef.current?.getVideoTracks()[0];
+        if (!t || t.readyState !== "live" || t.muted) {
+          diagnostics.logEvent("REACQUIRE_STREAM", "silent resume");
+          scheduleRestart(0);
+        }
+      }
     };
+
+    const onResumeEvent = (evt: Event) => {
+      if (cancelled) return;
+      diagnostics.logEvent("RESUME_EVENT", evt.type);
+      const t = streamRef.current?.getVideoTracks()[0];
+      if (!t || t.readyState !== "live" || t.muted) {
+        scheduleRestart(0);
+      }
+    };
+
     const onDeviceChange = async () => {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
@@ -227,13 +277,20 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         /* ignore */
       }
     };
-    document.addEventListener("visibilitychange", onVisible);
+
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pageshow", onResumeEvent);
+    window.addEventListener("focus", onResumeEvent);
     navigator.mediaDevices?.addEventListener?.("devicechange", onDeviceChange);
+
     return () => {
       cancelled = true;
+      if (suspendTimer) clearTimeout(suspendTimer);
       clearTimeout(muteTimer);
       clearTimeout(restartTimer);
-      document.removeEventListener("visibilitychange", onVisible);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pageshow", onResumeEvent);
+      window.removeEventListener("focus", onResumeEvent);
       navigator.mediaDevices?.removeEventListener?.("devicechange", onDeviceChange);
       stopStream(streamRef.current);
       streamRef.current = null;
@@ -421,90 +478,131 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
 
   const unfreezeViewfinder = useCallback(() => {
     isFrozenRef.current = false;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
   }, []);
 
-  const capture = useCallback(
-    async (
-      aspectOverride?: CameraAspect,
-      shotSeed = Math.floor(Math.random() * 100000),
-      mirrorOverride?: boolean,
-      onFilteredReady?: (blob: Blob) => void
-    ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
-      const v = videoRef.current;
-      const track = streamRef.current?.getVideoTracks()[0];
-      if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
-      const targetAspect = aspectOverride || cameraAspect;
-      const isMirrored = mirrorOverride !== undefined ? mirrorOverride : facing === "user";
+    const capture = useCallback(
+      async (
+        aspectOverride?: CameraAspect,
+        shotSeed = Math.floor(Math.random() * 100000),
+        mirrorOverride?: boolean,
+        onPreviewReady?: (preview: ImageBitmap | Blob) => void
+      ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
+        const v = videoRef.current;
+        const c = canvasRef.current;
+        const track = streamRef.current?.getVideoTracks()[0];
+        if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
+        const targetAspect = aspectOverride || cameraAspect;
+        const isMirrored = mirrorOverride !== undefined ? mirrorOverride : facing === "user";
 
-      // Determine if flash should fire
-      let shouldFireFlash = false;
-      if (flashMode === "on") {
-        shouldFireFlash = true;
-      } else if (flashMode === "auto") {
-        const luminance = measureSceneLuminance(v);
-        // Low light threshold: mean luminance < 0.28
-        shouldFireFlash = luminance < 0.28;
-      }
+        // Cancel previous pending archival render if still active
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        const abortCtrl = new AbortController();
+        abortControllerRef.current = abortCtrl;
 
-      // Freeze viewfinder immediately so the screen holds the exact captured frame
-      isFrozenRef.current = true;
+        // 1. Freeze viewfinder immediately
+        isFrozenRef.current = true;
 
-      // Acquire frame snapshot (~45ms on modern mobile)
-      let frozenSource: ImageBitmap | HTMLVideoElement = v;
-      if (shouldFireFlash && facing === "environment" && track && hasTorch(track)) {
-        frozenSource = await pulseTorch(track, async () => {
-          return typeof createImageBitmap === "function" ? await createImageBitmap(v) : v;
-        });
-      } else {
-        try {
-          if (typeof createImageBitmap === "function") {
-            frozenSource = await createImageBitmap(v);
+        // 2. Instant preview bitmap directly from the live WebGL canvas (< 1ms on mobile)
+        if (c && onPreviewReady) {
+          try {
+            const previewBmp = await createImageBitmap(c);
+            diagnostics.recordMark("t3");
+            onPreviewReady(previewBmp);
+          } catch (e) {
+            console.warn("Instant preview bitmap grab failed:", e);
           }
-        } catch {
-          frozenSource = v;
         }
-      }
 
-      try {
-        // Phase 1: Fast filtered render for instantaneous review modal display (~250ms)
-        const filteredBlob = await renderShot(frozenSource, {
-          zoom: zoomRange ? 1 : digitalZoom,
-          aspect: targetAspect,
-          applyFilter: true,
-          look: activeLook,
-          seed: shotSeed,
-          mirror: isMirrored,
-          maxEdge: 2048,
-          quality: 0.88,
-        });
-
-        // Notify caller as soon as filtered image is ready so ReviewModal can appear immediately!
-        onFilteredReady?.(filteredBlob);
-
-        // Phase 2: Render clean unedited backup original in background
-        const originalBlob = await renderShot(frozenSource, {
-          zoom: zoomRange ? 1 : digitalZoom,
-          aspect: targetAspect,
-          applyFilter: false,
-          mirror: isMirrored,
-          maxEdge: 2560,
-          quality: 0.90,
-        });
-
-        return { filteredBlob, originalBlob };
-      } finally {
-        if (frozenSource instanceof ImageBitmap) {
-          frozenSource.close();
+        // 3. Yield to main thread so ReviewModal mounts, paints, and records t4 (< 100ms budget)
+        await new Promise((r) => setTimeout(r, 80));
+        if (abortCtrl.signal.aborted) {
+          return { filteredBlob: new Blob(), originalBlob: new Blob() };
         }
-      }
-    },
-    [zoomRange, digitalZoom, cameraAspect, activeLook, flashMode, facing]
-  );
+
+        // 4. Determine if flash should fire (only needed if environment camera has hardware torch)
+        let shouldFireFlash = false;
+        if (flashMode === "on") {
+          shouldFireFlash = true;
+        } else if (flashMode === "auto" && facing === "environment" && track && hasTorch(track)) {
+          // Fast check using exposure metadata or downsampled luminance
+          const luminance = measureSceneLuminance(v);
+          shouldFireFlash = luminance < 0.28;
+        }
+
+        // 5. Acquire full-resolution raw frame snapshot from running video stream (~37ms)
+        let frozenSource: ImageBitmap | HTMLVideoElement = v;
+        if (shouldFireFlash && facing === "environment" && track && hasTorch(track)) {
+          frozenSource = await pulseTorch(track, async () => {
+            return typeof createImageBitmap === "function" ? await createImageBitmap(v) : v;
+          });
+        } else {
+          try {
+            if (typeof createImageBitmap === "function") {
+              frozenSource = await createImageBitmap(v);
+            }
+          } catch {
+            frozenSource = v;
+          }
+        }
+        diagnostics.recordMark("t2");
+        if (abortCtrl.signal.aborted) {
+          if (frozenSource instanceof ImageBitmap) frozenSource.close();
+          return { filteredBlob: new Blob(), originalBlob: new Blob() };
+        }
+
+        try {
+          // Yield so main thread paints ReviewModal and processes touch events
+          await new Promise((r) => setTimeout(r, 40));
+          if (abortCtrl.signal.aborted) {
+            return { filteredBlob: new Blob(), originalBlob: new Blob() };
+          }
+
+          // Background archival photos rendered at full resolution (2560px)
+          const filteredBlob = await renderShot(frozenSource, {
+            zoom: zoomRange ? 1 : digitalZoom,
+            aspect: targetAspect,
+            applyFilter: true,
+            look: activeLook,
+            seed: shotSeed,
+            mirror: isMirrored,
+            maxEdge: 2560,
+            quality: 0.90,
+          });
+
+          await new Promise((r) => setTimeout(r, 20));
+
+          const originalBlob = await renderShot(frozenSource, {
+            zoom: zoomRange ? 1 : digitalZoom,
+            aspect: targetAspect,
+            applyFilter: false,
+            mirror: isMirrored,
+            maxEdge: 2560,
+            quality: 0.90,
+          });
+
+          diagnostics.recordMark("t5");
+          return { filteredBlob, originalBlob };
+        } finally {
+          if (frozenSource instanceof ImageBitmap) {
+            frozenSource.close();
+          }
+        }
+      },
+      [zoomRange, digitalZoom, cameraAspect, activeLook, flashMode, facing]
+    );
 
   return {
     videoRef,
     canvasRef,
     live: !!stream && !error,
+    stream,
+    trackSettings: stream?.getVideoTracks()[0]?.getSettings() ?? null,
     error,
     starting,
     restarting,

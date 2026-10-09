@@ -1,10 +1,12 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback, use } from "react";
+import { useSearchParams } from "next/navigation";
 import { type Lang, t } from "@/lib/i18n";
 import { useCamera } from "@/lib/camera/useCamera";
 import { useViewportLayout } from "@/lib/camera/useViewportLayout";
 import { triggerHaptic } from "@/lib/camera/haptics";
+import { diagnostics } from "@/lib/camera/diagnostics";
 import { CameraTopBar } from "./CameraTopBar";
 import { ViewfinderGestures } from "./ViewfinderGestures";
 import { ViewfinderFrame } from "./ViewfinderFrame";
@@ -12,7 +14,8 @@ import { CameraSettingsSheet } from "./CameraSettingsSheet";
 import { ShutterButton } from "./ShutterButton";
 import { LensBar } from "./LensBar";
 import { NativeCameraInput } from "./NativeCameraInput";
-import { CameraErrorView } from "./CameraErrorView";
+import { CameraRecoveryOverlay } from "./CameraRecoveryOverlay";
+import { CameraDebugHud } from "@/components/debug/CameraDebugHud";
 import { ReviewModal } from "./ReviewModal";
 import { LookDial } from "./LookDial";
 import { GuestGalleryModal } from "./GuestGalleryModal";
@@ -46,10 +49,17 @@ export function CameraScreen({
   allowedLookIds,
   defaultLookId,
 }: CameraScreenProps) {
+  const searchParams = useSearchParams();
+  const isDebug = searchParams?.get("debug") === "1";
+  const [showHud, setShowHud] = useState(isDebug);
+
   const {
     videoRef,
     canvasRef,
     live,
+    stream,
+    trackSettings,
+    measuredFps,
     error,
     starting,
     restarting,
@@ -89,9 +99,15 @@ export function CameraScreen({
   const [isScreenFlashActive, setIsScreenFlashActive] = useState(false);
   const [showNativeFlashTip, setShowNativeFlashTip] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [reviewBlobs, setReviewBlobs] = useState<{ filteredBlob: Blob; originalBlob?: Blob } | null>(null);
 
-  // Guest Gallery Modal State
+  interface ReviewSession {
+    previewBitmap?: ImageBitmap | null;
+    blobsPromise: Promise<{ filteredBlob: Blob; originalBlob: Blob }>;
+    filteredBlob?: Blob | null;
+    originalBlob?: Blob | null;
+  }
+
+  const [activeReview, setActiveReview] = useState<ReviewSession | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
 
   // Timer state (0s, 3s, 10s)
@@ -173,42 +189,86 @@ export function CameraScreen({
     }, duration);
   }, []);
 
-  // Actual capture execution with fail-safe error handling
+  // Actual capture execution with fail-safe error handling and zero-lag pipeline
   const executeCapture = useCallback(async () => {
     if (shotsLeft <= 0 || isProcessing || !live || isExecutingCaptureRef.current) return;
     isExecutingCaptureRef.current = true;
+
+    // Start high-precision shutter timing t0
+    diagnostics.startShutterMark();
 
     // Instant sensory feedback (0ms)
     triggerHaptic([40]);
     playShutterSound();
 
-    // If front camera and flash enabled (or auto), trigger warm-white screen flash (80ms)
+    // Immediately trigger visual shutter snap and wait for paint (t1 budget <= 50ms)
+    setIsShutterActive(true);
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        diagnostics.recordMark("t1");
+        resolve();
+      });
+    });
+    setTimeout(() => setIsShutterActive(false), 140);
+
+    // If front camera and flash enabled (or auto), trigger warm-white screen flash
     const shouldFrontFlash = facing === "user" && flashMode !== "off";
     if (shouldFrontFlash) {
       setIsScreenFlashActive(true);
-      await new Promise((r) => setTimeout(r, 80));
-    } else {
-      // Shutter lag sync: 50ms (0.05s) wait time for mechanical shutter curtain snap
-      await new Promise((r) => setTimeout(r, 50));
+      setTimeout(() => setIsScreenFlashActive(false), 80);
     }
-
-    // Shutter curtain snap animation
-    setIsShutterActive(true);
-    setTimeout(() => setIsShutterActive(false), 180);
 
     try {
       setIsProcessing(true);
       const isMirrored = facing === "user" && mirrorFront;
-      const { filteredBlob, originalBlob } = await capture(
+
+      let previewOpened = false;
+      const capturePromise = capture(
         cameraAspect,
         undefined,
         isMirrored,
-        (fastFilteredBlob) => {
-          // Instant ReviewModal pop-up (~250-300ms)
-          setReviewBlobs({ filteredBlob: fastFilteredBlob });
+        (fastPreview) => {
+          previewOpened = true;
+          if (fastPreview instanceof ImageBitmap) {
+            setActiveReview({
+              previewBitmap: fastPreview,
+              blobsPromise: capturePromise,
+            });
+          } else {
+            setActiveReview({
+              filteredBlob: fastPreview,
+              blobsPromise: capturePromise,
+            });
+          }
         }
       );
-      setReviewBlobs((prev) => (prev ? { ...prev, originalBlob } : { filteredBlob, originalBlob }));
+
+      // Background listener for archival resolution completion
+      capturePromise
+        .then(({ filteredBlob, originalBlob }) => {
+          setActiveReview((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              filteredBlob,
+              originalBlob,
+            };
+          });
+        })
+        .catch((err) => {
+          console.error("Background photo render failed:", err);
+        });
+
+      // Fallback if onPreviewReady did not open review within immediate frame
+      if (!previewOpened) {
+        const { filteredBlob, originalBlob } = await capturePromise;
+        setActiveReview({
+          previewBitmap: null,
+          blobsPromise: capturePromise,
+          filteredBlob,
+          originalBlob,
+        });
+      }
     } catch (err) {
       console.error("Capture error:", err);
       unfreezeViewfinder();
@@ -257,17 +317,33 @@ export function CameraScreen({
   };
 
   const handleKeepPhoto = async () => {
-    if (!reviewBlobs) return;
-    const toSave = reviewBlobs;
+    if (!activeReview) return;
+    const session = activeReview;
+    const tKeep = performance.now();
     unfreezeViewfinder();
-    // Keep reviewBlobs visible until onShotCaptured finishes successfully
-    await onShotCaptured(toSave.filteredBlob, toSave.originalBlob);
-    setReviewBlobs(null);
+    setActiveReview(null);
+    diagnostics.recordKeepToLive(performance.now() - tKeep);
+
+    // Asynchronous background persist and upload as soon as archival blobs are ready
+    try {
+      const { filteredBlob, originalBlob } = await session.blobsPromise;
+      void onShotCaptured(filteredBlob, originalBlob);
+    } catch (e) {
+      console.error("Failed to persist shot in background:", e);
+      showToast(t(lang, "keepFailed"));
+    }
   };
 
   const handleRetakePhoto = () => {
     unfreezeViewfinder();
-    setReviewBlobs(null);
+    if (activeReview?.previewBitmap) {
+      try {
+        activeReview.previewBitmap.close();
+      } catch {
+        /* ignore */
+      }
+    }
+    setActiveReview(null);
   };
 
   // Viewfinder gestures & exposure
@@ -284,18 +360,6 @@ export function CameraScreen({
   };
 
   const currentDisplayZoom = zoomRange ? zoom : digitalZoom;
-
-  if (error) {
-    return (
-      <CameraErrorView
-        error={error}
-        eventSlug={eventSlug}
-        lang={lang}
-        onRetry={retry}
-        onNativePhoto={onNativePhoto}
-      />
-    );
-  }
 
   const { isLandscape, mode, viewfinderRect } = layout;
 
@@ -336,6 +400,7 @@ export function CameraScreen({
 
       {/* Central Viewfinder Container anchored to calculated geometry */}
       <div
+        data-viewfinder
         style={{
           position: "absolute",
           top: `${viewfinderRect.top}px`,
@@ -350,8 +415,19 @@ export function CameraScreen({
           ref={canvasRef}
           className={`w-full h-full object-cover pointer-events-none ${
             facing === "user" && mirrorFront ? "-scale-x-100" : ""
-          }`}
+          } ${error ? "filter blur-md opacity-40 transition-all duration-300" : ""}`}
         />
+
+        {/* In-place Recovery Ladder Overlay (screen never unmounts) */}
+        {error && (
+          <CameraRecoveryOverlay
+            error={error}
+            eventSlug={eventSlug}
+            lang={lang}
+            onRetry={retry}
+            onNativePhoto={onNativePhoto}
+          />
+        )}
 
         {/* Viewfinder Gestures & Overlays (Focus Ring, Grid, Level, Exposure, Pinch-Zoom) */}
         <ViewfinderGestures
@@ -734,9 +810,10 @@ export function CameraScreen({
       )}
 
       {/* Retro Review & Print Develop Modal (Keep vs Retake) */}
-      {reviewBlobs && (
+      {activeReview && (
         <ReviewModal
-          photoBlob={reviewBlobs.filteredBlob}
+          previewBitmap={activeReview.previewBitmap}
+          photoBlob={activeReview.filteredBlob}
           aspect={cameraAspect}
           lookName={activeLook.name}
           shotsLeft={shotsLeft}
@@ -798,6 +875,20 @@ export function CameraScreen({
           totalShots={totalShots}
           lang={lang}
           onClose={() => setGalleryOpen(false)}
+        />
+      )}
+
+      {/* In-App Diagnostics HUD (?debug=1) */}
+      {showHud && (
+        <CameraDebugHud
+          layout={layout}
+          stream={stream}
+          trackSettings={trackSettings}
+          exposureCompensation={exposureCompValue}
+          zoom={currentDisplayZoom}
+          facing={facing}
+          measuredFps={measuredFps}
+          onClose={() => setShowHud(false)}
         />
       )}
     </div>

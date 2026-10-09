@@ -22,6 +22,7 @@ export function ViewfinderFrame({ visible = true }: ViewfinderFrameProps) {
     >
       {/* Top-Left Corner Bracket */}
       <div
+        data-testid="corner-bracket-tl"
         style={{
           position: "absolute",
           top: "12px",
@@ -35,6 +36,7 @@ export function ViewfinderFrame({ visible = true }: ViewfinderFrameProps) {
 
       {/* Top-Right Corner Bracket */}
       <div
+        data-testid="corner-bracket-tr"
         style={{
           position: "absolute",
           top: "12px",
@@ -48,6 +50,7 @@ export function ViewfinderFrame({ visible = true }: ViewfinderFrameProps) {
 
       {/* Bottom-Left Corner Bracket */}
       <div
+        data-testid="corner-bracket-bl"
         style={{
           position: "absolute",
           bottom: "12px",
@@ -61,6 +64,7 @@ export function ViewfinderFrame({ visible = true }: ViewfinderFrameProps) {
 
       {/* Bottom-Right Corner Bracket */}
       <div
+        data-testid="corner-bracket-br"
         style={{
           position: "absolute",
           bottom: "12px",

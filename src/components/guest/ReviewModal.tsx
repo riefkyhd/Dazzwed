@@ -4,9 +4,11 @@ import React, { useEffect, useState, useRef } from "react";
 import { type Lang, t } from "@/lib/i18n";
 import { triggerHaptic } from "@/lib/camera/haptics";
 import type { CameraAspect } from "@/lib/imaging/geometry";
+import { diagnostics } from "@/lib/camera/diagnostics";
 
 interface ReviewModalProps {
-  photoBlob: Blob;
+  photoBlob?: Blob | null;
+  previewBitmap?: ImageBitmap | null;
   aspect?: CameraAspect;
   lookName?: string;
   shotsLeft?: number;
@@ -18,6 +20,7 @@ interface ReviewModalProps {
 
 export function ReviewModal({
   photoBlob,
+  previewBitmap,
   aspect = "3:4",
   lookName = "35mm Film",
   shotsLeft,
@@ -26,6 +29,7 @@ export function ReviewModal({
   onKeep,
   onRetake,
 }: ReviewModalProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string>("");
   const [isDeveloped, setIsDeveloped] = useState(false);
   const [isKeeping, setIsKeeping] = useState(false);
@@ -34,16 +38,29 @@ export function ReviewModal({
   const isKeepingRef = useRef(false);
   const activeUrlRef = useRef<string | null>(null);
 
-  // Safe Blob URL lifecycle: create once and revoke only on unmount or blob change
+  // Safe Blob URL lifecycle & Instant Canvas draw
   useEffect(() => {
-    const url = URL.createObjectURL(photoBlob);
-    activeUrlRef.current = url;
-    setPhotoUrl(url);
+    if (previewBitmap && canvasRef.current) {
+      const c = canvasRef.current;
+      c.width = previewBitmap.width;
+      c.height = previewBitmap.height;
+      const ctx = c.getContext("2d");
+      if (ctx) {
+        ctx.drawImage(previewBitmap, 0, 0);
+      }
+      requestAnimationFrame(() => {
+        diagnostics.recordMark("t4");
+      });
+    } else if (photoBlob) {
+      const url = URL.createObjectURL(photoBlob);
+      activeUrlRef.current = url;
+      setPhotoUrl(url);
+    }
 
-    // Chemical development simulation: gentle analog bloom/fog reveal over 400ms
+    // Chemical development simulation: gentle analog bloom/fog reveal
     const devTimer = setTimeout(() => {
       setIsDeveloped(true);
-    }, 120);
+    }, 60);
 
     return () => {
       clearTimeout(devTimer);
@@ -52,7 +69,7 @@ export function ReviewModal({
         activeUrlRef.current = null;
       }
     };
-  }, [photoBlob]);
+  }, [photoBlob, previewBitmap]);
 
   const handleKeep = async () => {
     if (isKeepingRef.current) return;
@@ -60,6 +77,7 @@ export function ReviewModal({
     setIsKeeping(true);
     setErrorMsg(null);
     triggerHaptic([40, 60]);
+    diagnostics.recordMark("t6");
 
     try {
       await onKeep();
@@ -119,18 +137,33 @@ export function ReviewModal({
         <div
           className={`relative w-full ${aspectClass} rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-white/10 bg-zinc-950 flex items-center justify-center transition-transform duration-300`}
         >
-          {/* Developed Photo */}
-          {photoUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={photoUrl}
-              alt="Developed shot"
+          {/* Developed Photo (Instant canvas or Blob img) */}
+          {previewBitmap ? (
+            <canvas
+              ref={canvasRef}
+              data-testid="review-image"
+              aria-label="Developed shot"
               className={`w-full h-full object-cover transition-all duration-700 ease-out ${
                 isDeveloped
                   ? "filter brightness-100 contrast-100 opacity-100 scale-100"
                   : "filter brightness-50 contrast-125 opacity-30 scale-[1.02] blur-xs"
               }`}
             />
+          ) : (
+            photoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                data-testid="review-image"
+                src={photoUrl}
+                alt="Developed shot"
+                onLoad={() => diagnostics.recordMark("t4")}
+                className={`w-full h-full object-cover transition-all duration-700 ease-out ${
+                  isDeveloped
+                    ? "filter brightness-100 contrast-100 opacity-100 scale-100"
+                    : "filter brightness-50 contrast-125 opacity-30 scale-[1.02] blur-xs"
+                }`}
+              />
+            )
           )}
 
           {/* Developing chemical emulsion fog effect */}
@@ -162,6 +195,7 @@ export function ReviewModal({
           {/* Retake Button (Discards photo, does not consume frame) */}
           <button
             type="button"
+            data-testid="retake-button"
             onClick={handleRetake}
             disabled={isKeeping}
             className="flex-1 h-13 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800/90 active:bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white font-semibold text-sm active:scale-[0.98] transition-all disabled:opacity-40 touch-manipulation cursor-pointer flex items-center justify-center gap-2 shadow-lg"
@@ -184,6 +218,7 @@ export function ReviewModal({
           {/* Keep Button (Enqueues photo & advances roll counter) */}
           <button
             type="button"
+            data-testid="keep-button"
             onClick={handleKeep}
             disabled={isKeeping}
             className="flex-1 h-13 rounded-2xl bg-amber-400 hover:bg-amber-300 active:bg-amber-400 text-black font-bold text-sm shadow-xl shadow-amber-400/20 active:scale-[0.98] transition-all disabled:opacity-50 touch-manipulation cursor-pointer flex items-center justify-center gap-2"

@@ -25,6 +25,7 @@ export function ShutterButton({
   return (
     <button
       type="button"
+      data-testid="shutter-button"
       onClick={onShoot}
       disabled={disabled || isProcessing}
       aria-label="Take Photo"

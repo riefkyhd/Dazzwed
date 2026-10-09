@@ -1,6 +1,7 @@
 export type CameraErrorKind =
   | "unsupported" // no getUserMedia (old/in-app browser)
   | "insecure" // not HTTPS
+  | "prompt" // permission expired or requires user activation gesture
   | "denied"
   | "not-found"
   | "in-use"
@@ -19,11 +20,12 @@ function errName(e: unknown): string {
   return typeof e === "object" && e !== null && "name" in e ? String((e as { name: unknown }).name) : "";
 }
 
-export function classifyError(e: unknown): CameraErrorKind {
+export function classifyError(e: unknown, permissionStatus?: string): CameraErrorKind {
   switch (errName(e)) {
     case "NotAllowedError":
     case "SecurityError":
     case "PermissionDeniedError":
+      if (permissionStatus === "prompt") return "prompt";
       return "denied";
     case "NotFoundError":
     case "DevicesNotFoundError":

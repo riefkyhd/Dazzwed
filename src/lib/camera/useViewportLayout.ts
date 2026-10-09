@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import type { CameraAspect } from "@/lib/imaging/geometry";
+import { diagnostics } from "./diagnostics";
 
 export type DensityLevel = "L0" | "L1" | "L2";
 
@@ -207,33 +208,72 @@ export function useViewportLayout(aspect: CameraAspect = "3:4"): ViewportLayout 
     document.documentElement.style.setProperty("--vvw", `${vw}px`);
     document.documentElement.style.setProperty("--vvh", `${vh}px`);
 
-    setLayout(calculateLayout(vw, vh, aspect, safeArea));
+    const nextLayout = calculateLayout(vw, vh, aspect, safeArea);
+
+    // Layout Watchdog: assert aspect ratio and bounded rect invariants
+    if (aspect === "3:4" && !nextLayout.isLandscape) {
+      const ratio = nextLayout.viewfinderRect.width / nextLayout.viewfinderRect.height;
+      const delta = Math.abs(ratio - 0.75);
+      if (delta > 0.005) {
+        diagnostics.logInvariantViolation(
+          `3:4 Aspect violation: ratio ${ratio.toFixed(5)} exceeds 0.750 ± 0.005 (delta: ${delta.toFixed(5)})`
+        );
+      }
+    }
+    if (nextLayout.viewfinderRect.top < 0 || nextLayout.viewfinderRect.left < 0) {
+      diagnostics.logInvariantViolation(
+        `Negative coordinate: top=${nextLayout.viewfinderRect.top}, left=${nextLayout.viewfinderRect.left}`
+      );
+    }
+    if (nextLayout.viewfinderRect.top + nextLayout.viewfinderRect.height > vh) {
+      diagnostics.logInvariantViolation(
+        `Viewfinder overflow: bottom edge ${nextLayout.viewfinderRect.top + nextLayout.viewfinderRect.height} > viewport height ${vh}`
+      );
+    }
+
+    setLayout(nextLayout);
   }, [aspect]);
 
   useEffect(() => {
-    // Schedule initial layout measure without synchronous setState in effect body
-    const rafId = requestAnimationFrame(() => {
+    let animTimer: ReturnType<typeof setTimeout> | null = null;
+
+    // Comprehensive schedule covering immediate, next frame, 2nd frame and post-animation
+    const scheduleAnimationSweep = () => {
       update();
-    });
+      requestAnimationFrame(() => {
+        update();
+        requestAnimationFrame(() => {
+          update();
+        });
+      });
+      if (animTimer) clearTimeout(animTimer);
+      animTimer = setTimeout(update, 250); // catches Chrome Android URL bar settling
+    };
+
+    scheduleAnimationSweep();
 
     const vv = window.visualViewport;
     if (vv) {
-      vv.addEventListener("resize", update);
-      vv.addEventListener("scroll", update);
+      vv.addEventListener("resize", scheduleAnimationSweep);
+      vv.addEventListener("scroll", scheduleAnimationSweep);
     }
-    window.addEventListener("resize", update);
-    window.addEventListener("orientationchange", update);
-    document.addEventListener("fullscreenchange", update);
+    window.addEventListener("resize", scheduleAnimationSweep);
+    window.addEventListener("orientationchange", scheduleAnimationSweep);
+    window.addEventListener("pageshow", scheduleAnimationSweep);
+    document.addEventListener("visibilitychange", scheduleAnimationSweep);
+    document.addEventListener("fullscreenchange", scheduleAnimationSweep);
 
     return () => {
-      cancelAnimationFrame(rafId);
+      if (animTimer) clearTimeout(animTimer);
       if (vv) {
-        vv.removeEventListener("resize", update);
-        vv.removeEventListener("scroll", update);
+        vv.removeEventListener("resize", scheduleAnimationSweep);
+        vv.removeEventListener("scroll", scheduleAnimationSweep);
       }
-      window.removeEventListener("resize", update);
-      window.removeEventListener("orientationchange", update);
-      document.removeEventListener("fullscreenchange", update);
+      window.removeEventListener("resize", scheduleAnimationSweep);
+      window.removeEventListener("orientationchange", scheduleAnimationSweep);
+      window.removeEventListener("pageshow", scheduleAnimationSweep);
+      document.removeEventListener("visibilitychange", scheduleAnimationSweep);
+      document.removeEventListener("fullscreenchange", scheduleAnimationSweep);
     };
   }, [update]);
 

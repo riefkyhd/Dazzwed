@@ -89,6 +89,31 @@ export interface RenderOptions {
   mirror?: boolean;
 }
 
+let sharedCapturePipeline: LookEnginePipeline | null = null;
+let sharedGlCanvas: HTMLCanvasElement | null = null;
+
+export function getSharedCapturePipeline(): { pipeline: LookEnginePipeline; canvas: HTMLCanvasElement } {
+  if (typeof document === "undefined") throw new Error("DOM unavailable");
+  if (!sharedGlCanvas) {
+    sharedGlCanvas = document.createElement("canvas");
+    sharedGlCanvas.width = 1920;
+    sharedGlCanvas.height = 1440;
+  }
+  if (!sharedCapturePipeline) {
+    sharedCapturePipeline = new LookEnginePipeline(sharedGlCanvas);
+  }
+  return { pipeline: sharedCapturePipeline, canvas: sharedGlCanvas };
+}
+
+export function prewarmCapturePipeline(): void {
+  if (typeof window === "undefined") return;
+  try {
+    getSharedCapturePipeline();
+  } catch (e) {
+    console.warn("Pre-warm capture pipeline failed:", e);
+  }
+}
+
 /**
  * Crop → resize → Look Engine WebGL shader → 2D extras → JPEG.
  * Re-encoding through canvas drops all EXIF/GPS metadata.
@@ -168,17 +193,17 @@ export async function renderShot(
   // 1. Run WebGL2 Look Engine pipeline or 3D LUT PostProcessing
   let rendered = false;
   let processedCanvas: HTMLCanvasElement | null = null;
-  let pipeline: LookEnginePipeline | null = null;
 
   // Prioritize Look Engine v2 pipeline for calibrated recipes to match live viewfinder 1:1
   if (look.version === 2 || !look.lutUrl) {
-    const glCanvas = document.createElement("canvas");
-    glCanvas.width = out.width;
-    glCanvas.height = out.height;
     try {
-      pipeline = new LookEnginePipeline(glCanvas);
+      const { pipeline: p, canvas: glCanvas } = getSharedCapturePipeline();
+      if (glCanvas.width !== out.width || glCanvas.height !== out.height) {
+        glCanvas.width = out.width;
+        glCanvas.height = out.height;
+      }
       const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
-      rendered = pipeline.render(sourceToRender, look, {
+      rendered = p.render(sourceToRender, look, {
         width: out.width,
         height: out.height,
         isCapture: true,
@@ -217,10 +242,7 @@ export async function renderShot(
 
   if (rendered && processedCanvas) {
     ctx2d.drawImage(processedCanvas, 0, 0);
-    if (pipeline) pipeline.destroy();
-    processedCanvas.width = processedCanvas.height = 0; // free WebGL memory
   } else {
-    if (pipeline) pipeline.destroy();
     // Fallback 2D if WebGL unavailable
     if (mirror) {
       ctx2d.save();
