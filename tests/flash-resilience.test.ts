@@ -55,4 +55,20 @@ describe("Flash & Torch Pulse Resilience", () => {
     const finalConstraint = appliedConstraints[appliedConstraints.length - 1];
     expect(finalConstraint?.advanced?.[0]?.torch).toBe(false);
   });
+
+  it("gracefully proceeds to capture even if torch activation fails (e.g. low battery / hardware busy)", async () => {
+    const mockTrack = {
+      applyConstraints: vi.fn(async () => {
+        throw new Error("OverconstrainedError: torch unavailable");
+      }),
+    } as unknown as MediaStreamTrack;
+
+    const result = await pulseTorch(
+      mockTrack,
+      async () => "captured-without-torch",
+      { maxStabilizeMs: 10 }
+    );
+
+    expect(result).toBe("captured-without-torch");
+  });
 });

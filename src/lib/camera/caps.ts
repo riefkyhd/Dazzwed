@@ -68,7 +68,7 @@ export async function pulseTorch<T>(
   captureAction: () => Promise<T>,
   options: { maxStabilizeMs?: number } = {}
 ): Promise<T> {
-  const maxWait = options.maxStabilizeMs ?? 80;
+  const maxWait = options.maxStabilizeMs ?? 260;
 
   // Respect minimum LED cooldown interval
   const now = Date.now();
@@ -78,19 +78,29 @@ export async function pulseTorch<T>(
   }
 
   // Turn torch ON
-  await applyTorch(track, true);
-  lastTorchPulseTime = Date.now();
+  let torchActivated = false;
+  try {
+    await applyTorch(track, true);
+    torchActivated = true;
+    lastTorchPulseTime = Date.now();
+  } catch (err) {
+    console.warn("Failed to activate hardware torch:", err);
+  }
 
   try {
-    // Wait brief moment for exposure/sensor auto-gain to adapt to illumination (80ms)
-    await new Promise((r) => setTimeout(r, Math.min(80, maxWait)));
+    // If torch was activated, wait for camera ISP auto-exposure/gain to adapt (~260ms)
+    if (torchActivated) {
+      await new Promise((r) => setTimeout(r, maxWait));
+    }
     return await captureAction();
   } finally {
     // ALWAYS turn torch off
-    try {
-      await applyTorch(track, false);
-    } catch (e) {
-      console.warn("Failed to deactivate torch in finally block:", e);
+    if (torchActivated) {
+      try {
+        await applyTorch(track, false);
+      } catch (e) {
+        console.warn("Failed to deactivate torch in finally block:", e);
+      }
     }
   }
 }

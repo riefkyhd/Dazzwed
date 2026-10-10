@@ -197,26 +197,8 @@ export function CameraScreen({
     // Start high-precision shutter timing t0
     diagnostics.startShutterMark();
 
-    // Instant sensory feedback (0ms)
+    // Instant tactile feedback on shutter tap (0ms)
     triggerHaptic([40]);
-    playShutterSound();
-
-    // Immediately trigger visual shutter snap and wait for paint (t1 budget <= 50ms)
-    setIsShutterActive(true);
-    await new Promise<void>((resolve) => {
-      requestAnimationFrame(() => {
-        diagnostics.recordMark("t1");
-        resolve();
-      });
-    });
-    setTimeout(() => setIsShutterActive(false), 140);
-
-    // If front camera and flash enabled (or auto), trigger warm-white screen flash
-    const shouldFrontFlash = facing === "user" && flashMode !== "off";
-    if (shouldFrontFlash) {
-      setIsScreenFlashActive(true);
-      setTimeout(() => setIsScreenFlashActive(false), 80);
-    }
 
     try {
       setIsProcessing(true);
@@ -240,6 +222,17 @@ export function CameraScreen({
               blobsPromise: capturePromise,
             });
           }
+        },
+        {
+          onScreenFlash: (active) => setIsScreenFlashActive(active),
+          onShutterSnap: () => {
+            playShutterSound();
+            setIsShutterActive(true);
+            requestAnimationFrame(() => {
+              diagnostics.recordMark("t1");
+            });
+            setTimeout(() => setIsShutterActive(false), 140);
+          },
         }
       );
 
@@ -277,9 +270,10 @@ export function CameraScreen({
     } finally {
       setIsProcessing(false);
       setIsScreenFlashActive(false);
+      setIsShutterActive(false);
       isExecutingCaptureRef.current = false;
     }
-  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, flashMode, mirrorFront, showToast, lang, unfreezeViewfinder]);
+  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, mirrorFront, showToast, lang, unfreezeViewfinder]);
 
   // Shutter button trigger with timer countdown
   const handleShoot = () => {

@@ -489,7 +489,11 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         aspectOverride?: CameraAspect,
         shotSeed = Math.floor(Math.random() * 100000),
         mirrorOverride?: boolean,
-        onPreviewReady?: (preview: ImageBitmap | Blob) => void
+        onPreviewReady?: (preview: ImageBitmap | Blob) => void,
+        callbacks?: {
+          onScreenFlash?: (active: boolean) => void;
+          onShutterSnap?: () => void;
+        }
       ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
         const v = videoRef.current;
         const c = canvasRef.current;
@@ -505,43 +509,52 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         const abortCtrl = new AbortController();
         abortControllerRef.current = abortCtrl;
 
-        // 1. Freeze viewfinder immediately
-        isFrozenRef.current = true;
+        // Determine whether flash is required
+        const isEnvironment = facing === "environment";
+        const isUser = facing === "user";
+        const hasHardwareTorch = isEnvironment && !!track && hasTorch(track);
 
-        // 2. Instant preview bitmap directly from the live WebGL canvas (< 1ms on mobile)
-        if (c && onPreviewReady) {
-          try {
-            const previewBmp = await createImageBitmap(c);
-            diagnostics.recordMark("t3");
-            onPreviewReady(previewBmp);
-          } catch (e) {
-            console.warn("Instant preview bitmap grab failed:", e);
+        let shouldFireTorch = false;
+        let shouldFireScreenFlash = false;
+
+        if (flashMode === "on") {
+          if (hasHardwareTorch) shouldFireTorch = true;
+          else if (isUser) shouldFireScreenFlash = true;
+        } else if (flashMode === "auto") {
+          const luminance = measureSceneLuminance(v);
+          if (luminance < 0.28) {
+            if (hasHardwareTorch) shouldFireTorch = true;
+            else if (isUser) shouldFireScreenFlash = true;
           }
         }
 
-        // 3. Yield to main thread so ReviewModal mounts, paints, and records t4 (< 100ms budget)
-        await new Promise((r) => setTimeout(r, 80));
-        if (abortCtrl.signal.aborted) {
-          return { filteredBlob: new Blob(), originalBlob: new Blob() };
-        }
-
-        // 4. Determine if flash should fire (only needed if environment camera has hardware torch)
-        let shouldFireFlash = false;
-        if (flashMode === "on") {
-          shouldFireFlash = true;
-        } else if (flashMode === "auto" && facing === "environment" && track && hasTorch(track)) {
-          // Fast check using exposure metadata or downsampled luminance
-          const luminance = measureSceneLuminance(v);
-          shouldFireFlash = luminance < 0.28;
-        }
-
-        // 5. Acquire full-resolution raw frame snapshot from running video stream (~37ms)
         let frozenSource: ImageBitmap | HTMLVideoElement = v;
-        if (shouldFireFlash && facing === "environment" && track && hasTorch(track)) {
-          frozenSource = await pulseTorch(track, async () => {
-            return typeof createImageBitmap === "function" ? await createImageBitmap(v) : v;
-          });
-        } else {
+
+        if (!shouldFireTorch && !shouldFireScreenFlash) {
+          // --- Non-flash Instant Capture Pipeline (< 80ms) ---
+          callbacks?.onShutterSnap?.();
+
+          // 1. Freeze viewfinder immediately
+          isFrozenRef.current = true;
+
+          // 2. Instant preview bitmap directly from the live WebGL canvas (< 1ms on mobile)
+          if (c && onPreviewReady) {
+            try {
+              const previewBmp = await createImageBitmap(c);
+              diagnostics.recordMark("t3");
+              onPreviewReady(previewBmp);
+            } catch (e) {
+              console.warn("Instant preview bitmap grab failed:", e);
+            }
+          }
+
+          // 3. Yield to main thread so ReviewModal mounts, paints, and records t4 (< 100ms budget)
+          await new Promise((r) => setTimeout(r, 80));
+          if (abortCtrl.signal.aborted) {
+            return { filteredBlob: new Blob(), originalBlob: new Blob() };
+          }
+
+          // 4. Raw frame snapshot from running stream for background 2560px archival rendering
           try {
             if (typeof createImageBitmap === "function") {
               frozenSource = await createImageBitmap(v);
@@ -549,8 +562,78 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
           } catch {
             frozenSource = v;
           }
+          diagnostics.recordMark("t2");
+        } else {
+          // --- Flash Illuminated Capture Pipeline (~260ms exposure adaptation) ---
+          let previewBmp: ImageBitmap | null = null;
+
+          if (shouldFireTorch && track) {
+            // Hardware LED torch pulse with 260ms auto-exposure & sensor convergence
+            await pulseTorch(
+              track,
+              async () => {
+                try {
+                  if (typeof createImageBitmap === "function") {
+                    frozenSource = await createImageBitmap(v);
+                  }
+                } catch {
+                  frozenSource = v;
+                }
+
+                if (c) {
+                  try {
+                    previewBmp = await createImageBitmap(c);
+                  } catch (e) {
+                    console.warn("Illuminated canvas preview grab failed:", e);
+                  }
+                }
+              },
+              { maxStabilizeMs: 260 }
+            );
+          } else if (shouldFireScreenFlash) {
+            // Front camera warm-white screen flash with 260ms exposure adaptation
+            callbacks?.onScreenFlash?.(true);
+            try {
+              await new Promise((r) => setTimeout(r, 260));
+
+              try {
+                if (typeof createImageBitmap === "function") {
+                  frozenSource = await createImageBitmap(v);
+                }
+              } catch {
+                frozenSource = v;
+              }
+
+              if (c) {
+                try {
+                  previewBmp = await createImageBitmap(c);
+                } catch (e) {
+                  console.warn("Screen flash canvas preview grab failed:", e);
+                }
+              }
+            } finally {
+              callbacks?.onScreenFlash?.(false);
+            }
+          }
+
+          // Freeze viewfinder on the illuminated scene
+          isFrozenRef.current = true;
+
+          // Trigger shutter snap animation and audio
+          callbacks?.onShutterSnap?.();
+
+          diagnostics.recordMark("t2");
+
+          // Open ReviewModal with the illuminated frame
+          if (previewBmp && onPreviewReady) {
+            diagnostics.recordMark("t3");
+            onPreviewReady(previewBmp);
+          } else if (onPreviewReady && frozenSource instanceof ImageBitmap) {
+            diagnostics.recordMark("t3");
+            onPreviewReady(frozenSource);
+          }
         }
-        diagnostics.recordMark("t2");
+
         if (abortCtrl.signal.aborted) {
           if (frozenSource instanceof ImageBitmap) frozenSource.close();
           return { filteredBlob: new Blob(), originalBlob: new Blob() };
