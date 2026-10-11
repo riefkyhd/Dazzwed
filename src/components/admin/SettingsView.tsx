@@ -345,6 +345,7 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
               <optgroup label="✨ Calibrated Film & Dazz Cam Recipes">
                 <option value="cpm-35">Dazz Cam CPM35 (Classic 35mm Rangefinder — Golden Warmth)</option>
                 <option value="classic-neg">Fujifilm Classic Neg (Superia 400 — Deep Teal Foliage & Crimson)</option>
+                <option value="tri-x-400">Kodak Tri-X 400 (High-Contrast Black & White — Silver Grain)</option>
                 <option value="golden-200">Kodak Gold 200 (Warm Sunny Wedding Nostalgia)</option>
                 <option value="disposable-400">Fuji Quicksnap Disposable 400 (Authentic 90s Disposable)</option>
                 <option value="ccd-flash">CCD Direct Flash (Canon PowerShot Digicam Vibe)</option>

@@ -20,6 +20,8 @@ function getLookChipLabel(look: LookRecipe): string {
       return "CPM";
     case "classic-neg":
       return "NEG";
+    case "tri-x-400":
+      return "B&W";
     case "disposable-400":
       return "400";
     case "golden-200":

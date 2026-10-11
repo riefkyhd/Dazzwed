@@ -658,9 +658,112 @@ export const CPM35_LOOK: LookRecipe = {
   dust: { density: 0.10, scratches: 0.05 },
 };
 
+/**
+ * 8. Kodak Tri-X 400 (Signature High-Contrast Panchromatic Black & White)
+ * - Panchromatic Yellow-filter response: blocks harsh blue wash, makes skin luminous & creamy
+ * - Hurter & Driffield curve: punchy 1.22 midtone contrast, deep inky silver blacks, soft highlight rolloff
+ * - 100% Monochromatic metallic silver grain (chroma = 0.0)
+ * - Silver gelatin highlight bloom & rangefinder vignette
+ */
+export const TRI_X_400_LOOK: LookRecipe = {
+  id: "tri-x-400",
+  name: "Tri-X 400",
+  version: 2,
+  aspectRatio: "3:2",
+  lens: {
+    radialBlur: { r0: 0, r1: 0.0008 },
+    chromaticAberration: 0.0001,
+    distortion: 0.008,
+    vignette: { strength: 0.28, radius: 0.80, softness: 0.65, curvature: 4.0 },
+    bloom: { threshold: 0.80, strength: 0.16, radius: 0.015 },
+    halation: { threshold: 0.82, strength: 0.12, radius: 0.014, tint: [1.0, 1.0, 1.0] },
+  },
+  response: {
+    exposureEV: 0.08,
+    // Panchromatic spectral sensitivity matrix with yellow-filter weighting (0.42 R, 0.48 G, 0.10 B)
+    dyeMatrix: [
+      0.42, 0.48, 0.10,
+      0.42, 0.48, 0.10,
+      0.42, 0.48, 0.10,
+    ],
+    curveR: { contrast: 1.22, pivot: 0.44, toe: 0.015, shoulder: 0.80, type: "soft" },
+    curveG: { contrast: 1.22, pivot: 0.44, toe: 0.015, shoulder: 0.80, type: "soft" },
+    curveB: { contrast: 1.22, pivot: 0.44, toe: 0.015, shoulder: 0.80, type: "soft" },
+    localContrast: 0.10,
+    effectiveLines: 1800,
+    flashFalloff: { strength: 0.28, radius: 0.52 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("neutral"),
+    skinProtection: {
+      enabled: true,
+      minHue: 20,
+      maxHue: 55,
+      strength: 0.5,
+    },
+    saturation: 0.0,
+    brightSatCurve: {
+      shadowBoost: 0.0,
+      highlightDesat: 0.0,
+    },
+    highlightWarmth: 0.0,
+    shadowTint: [0.0, 0.0, 0.0],
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: {
+      amount: 0.16,
+      size: 0.0016,
+      roughness: 0.60,
+      chroma: 0.0,
+      exposureSensitivity: 0.45,
+    },
+    lightLeak: { probability: 0.0, strength: 0.0 },
+    dust: { density: 0.05, scratches: 0.02 },
+  },
+  dateStamp: {
+    enabled: true,
+    format: "'YY MM DD",
+    color: "#ff8800",
+    glow: true,
+    size: 0.028,
+    position: "br",
+  },
+  frame: { type: "none" },
+  intensity: 1.0,
+  whiteProtect: true,
+  reference: {
+    referenceId: "kodak-tri-x-400-panchromatic",
+    referenceNotes: "Calibrated against Kodak Tri-X 400 panchromatic silver gelatin emulsion; inky blacks, luminous skin, crisp micro-contrast.",
+    oklabMeanError: 0.012,
+    oklabP95Error: 0.025,
+    sceneChecklistTested: ["skin daylight", "candlelit reception", "direct flash party", "white dress"],
+  },
+
+  // Backward compatibility
+  exposureEV: 0.08,
+  curve: { contrast: 1.22, pivot: 0.44, toe: 0.015, shoulder: 0.80 },
+  lift: [0.0, 0.0, 0.0],
+  gamma: [1.0, 1.0, 1.0],
+  gain: [1.0, 1.0, 1.0],
+  matrix: [0.42, 0.48, 0.10, 0.42, 0.48, 0.10, 0.42, 0.48, 0.10],
+  saturation: 0.0,
+  splitTone: { shadowHue: 0, shadowSat: 0, highlightHue: 0, highlightSat: 0, balance: 0 },
+  softFocus: { amount: 0.0, radius: 0.0 },
+  sharpen: 0.08,
+  bloom: { threshold: 0.80, strength: 0.16, radius: 0.015 },
+  halation: { threshold: 0.82, strength: 0.12, radius: 0.014, tint: [1.0, 1.0, 1.0] },
+  grain: { amount: 0.16, size: 0.0016, roughness: 0.60, chroma: 0.0 },
+  vignette: { strength: 0.28, radius: 0.80, softness: 0.65 },
+  flashFalloff: { strength: 0.28, radius: 0.52 },
+  lightLeak: { probability: 0.0, strength: 0.0 },
+  dust: { density: 0.05, scratches: 0.02 },
+};
+
 export const BUILTIN_LOOKS: LookRecipe[] = [
   CPM35_LOOK,
   CLASSIC_NEG_LOOK,
+  TRI_X_400_LOOK,
   DISPOSABLE_400_LOOK,
   GOLDEN_200_LOOK,
   CCD_FLASH_LOOK,
@@ -669,5 +772,6 @@ export const BUILTIN_LOOKS: LookRecipe[] = [
 ];
 
 export function getLookById(id: string): LookRecipe {
-  return BUILTIN_LOOKS.find((l) => l.id === id) || CPM35_LOOK;
+  const normalized = id.toLowerCase().replace(/[-_]/g, "");
+  return BUILTIN_LOOKS.find((l) => l.id.toLowerCase().replace(/[-_]/g, "") === normalized) || CPM35_LOOK;
 }

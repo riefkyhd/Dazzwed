@@ -10,7 +10,7 @@ import {
   evaluateToneCurve,
 } from "../src/lib/imaging/looks/math";
 import type { HueNode } from "../src/lib/imaging/looks/types";
-import { CLASSIC_NEG_LOOK, CPM35_LOOK } from "../src/lib/imaging/looks/presets";
+import { CLASSIC_NEG_LOOK, CPM35_LOOK, TRI_X_400_LOOK, getLookById } from "../src/lib/imaging/looks/presets";
 
 describe("Look Engine v2 Color & Math Engine", () => {
   it("converts round-trip sRGB -> OKLab -> sRGB accurately", () => {
@@ -138,6 +138,35 @@ describe("Look Engine v2 Color & Math Engine", () => {
       // Cyan-teal shift on blue sky (~225 degrees)
       const blueNode = evaluateHueTable(225, CPM35_LOOK.color.hueTable);
       expect(blueNode.dHue).toBeLessThan(0);
+    });
+
+    it("Tri-X 400 enforces authentic panchromatic black & white invariants", () => {
+      expect(TRI_X_400_LOOK.id).toBe("tri-x-400");
+      expect(getLookById("tri-x-400").id).toBe("tri-x-400");
+      expect(getLookById("trix400").id).toBe("tri-x-400");
+
+      // Strictly zero chroma saturation in OKLCH
+      expect(TRI_X_400_LOOK.color.saturation).toBe(0.0);
+      expect(TRI_X_400_LOOK.emulsion.grain.chroma).toBe(0.0); // 100% monochromatic grain
+
+      // Panchromatic yellow-filter response matrix
+      const matrix = TRI_X_400_LOOK.response.dyeMatrix;
+      expect(matrix).toHaveLength(9);
+      // Row 1 weights (0.42 R, 0.48 G, 0.10 B)
+      const rowSum = matrix[0] + matrix[1] + matrix[2];
+      expect(rowSum).toBeCloseTo(1.0, 4);
+      // Red + Green sensitivity dominates over Blue (yellow filter effect)
+      expect(matrix[0]).toBeGreaterThan(0.35);
+      expect(matrix[1]).toBeGreaterThan(0.40);
+      expect(matrix[2]).toBeLessThanOrEqual(0.12);
+
+      // Punchy H&D film tone curve
+      expect(TRI_X_400_LOOK.response.curveR.contrast).toBeGreaterThanOrEqual(1.20);
+      expect(TRI_X_400_LOOK.response.curveR.toe).toBeLessThanOrEqual(0.02); // inky deep blacks
+      expect(TRI_X_400_LOOK.response.curveR.shoulder).toBeLessThanOrEqual(0.82); // soft highlight rolloff
+
+      // Monochromatic silver halation
+      expect(TRI_X_400_LOOK.lens.halation.tint).toEqual([1.0, 1.0, 1.0]);
     });
   });
 });
