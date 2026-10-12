@@ -17,6 +17,7 @@ interface SettingsViewProps {
       bgColor?: string;
       note?: string;
       activeLookId?: string;
+      sessionResetAt?: string;
     };
   };
 }
@@ -43,6 +44,60 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
   const [activeLookId, setActiveLookId] = useState(
     initialEvent.theme?.activeLookId || "cpm-35",
   );
+  const [sessionResetAt, setSessionResetAt] = useState<string | null>(
+    initialEvent.theme?.sessionResetAt || null,
+  );
+  const [resettingSessions, setResettingSessions] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetSuccessMsg, setResetSuccessMsg] = useState<string | null>(null);
+
+  async function handleResetSessions() {
+    setResettingSessions(true);
+    setResetSuccessMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings/reset-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: initialEvent.id, action: "reset" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to reset device sessions");
+      }
+      setSessionResetAt(data.sessionResetAt);
+      setResetSuccessMsg(
+        "All guest device sessions and cookies have been reset! Every guest will receive a fresh camera roll with full shots on their next visit or refresh.",
+      );
+      setShowResetModal(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setResettingSessions(false);
+    }
+  }
+
+  async function handleClearReset() {
+    if (!confirm("Are you sure you want to clear the reset timestamp? This will restore original session tracking.")) return;
+    setResettingSessions(true);
+    setResetSuccessMsg(null);
+    try {
+      const res = await fetch("/api/admin/settings/reset-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: initialEvent.id, action: "clear" }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to clear reset");
+      }
+      setSessionResetAt(null);
+      setResetSuccessMsg("Reset timestamp cleared. Original session tracking restored.");
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setResettingSessions(false);
+    }
+  }
 
   const [availableLuts, setAvailableLuts] = useState<Array<{ fileName: string; url: string; name: string }>>([
     { fileName: "kodak-portra-400.cube", url: "/luts/kodak-portra-400.cube", name: "Kodak Portra 400 (Pastel Warmth & Flattering Skin)" },
@@ -126,6 +181,7 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
             bgColor,
             note: welcomeNote,
             activeLookId,
+            ...(sessionResetAt ? { sessionResetAt } : {}),
           },
         }),
       });
@@ -409,6 +465,75 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
           </div>
         </div>
 
+        {/* 5. Guest Device Sessions & Cookie Management */}
+        <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+              5. Guest Device Sessions & Cookie Cache Reset
+            </h2>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 px-2 py-0.5 rounded-full">
+              Session Management
+            </span>
+          </div>
+
+          <p className="text-xs text-zinc-400 leading-relaxed">
+            Reset active cookies and session storage across all guest phones. When guests have reached their shot limit or you want to start a new round/table, resetting will immediately issue everyone a brand new camera roll with {shotsPerGuest} fresh exposures without requiring guests to clear their browser cache, history, or cookies.
+          </p>
+
+          <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-white">Current Session Status:</span>
+                {sessionResetAt ? (
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-amber-400/15 text-amber-300 border border-amber-400/30">
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                    Reset Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-mono bg-zinc-800 text-zinc-300 border border-zinc-700">
+                    Initial Wedding Session
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] text-zinc-400 mt-1 font-mono">
+                {sessionResetAt
+                  ? `Last reset on ${new Date(sessionResetAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`
+                  : "Never reset. Guests are on their initial camera rolls."}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {sessionResetAt && (
+                <button
+                  type="button"
+                  disabled={resettingSessions}
+                  onClick={handleClearReset}
+                  className="px-3 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-xs font-medium border border-zinc-700 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+                >
+                  Clear Reset
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={resettingSessions}
+                onClick={() => setShowResetModal(true)}
+                className="px-4 py-2 rounded-xl bg-red-950/80 hover:bg-red-900 border border-red-700/80 text-red-200 text-xs font-semibold shadow-lg shadow-red-950/40 transition active:scale-95 disabled:opacity-50 cursor-pointer flex items-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-red-400">
+                  <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.75A.75.75 0 0 0 3 12.83v4.482a.75.75 0 0 0 1.5 0v-2.185l.407.407a7 7 0 0 0 11.93-3.414.75.75 0 0 0-1.525-.301Zm-10.624-2.848a5.5 5.5 0 0 1 9.201-2.466l.312.311h-2.433a.75.75 0 0 0 0 1.5h4.482A.75.75 0 0 0 17 7.17V2.688a.75.75 0 0 0-1.5 0v2.185l-.407-.407A7 7 0 0 0 3.163 7.88a.75.75 0 0 0 1.525.301Z" clipRule="evenodd" />
+                </svg>
+                {resettingSessions ? "Resetting…" : "Reset All Devices & Cookies"}
+              </button>
+            </div>
+          </div>
+
+          {resetSuccessMsg && (
+            <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-200 text-xs leading-relaxed font-sans">
+              ✓ {resetSuccessMsg}
+            </div>
+          )}
+        </div>
+
         <div className="flex justify-end pt-2">
           <button
             type="submit"
@@ -419,6 +544,50 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
           </button>
         </div>
       </form>
+
+      {/* Confirmation Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-red-950/80 border border-red-800 flex items-center justify-center text-red-400 mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                <path fillRule="evenodd" d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM12 8.25a.75.75 0 0 1 .75.75v3.75a.75.75 0 0 1-1.5 0V9a.75.75 0 0 1 .75-.75Zm0 8.25a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
+              </svg>
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-base font-bold text-white font-serif">
+                Reset All Guest Device Sessions?
+              </h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                This will invalidate cookies and session storage on every connected guest phone. When guests refresh or reopen the app, they will automatically receive a fresh camera roll with all {shotsPerGuest} shots remaining.
+              </p>
+              <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-300 text-left">
+                <span className="font-semibold text-emerald-400">✓ Safe:</span> All previously uploaded photos in Google Drive and your wedding gallery remain safe and untouched.
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={resettingSessions}
+                onClick={() => setShowResetModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium border border-zinc-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={resettingSessions}
+                onClick={handleResetSessions}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-lg shadow-red-600/20 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {resettingSessions ? "Resetting Devices…" : "Confirm Reset"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

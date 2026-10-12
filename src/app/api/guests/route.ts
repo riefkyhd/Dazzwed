@@ -53,15 +53,20 @@ export async function POST(req: Request) {
     .find(([k]) => k === cookieName(eventSlug))?.[1];
   const candidate = [cookieId, bodyGuestId].find((v) => v && z.uuid().safeParse(v).success);
 
-  let guest: { id: string; display_name: string | null } | null = null;
+  const sessionResetAt = (ev.theme && typeof ev.theme === "object" && "sessionResetAt" in ev.theme)
+    ? (ev.theme as { sessionResetAt?: string | null }).sessionResetAt
+    : null;
+
+  let guest: { id: string; display_name: string | null; created_at?: string } | null = null;
   if (candidate) {
     const { data } = await sb
       .from("guests")
-      .select("id,display_name")
+      .select("id,display_name,created_at")
       .eq("id", candidate)
       .eq("event_id", ev.id)
       .maybeSingle();
-    if (data) {
+    const isExpired = !!(data && sessionResetAt && new Date(data.created_at) < new Date(sessionResetAt));
+    if (data && !isExpired) {
       guest = data;
       const patch: { last_seen_at: string; display_name?: string } = { last_seen_at: new Date().toISOString() };
       if (name && !data.display_name) {
@@ -75,7 +80,7 @@ export async function POST(req: Request) {
     const { data, error } = await sb
       .from("guests")
       .insert({ event_id: ev.id, display_name: name })
-      .select("id,display_name")
+      .select("id,display_name,created_at")
       .single();
     if (error || !data) return NextResponse.json({ error: "server_error" }, { status: 500 });
     guest = data;
@@ -95,6 +100,7 @@ export async function POST(req: Request) {
     rollCode,
     shotsPerGuest: ev.shots_per_guest,
     shotsUsed: count ?? 0,
+    sessionResetAt,
   });
   res.cookies.set(cookieName(eventSlug), guest.id, {
     httpOnly: true,

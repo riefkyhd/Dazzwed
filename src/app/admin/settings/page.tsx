@@ -30,6 +30,7 @@ export default async function AdminSettingsPage() {
     bgColor?: string;
     note?: string;
     activeLookId?: string;
+    sessionResetAt?: string;
   };
 
   return (

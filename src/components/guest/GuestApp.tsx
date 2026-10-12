@@ -3,10 +3,11 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import type { EventRow } from "@/lib/event-server";
 import { type EventStatus, eventStatus } from "@/lib/event";
-import { type Lang } from "@/lib/i18n";
+import { type Lang, t } from "@/lib/i18n";
 import {
   loadSessionTriple,
   saveSessionTriple,
+  clearSessionTriple,
   clearNativePending,
   wasNativePending,
   markSessionActive,
@@ -67,6 +68,8 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
   const [shotsLeft, setShotsLeft] = useState(event.shots_per_guest);
 
   const [welcomeToast, setWelcomeToast] = useState(false);
+  const [freshRollToast, setFreshRollToast] = useState(false);
+  const [isCheckingRoll, setIsCheckingRoll] = useState(false);
 
   // Background IndexedDB upload queue with real-time pending badge
   const { pendingCount, enqueue } = useQueue(guestId);
@@ -201,30 +204,87 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
         }
       }
 
+      const sessionResetAt = (event.theme && typeof event.theme === "object" && "sessionResetAt" in event.theme)
+        ? (event.theme as { sessionResetAt?: string | null }).sessionResetAt
+        : null;
+
       // 2. Load triple-healed session (Cookie + localStorage + IndexedDB)
       const saved = await loadSessionTriple(event.slug);
       if (saved) {
-        setLang(saved.lang);
-        setGuestId(saved.guestId);
-        setRollCode(saved.rollCode || computeRollCodeFromGuestId(saved.guestId));
-
-        // Sync with server source-of-truth for accurate shot count
-        const synced = await initGuest(saved.name, saved.guestId);
-        if (synced) {
-          if (synced.remaining <= 0) {
-            setScreen("thankyou");
-          } else {
-            // Returning guest skipping landing screen directly to camera
+        const isLocallyExpired = !!(sessionResetAt && saved.createdAt && new Date(saved.createdAt) < new Date(sessionResetAt));
+        if (isLocallyExpired) {
+          await clearSessionTriple(event.slug);
+          const fresh = await initGuest(null, null);
+          if (fresh && fresh.remaining > 0) {
             setScreen("camera");
-            setWelcomeToast(true);
-            setTimeout(() => setWelcomeToast(false), 3500);
+            setFreshRollToast(true);
+            setTimeout(() => setFreshRollToast(false), 4500);
+            return;
+          }
+        } else {
+          setLang(saved.lang);
+          setGuestId(saved.guestId);
+          setRollCode(saved.rollCode || computeRollCodeFromGuestId(saved.guestId));
+
+          // Sync with server source-of-truth for accurate shot count
+          const synced = await initGuest(saved.name, saved.guestId);
+          if (synced) {
+            const isFreshRoll = synced.guestId !== saved.guestId;
+            if (synced.remaining <= 0) {
+              setScreen("thankyou");
+            } else {
+              setScreen("camera");
+              if (isFreshRoll) {
+                setFreshRollToast(true);
+                setTimeout(() => setFreshRollToast(false), 4500);
+              } else {
+                setWelcomeToast(true);
+                setTimeout(() => setWelcomeToast(false), 3500);
+              }
+            }
           }
         }
       }
     };
 
     void resolveSession();
-  }, [event.slug, initialRestoreCode, status, initGuest, lang]);
+  }, [event.slug, event.theme, initialRestoreCode, status, initGuest, lang]);
+
+  const checkRollSync = useCallback(async () => {
+    if (status !== "open") return;
+    setIsCheckingRoll(true);
+    try {
+      const synced = await initGuest(null, guestId || undefined);
+      if (synced) {
+        if (guestId && synced.guestId !== guestId) {
+          // Fresh roll issued by server
+          setGuestId(synced.guestId);
+          setRollCode(synced.rollCode);
+          setShotsLeft(synced.remaining);
+          if (synced.remaining > 0) {
+            setScreen("camera");
+            setFreshRollToast(true);
+            setTimeout(() => setFreshRollToast(false), 4500);
+          }
+        } else if (synced.remaining > 0 && screen === "thankyou") {
+          setScreen("camera");
+        }
+      }
+    } finally {
+      setIsCheckingRoll(false);
+    }
+  }, [status, guestId, initGuest, screen]);
+
+  // Listen to visibility change (e.g. phone unlocked or browser tab brought to foreground)
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void checkRollSync();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, [checkRollSync]);
 
   const handleStartCamera = async (name: string | null) => {
     // Best-effort fullscreen request on user gesture (Android Chrome, ignores on iOS)
@@ -434,6 +494,15 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
         </div>
       )}
 
+      {freshRollToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-amber-950/95 border border-amber-400/60 rounded-full shadow-2xl flex items-center gap-2 text-amber-200 text-xs font-mono animate-in fade-in slide-in-from-top-4 duration-300">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+          <span>
+            {t(lang, "freshRollToast", { n: shotsLeft })}
+          </span>
+        </div>
+      )}
+
       {nativeModalVisible && (
         <NativeDevelopingModal
           state={nativeProcessingState}
@@ -464,6 +533,8 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
           coupleNames={event.couple_names}
           lang={lang}
           pendingCount={pendingCount}
+          onCheckRoll={checkRollSync}
+          isCheckingRoll={isCheckingRoll}
         />
       )}
 

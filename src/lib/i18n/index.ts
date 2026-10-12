@@ -61,6 +61,8 @@ const en = {
   savedToDevice: "Saved!",
   restoreLinkCopied: "Restore link copied!",
   copyRestoreLink: "Copy restore link",
+  checkNewRoll: "Check for fresh camera roll",
+  freshRollToast: "New camera roll ready! {n} shots available.",
   // debug
   debugTitle: "Camera debug",
 } as const;
@@ -129,6 +131,8 @@ const id: Dict = {
   savedToDevice: "Tersimpan!",
   restoreLinkCopied: "Tautan salinan berhasil disalin!",
   copyRestoreLink: "Salin tautan pemulihan",
+  checkNewRoll: "Periksa roll kamera baru",
+  freshRollToast: "Roll kamera baru siap! Sisa {n} jepretan.",
   // debug
   debugTitle: "Debug kamera",
 };

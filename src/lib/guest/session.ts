@@ -5,6 +5,7 @@ export interface Session {
   name: string | null;
   lang: Lang;
   rollCode?: string;
+  createdAt?: string;
 }
 
 const key = (slug: string) => `dc:session:${slug}`;
@@ -77,9 +78,41 @@ export function saveSession(slug: string, s: Session): void {
     if (!s.rollCode && s.guestId) {
       s.rollCode = computeRollCodeFromGuestId(s.guestId);
     }
+    if (!s.createdAt) {
+      s.createdAt = new Date().toISOString();
+    }
     ls()?.setItem(key(slug), JSON.stringify(s));
   } catch {
     /* storage full/blocked: server cookie still identifies the guest */
+  }
+}
+
+export async function clearSessionTriple(slug: string): Promise<void> {
+  try {
+    ls()?.removeItem(key(slug));
+    ls()?.removeItem(nativeKey(slug));
+    ls()?.removeItem(uncleanKey(slug));
+  } catch {
+    /* ignore */
+  }
+  try {
+    const db = await openSessionDb();
+    if (db) {
+      await new Promise<void>((resolve) => {
+        const t = db.transaction(STORE_SESSIONS, "readwrite");
+        t.objectStore(STORE_SESSIONS).delete(slug);
+        t.oncomplete = () => {
+          db.close();
+          resolve();
+        };
+        t.onerror = () => {
+          db.close();
+          resolve();
+        };
+      });
+    }
+  } catch {
+    /* ignore */
   }
 }
 
@@ -134,8 +167,18 @@ export async function saveSessionTriple(slug: string, s: Session): Promise<void>
   try {
     const db = await openSessionDb();
     if (!db) return;
-    const t = db.transaction(STORE_SESSIONS, "readwrite");
-    t.objectStore(STORE_SESSIONS).put({ slug, ...s });
+    await new Promise<void>((resolve) => {
+      const t = db.transaction(STORE_SESSIONS, "readwrite");
+      t.objectStore(STORE_SESSIONS).put({ slug, ...s });
+      t.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      t.onerror = () => {
+        db.close();
+        resolve();
+      };
+    });
   } catch {
     // Non-critical background failure
   }
@@ -160,12 +203,15 @@ export async function loadSessionTriple(slug: string): Promise<Session | null> {
       const t = db.transaction(STORE_SESSIONS, "readonly");
       const req = t.objectStore(STORE_SESSIONS).get(slug);
       req.onsuccess = () => {
-        if (req.result && typeof req.result.guestId === "string") {
+        const result = req.result;
+        db.close();
+        if (result && typeof result.guestId === "string") {
           const s: Session = {
-            guestId: req.result.guestId,
-            name: req.result.name ?? null,
-            lang: req.result.lang ?? "en",
-            rollCode: req.result.rollCode || computeRollCodeFromGuestId(req.result.guestId),
+            guestId: result.guestId,
+            name: result.name ?? null,
+            lang: result.lang ?? "en",
+            rollCode: result.rollCode || computeRollCodeFromGuestId(result.guestId),
+            createdAt: result.createdAt,
           };
           // Heal localStorage
           saveSession(slug, s);
@@ -174,7 +220,10 @@ export async function loadSessionTriple(slug: string): Promise<Session | null> {
           resolve(null);
         }
       };
-      req.onerror = () => resolve(null);
+      req.onerror = () => {
+        db.close();
+        resolve(null);
+      };
     });
   } catch {
     return null;
