@@ -39,6 +39,7 @@ uniform bool u_isCapture;
 uniform float u_frameHeight;
 uniform bool u_isNativeCamera;
 uniform vec4 u_cropRect; // xy: offset, zw: scale (in source texture coords)
+uniform bool u_mirror;
 
 // 1. Lens Model
 uniform vec2 u_radialBlur; // r0, r1
@@ -222,7 +223,11 @@ float evalChannelCurve(float x, vec4 curve, int shoulderType) {
 }
 
 vec2 mapCropUv(vec2 normUv) {
-  return clamp(u_cropRect.xy + normUv * u_cropRect.zw, vec2(0.0), vec2(1.0));
+  vec2 uv = normUv;
+  if (u_mirror) {
+    uv.x = 1.0 - uv.x;
+  }
+  return clamp(u_cropRect.xy + uv * u_cropRect.zw, vec2(0.0), vec2(1.0));
 }
 
 void main() {
@@ -564,6 +569,7 @@ export interface LookEngineRenderOptions {
   isNativeCamera?: boolean;
   sceneExposure?: number; // mean log-luminance (default 0.5)
   cropRect?: { x: number; y: number; width: number; height: number }; // normalized [0, 1] texture coordinates
+  mirror?: boolean;
 }
 
 export class LookEnginePipeline {
@@ -581,6 +587,7 @@ export class LookEnginePipeline {
   private uFrameHeightLoc: WebGLUniformLocation | null = null;
   private uIsNativeCamLoc: WebGLUniformLocation | null = null;
   private uCropRectLoc: WebGLUniformLocation | null = null;
+  private uMirrorLoc: WebGLUniformLocation | null = null;
 
   // Lens
   private uRadialBlurLoc: WebGLUniformLocation | null = null;
@@ -715,6 +722,7 @@ export class LookEnginePipeline {
     this.uFrameHeightLoc = gl.getUniformLocation(prog, "u_frameHeight");
     this.uIsNativeCamLoc = gl.getUniformLocation(prog, "u_isNativeCamera");
     this.uCropRectLoc = gl.getUniformLocation(prog, "u_cropRect");
+    this.uMirrorLoc = gl.getUniformLocation(prog, "u_mirror");
 
     this.uRadialBlurLoc = gl.getUniformLocation(prog, "u_radialBlur");
     this.uCaLoc = gl.getUniformLocation(prog, "u_chromaticAberration");
@@ -791,6 +799,7 @@ export class LookEnginePipeline {
 
     const cr = options.cropRect ?? { x: 0, y: 0, width: 1, height: 1 };
     gl.uniform4f(this.uCropRectLoc, cr.x, cr.y, cr.width, cr.height);
+    gl.uniform1i(this.uMirrorLoc, options.mirror ? 1 : 0);
 
     // Runtime intensity & flags
     const intensityVal = options.intensity ?? look.intensity ?? (options.isNativeCamera ? 0.7 : 1.0);

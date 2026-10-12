@@ -52,6 +52,7 @@ export function CameraScreen({
   const searchParams = useSearchParams();
   const isDebug = searchParams?.get("debug") === "1";
   const [showHud, setShowHud] = useState(isDebug);
+  const [mirrorFront, setMirrorFront] = useState(true);
 
   const {
     videoRef,
@@ -89,7 +90,7 @@ export function CameraScreen({
     exposureCompValue,
     setExposureCompensation,
     unfreezeViewfinder,
-  } = useCamera(true, defaultLookId);
+  } = useCamera(true, defaultLookId, mirrorFront);
 
   // Responsive Layout Engine
   const layout = useViewportLayout(cameraAspect);
@@ -119,7 +120,6 @@ export function CameraScreen({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [showLevel, setShowLevel] = useState(false);
-  const [mirrorFront, setMirrorFront] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [aeAfLocked, setAeAfLocked] = useState(false);
 

@@ -32,7 +32,7 @@ const stopStream = (s: MediaStream | null) => s?.getTracks().forEach((t) => t.st
  * permission is granted. Restarts itself after interruptions; the shot counter lives in the parent
  * so it survives restarts.
  */
-export function useCamera(enabled: boolean, defaultLookId?: string) {
+export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront: boolean = true) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -410,12 +410,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
               height: targetCrop.sh / vh,
             };
 
+            const isMirrored = facing === "user" && mirrorFront;
             lookPipelineRef.current.render(v, activeLook, {
               width: out.width,
               height: out.height,
               isCapture: false,
               disableAnimatedGrain,
               cropRect: normTargetCropRect,
+              mirror: isMirrored,
             });
           }
 
@@ -438,7 +440,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
       v.removeEventListener("canplay", ensurePlay);
       v.removeEventListener("playing", sync);
     };
-  }, [stream, previewTier, activeLook, disableAnimatedGrain, cameraAspect, digitalZoom, zoomRange]);
+  }, [stream, previewTier, activeLook, disableAnimatedGrain, cameraAspect, digitalZoom, zoomRange, facing, mirrorFront]);
 
   const setZoom = useCallback((value: number) => {
     setZoomValue(value);
@@ -502,7 +504,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         const track = streamRef.current?.getVideoTracks()[0];
         if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
         const targetAspect = aspectOverride || cameraAspect;
-        const isMirrored = mirrorOverride !== undefined ? mirrorOverride : facing === "user";
+        const isMirrored = mirrorOverride !== undefined ? mirrorOverride : (facing === "user" && mirrorFront);
 
         // Cancel previous pending archival render if still active
         if (abortControllerRef.current) {
