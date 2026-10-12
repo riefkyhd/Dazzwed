@@ -20,6 +20,7 @@ export function LookLabView() {
   const [showJson, setShowJson] = useState<boolean>(false);
   const [jsonText, setJsonText] = useState<string>("");
   const [copySuccess, setCopySuccess] = useState<boolean>(false);
+  const [saveStatus, setSaveStatus] = useState<string | null>(null);
 
   // Reference Fit Tool State
   const [phonePhotoSrc, setPhonePhotoSrc] = useState<string | null>(null);
@@ -272,8 +273,37 @@ export function LookLabView() {
 
   const handleSelectPreset = (id: string) => {
     setSelectedPresetId(id);
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`dazzwed_looklab_${id}`);
+      if (saved) {
+        try {
+          setCurrentRecipe(JSON.parse(saved));
+          return;
+        } catch {
+          // fallback to default
+        }
+      }
+    }
     const p = getLookById(id);
     setCurrentRecipe(JSON.parse(JSON.stringify(p)));
+  };
+
+  const handleRevertToDefault = () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(`dazzwed_looklab_${selectedPresetId}`);
+    }
+    const p = getLookById(selectedPresetId);
+    setCurrentRecipe(JSON.parse(JSON.stringify(p)));
+    setSaveStatus("Reverted to factory default!");
+    setTimeout(() => setSaveStatus(null), 2500);
+  };
+
+  const handleSavePreset = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(`dazzwed_looklab_${selectedPresetId}`, JSON.stringify(currentRecipe));
+    }
+    setSaveStatus("Tuned preset saved to browser!");
+    setTimeout(() => setSaveStatus(null), 2500);
   };
 
   const copyRecipeJson = () => {
@@ -414,6 +444,9 @@ export function LookLabView() {
     alert("Fitted parameters applied to recipe!");
   };
 
+  const defaultRecipe = getLookById(selectedPresetId);
+  const isModified = JSON.stringify(currentRecipe) !== JSON.stringify(defaultRecipe);
+
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Header */}
@@ -465,59 +498,105 @@ export function LookLabView() {
               <span>{fps} FPS</span>
             </div>
 
-            <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 text-[11px] font-mono text-amber-300 font-bold">
-              {currentRecipe.name.toUpperCase()} ({currentRecipe.aspectRatio})
+            <div className="absolute top-3 right-3 flex flex-col items-end gap-1">
+              <div className="bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-full border border-white/10 text-[11px] font-mono text-amber-300 font-bold">
+                {currentRecipe.name.toUpperCase()} ({currentRecipe.aspectRatio})
+              </div>
+              {currentRecipe.lutUrl && (
+                <div className="bg-amber-400 text-black px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider shadow-sm">
+                  🎞️ 3D LUT: {currentRecipe.lutUrl.replace("/luts/", "")}
+                </div>
+              )}
             </div>
           </div>
 
           {/* Preset Selector & Source Switcher */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-zinc-900/60 rounded-xl border border-zinc-800">
-            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
-              <span className="text-[11px] font-mono text-zinc-400 shrink-0 mr-0.5">PRESET:</span>
-              {BUILTIN_LOOKS.map((preset) => (
+          <div className="flex flex-col gap-2.5 p-3 bg-zinc-900/60 rounded-xl border border-zinc-800">
+            <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800/80">
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-mono font-bold text-zinc-300 uppercase tracking-wider">
+                  Presets & Film Stocks
+                </span>
+                <span className="text-[10px] font-mono text-zinc-500">({BUILTIN_LOOKS.length} available)</span>
+              </div>
+
+              {/* Source Switcher */}
+              <div className="flex items-center justify-center gap-1 bg-black/60 p-0.5 rounded-lg border border-zinc-800 text-xs font-mono">
                 <button
-                  key={preset.id}
                   type="button"
-                  onClick={() => handleSelectPreset(preset.id)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer shrink-0 ${
-                    selectedPresetId === preset.id
-                      ? "bg-amber-400 text-black font-bold shadow-sm"
-                      : "text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800"
+                  onClick={() => setSourceType("chart")}
+                  className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                    sourceType === "chart" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
-                  {preset.name}
+                  Chart
                 </button>
-              ))}
+                <button
+                  type="button"
+                  onClick={() => setSourceType("fixture")}
+                  className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                    sourceType === "fixture" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  Fixture
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSourceType("camera")}
+                  className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                    sourceType === "camera" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  Camera
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center justify-center gap-1 bg-black/50 p-1 rounded-lg border border-zinc-800 text-xs font-mono shrink-0 self-end sm:self-auto">
-              <button
-                type="button"
-                onClick={() => setSourceType("chart")}
-                className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-                  sourceType === "chart" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Chart
-              </button>
-              <button
-                type="button"
-                onClick={() => setSourceType("fixture")}
-                className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-                  sourceType === "fixture" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Fixture
-              </button>
-              <button
-                type="button"
-                onClick={() => setSourceType("camera")}
-                className={`px-2.5 py-1 rounded cursor-pointer transition-colors ${
-                  sourceType === "camera" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
-                }`}
-              >
-                Camera
-              </button>
+            {/* Group 1: Authentic 3D LUT Film Stocks */}
+            <div className="space-y-1.5">
+              <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-semibold flex items-center gap-1">
+                <span>🎞️ Authentic 3D LUT Film Stocks</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {BUILTIN_LOOKS.filter((p) => Boolean(p.lutUrl)).map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(preset.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
+                      selectedPresetId === preset.id
+                        ? "bg-amber-400 text-black font-bold shadow-md ring-1 ring-amber-300"
+                        : "text-zinc-300 bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/70"
+                    }`}
+                  >
+                    <span>{preset.name}</span>
+                    <span className="text-[9px] opacity-75 font-normal">(.cube)</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Group 2: Calibrated Procedural Recipes */}
+            <div className="space-y-1.5 pt-1 border-t border-zinc-800/60">
+              <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-semibold flex items-center gap-1">
+                <span>✨ Calibrated Procedural Recipes</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {BUILTIN_LOOKS.filter((p) => !p.lutUrl).map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(preset.id)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
+                      selectedPresetId === preset.id
+                        ? "bg-amber-400 text-black font-bold shadow-md ring-1 ring-amber-300"
+                        : "text-zinc-400 bg-zinc-900 hover:text-zinc-200 hover:bg-zinc-800 border border-zinc-800"
+                    }`}
+                  >
+                    {preset.name}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -589,20 +668,69 @@ export function LookLabView() {
           {/* TAB 1: PARAMETERS */}
           {activeTab === "params" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between pb-2 border-b border-zinc-900">
-                <h2 className="text-xs font-mono uppercase tracking-wider text-amber-400 font-semibold">
-                  Camera System Stages
-                </h2>
-                <label className="flex items-center gap-1.5 text-xs font-mono text-zinc-300 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={currentRecipe.whiteProtect ?? true}
-                    onChange={(e) => updateRecipe((r) => (r.whiteProtect = e.target.checked))}
-                    className="w-3.5 h-3.5 accent-amber-400 rounded"
-                  />
-                  <span>White Protect</span>
-                </label>
+              {/* Action Toolbar & State Status */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xs font-mono uppercase tracking-wider text-amber-400 font-semibold">
+                    Camera System Stages
+                  </h2>
+                  <span
+                    className={`text-[10px] font-mono px-2 py-0.5 rounded-full border transition-all ${
+                      isModified
+                        ? "bg-amber-400/20 text-amber-300 border-amber-400/40 font-bold"
+                        : "bg-zinc-900 text-zinc-500 border-zinc-800"
+                    }`}
+                  >
+                    {isModified ? "● Modified" : "Default"}
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-1.5 text-xs font-mono text-zinc-300 cursor-pointer mr-1">
+                    <input
+                      type="checkbox"
+                      checked={currentRecipe.whiteProtect ?? true}
+                      onChange={(e) => updateRecipe((r) => (r.whiteProtect = e.target.checked))}
+                      className="w-3.5 h-3.5 accent-amber-400 rounded"
+                    />
+                    <span>White Protect</span>
+                  </label>
+
+                  {/* Revert to Default */}
+                  <button
+                    type="button"
+                    onClick={handleRevertToDefault}
+                    disabled={!isModified}
+                    title="Reset all sliders back to original preset defaults"
+                    className={`px-2.5 py-1 rounded-lg text-xs font-mono border transition-all flex items-center gap-1 ${
+                      isModified
+                        ? "bg-zinc-800 hover:bg-zinc-700 text-amber-300 border-amber-400/30 cursor-pointer active:scale-95 shadow-sm"
+                        : "bg-zinc-900/60 text-zinc-600 border-zinc-800 cursor-not-allowed opacity-50"
+                    }`}
+                  >
+                    <span>↺</span>
+                    <span>Revert</span>
+                  </button>
+
+                  {/* Save Preset */}
+                  <button
+                    type="button"
+                    onClick={handleSavePreset}
+                    title="Save current tuned sliders to browser storage"
+                    className="px-2.5 py-1 rounded-lg text-xs font-mono bg-amber-400 hover:bg-amber-300 text-black font-bold border border-amber-400 transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                  >
+                    <span>💾</span>
+                    <span>Save</span>
+                  </button>
+                </div>
               </div>
+
+              {saveStatus && (
+                <div className="px-3 py-1.5 rounded-lg bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-mono animate-in fade-in flex items-center gap-2">
+                  <span>✓</span>
+                  <span>{saveStatus}</span>
+                </div>
+              )}
 
               {/* Look Intensity */}
               <div className="space-y-1 pb-3 border-b border-zinc-900">
