@@ -338,10 +338,10 @@ void main() {
   if (abs(u_localContrast) > 0.01) {
     vec2 lcStep = 4.0 / max(vec2(1.0), u_resolution);
     vec3 lcBlur = (
-      texture(u_image, distUv + lcStep).rgb +
-      texture(u_image, distUv - lcStep).rgb +
-      texture(u_image, distUv + vec2(lcStep.x, -lcStep.y)).rgb +
-      texture(u_image, distUv + vec2(-lcStep.x, lcStep.y)).rgb
+      texture(u_image, mapCropUv(distUv + lcStep)).rgb +
+      texture(u_image, mapCropUv(distUv - lcStep)).rgb +
+      texture(u_image, mapCropUv(distUv + vec2(lcStep.x, -lcStep.y))).rgb +
+      texture(u_image, mapCropUv(distUv + vec2(-lcStep.x, lcStep.y))).rgb
     ) * 0.25;
     vec3 detail = rgb - lcBlur;
     rgb = clamp(rgb + detail * u_localContrast, 0.0, 1.0);
