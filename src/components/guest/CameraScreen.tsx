@@ -410,8 +410,8 @@ export function CameraScreen({
         <canvas
           ref={canvasRef}
           className={`w-full h-full object-cover pointer-events-none ${
-            facing === "user" && mirrorFront ? "-scale-x-100" : ""
-          } ${error ? "filter blur-md opacity-40 transition-all duration-300" : ""}`}
+            error ? "filter blur-md opacity-40 transition-all duration-300" : ""
+          }`}
         />
 
         {/* In-place Recovery Ladder Overlay (screen never unmounts) */}
@@ -460,12 +460,12 @@ export function CameraScreen({
           </div>
         )}
 
-        {/* Starting / Restarting Spinner */}
-        {(starting || restarting) && (
+        {/* Starting Spinner (initial entry only, silent seamless switch on flip) */}
+        {starting && !live && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs text-white">
             <div className="w-8 h-8 rounded-full border-2 border-amber-400 border-t-transparent animate-spin mb-3" />
             <p className="text-xs font-mono text-zinc-300 uppercase tracking-widest">
-              {restarting ? t(lang, "restarting") : coupleNames}
+              {coupleNames}
             </p>
           </div>
         )}
