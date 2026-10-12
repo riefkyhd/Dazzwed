@@ -134,28 +134,51 @@ vec3 oklabToLinearSrgb(vec3 lab) {
   );
 }
 
-// Pseudo-random 2D hash and multi-octave grain
-float hash(vec2 p) {
-  p = fract(p * vec2(123.34, 456.21));
-  p += dot(p, p + 45.32);
-  return fract(p.x * p.y);
+// Pseudo-random isotropic hash for organic silver halide crystal boundaries
+float crystalHash(vec2 p) {
+  vec3 p3 = fract(vec3(p.xyx) * vec3(443.897, 441.423, 437.195));
+  p3 += dot(p3, p3.yzx + 19.19);
+  return fract((p3.x + p3.y) * p3.z) * 2.0 - 1.0;
 }
 
-float noise(vec2 p) {
+// 2D simplex/triangular lattice noise for organic micro-grain (eliminates orthogonal grid bias)
+float simplexGrain(vec2 p) {
+  const float K1 = 0.366025404; // (sqrt(3)-1)/2
+  const float K2 = 0.211324865; // (3-sqrt(3))/6
+
+  vec2 i = floor(p + (p.x + p.y) * K1);
+  vec2 a = p - i + (i.x + i.y) * K2;
+  vec2 o = (a.x > a.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+  vec2 b = a - o + K2;
+  vec2 c = a - 1.0 + 2.0 * K2;
+
+  vec3 h = max(0.5 - vec3(dot(a, a), dot(b, b), dot(c, c)), 0.0);
+  vec3 n = h * h * h * h * vec3(
+    crystalHash(i),
+    crystalHash(i + o),
+    crystalHash(i + 1.0)
+  );
+  return dot(n, vec3(70.0));
+}
+
+// Low-frequency macro clumping noise for organic silver agglomeration
+float clumpingNoise(vec2 p) {
   vec2 i = floor(p);
   vec2 f = fract(p);
   f = f * f * (3.0 - 2.0 * f);
-  float a = hash(i);
-  float b = hash(i + vec2(1.0, 0.0));
-  float c = hash(i + vec2(0.0, 1.0));
-  float d = hash(i + vec2(1.0, 1.0));
+  float a = crystalHash(i);
+  float b = crystalHash(i + vec2(1.0, 0.0));
+  float c = crystalHash(i + vec2(0.0, 1.0));
+  float d = crystalHash(i + vec2(1.0, 1.0));
   return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
 }
 
-float fbmGrain(vec2 uv, float roughness) {
-  float n1 = noise(uv);
-  float n2 = noise(uv * 2.02);
-  return mix(n1, n2, roughness);
+// Multi-scale physical grain: micro-crystals modulated by macro-agglomeration clumping
+float physicalGrain(vec2 uv, float roughness) {
+  float micro = simplexGrain(uv);
+  float macroClump = clumpingNoise(uv * 0.42);
+  float clumpWeight = mix(0.18, 0.65, roughness);
+  return micro * (1.0 + clumpWeight * macroClump);
 }
 
 // Filmic Tone Curve evaluation supporting soft and hard shoulders
@@ -444,27 +467,46 @@ void main() {
     return;
   }
 
-  // 4c. Exposure-Aware Film Grain
+  // 4c. Exposure-Aware Physical Film Grain (Optical Density Modulation)
   if (u_grain.x > 0.0) {
     float grainScale = max(0.0008, u_grain.y) * max(100.0, u_frameHeight);
     vec2 grainUv = (gl_FragCoord.xy) / grainScale;
     float seedOffset = u_isCapture ? u_seed : u_time * 12.0;
 
-    float gMono = (fbmGrain(grainUv + seedOffset, u_grain.z) - 0.5);
-    float midWeightG = 4.0 * luma * (1.0 - luma);
+    // Asymmetric Hurter-Driffield luminance curve:
+    // Suppressed in deep shadows (L < 0.04), peaks in mid-shadows (L ≈ 0.33), rolls off gracefully in highlights
+    float lDiff = (luma - 0.33) / 0.28;
+    float hdWeight = smoothstep(0.01, 0.10, luma) * exp(-0.5 * lDiff * lDiff);
 
     // Increase grain in underexposed scenes up to cap
     float expFactor = clamp(1.0 + (0.5 - u_sceneExposure) * u_grainExposureSens, 0.6, 2.2);
-    float grainVal = gMono * u_grain.x * midWeightG * expFactor;
+    float grainStrength = u_grain.x * hdWeight * expFactor;
+
+    // Physical grain calculation
+    vec3 dDensity = vec3(0.0);
 
     if (u_grain.w > 0.0) {
-      float gChromaR = (noise(grainUv * 1.5 + seedOffset + 17.0) - 0.5) * u_grain.w * grainVal;
-      float gChromaB = (noise(grainUv * 1.5 + seedOffset + 43.0) - 0.5) * u_grain.w * grainVal;
-      rgb += vec3(grainVal + gChromaR, grainVal, grainVal + gChromaB);
+      // Color film: Subtractive CMY dye cloud layers (Cyan=Red, Magenta=Green, Yellow=Blue)
+      // Yellow dye layer in C-41 is coarsest (larger dye clouds), Magenta is sharpest
+      float gM = physicalGrain(grainUv + seedOffset, u_grain.z); // Green / Magenta
+      float gC = physicalGrain((grainUv + vec2(17.3, 31.7)) * 1.05 + seedOffset, u_grain.z); // Red / Cyan
+      float gY = physicalGrain((grainUv + vec2(43.1, 79.5)) * 0.78 + seedOffset, u_grain.z); // Blue / Yellow
+
+      // Blend between monochromatic silver grain and C-41 CMY dye clouds via chroma parameter
+      float chromaMix = clamp(u_grain.w, 0.0, 1.0);
+      dDensity.r = mix(gM, gC * 0.95, chromaMix);
+      dDensity.g = mix(gM, gM * 1.00, chromaMix);
+      dDensity.b = mix(gM, gY * 1.25, chromaMix);
     } else {
-      rgb += vec3(grainVal);
+      // Black & white (e.g. Tri-X 400): Strictly monochromatic silver halide crystals across all channels
+      float gMono = physicalGrain(grainUv + seedOffset, u_grain.z);
+      dDensity = vec3(gMono);
     }
-    rgb = clamp(rgb, 0.0, 1.0);
+
+    // Physical Optical Density Modulation (Beer-Lambert Law):
+    // Transmittance T = 10^-D. Modulating D by dD -> T_new = T * 2^(dDensity * grainStrength * 1.8)
+    // Pure blacks remain pure (0 * 2^x = 0), midtones modulate organically, highlights roll off naturally
+    rgb = clamp(rgb * exp2(dDensity * grainStrength * 1.8), 0.0, 1.0);
   }
 
   // ==========================================

@@ -167,6 +167,79 @@ describe("Look Engine v2 Color & Math Engine", () => {
 
       // Monochromatic silver halation
       expect(TRI_X_400_LOOK.lens.halation.tint).toEqual([1.0, 1.0, 1.0]);
+
+      // Chunky cubic silver grain with high clumping
+      expect(TRI_X_400_LOOK.emulsion.grain.amount).toBe(0.18);
+      expect(TRI_X_400_LOOK.emulsion.grain.roughness).toBeGreaterThanOrEqual(0.60);
+      expect(TRI_X_400_LOOK.emulsion.grain.chroma).toBe(0.0);
+    });
+
+    it("verifies all built-in recipes have calibrated physical grain configurations", () => {
+      const looks = [
+        "cpm-35",
+        "classic-neg",
+        "tri-x-400",
+        "disposable-400",
+        "golden-200",
+        "ccd-flash",
+        "instant",
+        "neutral",
+      ];
+
+      for (const id of looks) {
+        const look = getLookById(id);
+        expect(look).toBeDefined();
+        const g = look.emulsion.grain;
+        expect(g).toBeDefined();
+        expect(g.size).toBeGreaterThanOrEqual(0.0008);
+        expect(g.size).toBeLessThanOrEqual(0.0025);
+        expect(g.roughness).toBeGreaterThanOrEqual(0.0);
+        expect(g.roughness).toBeLessThanOrEqual(1.0);
+        expect(g.chroma).toBeGreaterThanOrEqual(0.0);
+        expect(g.chroma).toBeLessThanOrEqual(1.0);
+
+        if (id === "neutral") {
+          expect(g.amount).toBe(0.0);
+        } else {
+          expect(g.amount).toBeGreaterThan(0.0);
+        }
+
+        if (id === "tri-x-400") {
+          expect(g.chroma).toBe(0.0); // Strict monochromatic silver
+        }
+      }
+    });
+
+    it("enforces Hurter-Driffield asymmetric grain response curve mathematically", () => {
+      // Hurter-Driffield weighting function:
+      // w(L) = smoothstep(0.01, 0.10, L) * exp(-0.5 * ((L - 0.33)/0.28)^2)
+      const smoothstep = (min: number, max: number, x: number) => {
+        const t = Math.max(0, Math.min(1, (x - min) / (max - min)));
+        return t * t * (3 - 2 * t);
+      };
+      const hdWeight = (luma: number) => {
+        const diff = (luma - 0.33) / 0.28;
+        return smoothstep(0.01, 0.10, luma) * Math.exp(-0.5 * diff * diff);
+      };
+
+      // 1. Deep blacks (L < 0.01): weight is zero (prevents shadow fogging / grey lifting)
+      expect(hdWeight(0.0)).toBe(0.0);
+      expect(hdWeight(0.005)).toBe(0.0);
+
+      // 2. Peak grain occurs in mid-shadows / lower midtones (~0.33)
+      const peakWeight = hdWeight(0.33);
+      expect(peakWeight).toBeCloseTo(1.0, 2);
+
+      // 3. Weight at peak is substantially higher than deep shadows and specular highlights
+      expect(peakWeight).toBeGreaterThan(hdWeight(0.04) * 3);
+      expect(peakWeight).toBeGreaterThan(hdWeight(0.95) * 5);
+
+      // 4. Optical density transmission preserves pure black:
+      // T_out = T_in * 2^(dD) -> when T_in = 0, T_out is strictly 0
+      const grainModulation = (t: number, dD: number) => t * Math.pow(2, dD);
+      expect(grainModulation(0.0, 1.5)).toBe(0.0);
+      expect(grainModulation(0.0, -1.5)).toBe(0.0);
     });
   });
 });
+
