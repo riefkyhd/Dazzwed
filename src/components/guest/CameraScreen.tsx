@@ -130,6 +130,14 @@ export function CameraScreen({
   // Look Drawer State for L2 density
   const [lookDrawerOpen, setLookDrawerOpen] = useState(false);
 
+  // Initial loading tracking so flip camera switches are completely silent without overlays
+  const [hasInitialized, setHasInitialized] = useState(false);
+  useEffect(() => {
+    if (live && !hasInitialized) {
+      setHasInitialized(true);
+    }
+  }, [live, hasInitialized]);
+
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
@@ -461,7 +469,7 @@ export function CameraScreen({
         )}
 
         {/* Starting Spinner (initial entry only, silent seamless switch on flip) */}
-        {starting && !live && (
+        {!hasInitialized && starting && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs text-white">
             <div className="w-8 h-8 rounded-full border-2 border-amber-400 border-t-transparent animate-spin mb-3" />
             <p className="text-xs font-mono text-zinc-300 uppercase tracking-widest">
