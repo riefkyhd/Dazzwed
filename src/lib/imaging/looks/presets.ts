@@ -766,7 +766,7 @@ export const TRI_X_400_LOOK: LookRecipe = {
 export const PORTRA_400_LOOK: LookRecipe = {
   id: "portra-400",
   name: "Kodak Portra 400",
-  version: 1,
+  version: 2,
   lutUrl: "/luts/kodak-portra-400.cube",
   aspectRatio: "3:2",
   lens: {
@@ -849,7 +849,7 @@ export const PORTRA_400_LOOK: LookRecipe = {
 export const CINESTILL_800T_LOOK: LookRecipe = {
   id: "cinestill-800t",
   name: "CineStill 800T",
-  version: 1,
+  version: 2,
   lutUrl: "/luts/cinestill-800t.cube",
   aspectRatio: "3:2",
   lens: {
@@ -932,7 +932,7 @@ export const CINESTILL_800T_LOOK: LookRecipe = {
 export const FUJI_ETERNA_LOOK: LookRecipe = {
   id: "fuji-eterna-250d",
   name: "Fujifilm Eterna 250D",
-  version: 1,
+  version: 2,
   lutUrl: "/luts/fuji-eterna-250d.cube",
   aspectRatio: "16:9",
   lens: {
@@ -1015,7 +1015,7 @@ export const FUJI_ETERNA_LOOK: LookRecipe = {
 export const ILFORD_HP5_LOOK: LookRecipe = {
   id: "ilford-hp5-plus",
   name: "Ilford HP5 Plus",
-  version: 1,
+  version: 2,
   lutUrl: "/luts/ilford-hp5-plus.cube",
   aspectRatio: "3:2",
   lens: {
@@ -1098,7 +1098,7 @@ export const ILFORD_HP5_LOOK: LookRecipe = {
 export const SUPER_8_LOOK: LookRecipe = {
   id: "super-8mm-vintage",
   name: "Super 8mm Vintage",
-  version: 1,
+  version: 2,
   lutUrl: "/luts/super-8mm-vintage.cube",
   aspectRatio: "4:3",
   lens: {
@@ -1181,7 +1181,7 @@ export const SUPER_8_LOOK: LookRecipe = {
 export const KODAK_EKTAR_LOOK: LookRecipe = {
   id: "kodak-ektar-100",
   name: "Kodak Ektar 100",
-  version: 1,
+  version: 2,
   lutUrl: "/luts/kodak-ektar-100.cube",
   aspectRatio: "3:2",
   lens: {
@@ -1285,7 +1285,7 @@ export function getLookById(id: string): LookRecipe {
     return {
       ...DISPOSABLE_400_LOOK,
       id,
-      version: 1,
+      version: 2,
       name: id.replace(/\.cube$/, "").replace(/[-_]/g, " "),
       lutUrl: `/luts/${id}`,
     };

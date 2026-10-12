@@ -190,34 +190,31 @@ export async function renderShot(
     }
   }
 
-  // 1. Run WebGL2 Look Engine pipeline or 3D LUT PostProcessing
+  // 1. Run WebGL2 Look Engine pipeline (calibrated recipes match live viewfinder 1:1)
   let rendered = false;
   let processedCanvas: HTMLCanvasElement | null = null;
 
-  // Prioritize Look Engine v2 pipeline for calibrated recipes to match live viewfinder 1:1
-  if (look.version === 2 || !look.lutUrl) {
-    try {
-      const { pipeline: p, canvas: glCanvas } = getSharedCapturePipeline();
-      if (glCanvas.width !== out.width || glCanvas.height !== out.height) {
-        glCanvas.width = out.width;
-        glCanvas.height = out.height;
-      }
-      const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
-      rendered = p.render(sourceToRender, look, {
-        width: out.width,
-        height: out.height,
-        isCapture: true,
-        seed,
-        isNativeCamera: sourceType === "native",
-        intensity: targetIntensity,
-      });
-      if (rendered) processedCanvas = glCanvas;
-    } catch (err) {
-      console.warn("WebGL2 Look Engine failed, falling back to 3D LUT / 2D canvas:", err);
+  try {
+    const { pipeline: p, canvas: glCanvas } = getSharedCapturePipeline();
+    if (glCanvas.width !== out.width || glCanvas.height !== out.height) {
+      glCanvas.width = out.width;
+      glCanvas.height = out.height;
     }
+    const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
+    rendered = p.render(sourceToRender, look, {
+      width: out.width,
+      height: out.height,
+      isCapture: true,
+      seed,
+      isNativeCamera: sourceType === "native",
+      intensity: targetIntensity,
+    });
+    if (rendered) processedCanvas = glCanvas;
+  } catch (err) {
+    console.warn("WebGL2 Look Engine failed, falling back to 3D LUT / 2D canvas:", err);
   }
 
-  // Fallback to custom 3D LUT postprocessing if not rendered and LUT provided
+  // Fallback to custom 3D LUT postprocessing only if Look Engine render failed and LUT provided
   if (!rendered && look.lutUrl) {
     try {
       const { renderWithPostProcessing } = await import("./renderThree");
