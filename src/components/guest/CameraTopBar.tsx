@@ -68,6 +68,7 @@ export function CameraTopBar({
       {/* 1. Flash Mode Button (Icon + small badge, >= 48x48 hit target) */}
       <button
         type="button"
+        data-testid="flash-button"
         onClick={cycleFlash}
         aria-label={`Flash Mode: ${flashMode}`}
         className="w-12 h-12 flex items-center justify-center relative rounded-full text-zinc-300 hover:text-white active:scale-90 transition-transform cursor-pointer"
@@ -102,6 +103,7 @@ export function CameraTopBar({
       {/* 2. Aspect Ratio Selector (>= 48x48 hit target) */}
       <button
         type="button"
+        data-testid="aspect-button"
         onClick={cycleAspect}
         aria-label="Change aspect ratio"
         className="w-12 h-12 flex items-center justify-center rounded-full text-white active:scale-90 transition-transform cursor-pointer"
@@ -114,6 +116,7 @@ export function CameraTopBar({
       {/* 3. Timer Selector Button (>= 48x48 hit target) */}
       <button
         type="button"
+        data-testid="timer-button"
         onClick={cycleTimer}
         aria-label="Countdown Timer"
         className="w-12 h-12 flex items-center justify-center rounded-full text-white active:scale-90 transition-transform cursor-pointer"

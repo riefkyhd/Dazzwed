@@ -336,6 +336,18 @@ async function runShutterBenchmark(cdp, shotCount = 5) {
       }
       if (!shutterBtn || shutterBtn.disabled) return { error: "Shutter button not ready or disabled" };
 
+      // Ensure flash mode is off for non-flash zero-shutter-lag latency benchmark
+      const flashBtn = document.querySelector("[data-testid='flash-button']") ||
+                       document.querySelector("button[aria-label*='Flash Mode']");
+      if (flashBtn) {
+        for (let k = 0; k < 3; k++) {
+          const aria = (flashBtn.getAttribute("aria-label") || "").toLowerCase();
+          if (aria.includes("off")) break;
+          flashBtn.click();
+          await new Promise(r => setTimeout(r, 60));
+        }
+      }
+
       const prevId = window.__CAMERA_DIAGNOSTICS__ ? window.__CAMERA_DIAGNOSTICS__.getState()?.lastMeasurement?.id : null;
       shutterBtn.click();
 
