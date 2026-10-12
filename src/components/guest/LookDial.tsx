@@ -22,10 +22,18 @@ function getLookChipLabel(look: LookRecipe): string {
       return "PORT";
     case "cinestill-800t":
       return "800T";
+    case "fuji-eterna-250d":
+      return "ETRN";
     case "classic-neg":
       return "NEG";
     case "tri-x-400":
       return "B&W";
+    case "ilford-hp5-plus":
+      return "HP5";
+    case "kodak-ektar-100":
+      return "EKTR";
+    case "super-8mm-vintage":
+      return "SUP8";
     case "disposable-400":
       return "400";
     case "golden-200":

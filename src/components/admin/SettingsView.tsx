@@ -352,8 +352,12 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
                 <option value="cpm-35">Dazz Cam CPM35 (Classic 35mm Rangefinder — Golden Warmth)</option>
                 <option value="portra-400">Kodak Portra 400 (Pastel Warmth & Flattering Skin Tones)</option>
                 <option value="cinestill-800t">CineStill 800T (Night Tungsten & Red Halation Glow)</option>
+                <option value="fuji-eterna-250d">Fujifilm Eterna 250D (Soft Cinema Motion-Picture)</option>
                 <option value="classic-neg">Fujifilm Classic Neg (Superia 400 — Deep Teal Foliage & Crimson)</option>
                 <option value="tri-x-400">Kodak Tri-X 400 (High-Contrast Black & White — Silver Grain)</option>
+                <option value="ilford-hp5-plus">Ilford HP5 Plus (Classic British Street B&W)</option>
+                <option value="kodak-ektar-100">Kodak Ektar 100 (Ultra-Vivid Daylight Landscape)</option>
+                <option value="super-8mm-vintage">Super 8mm Vintage (1970s Warm Celluloid Home Movie)</option>
                 <option value="golden-200">Kodak Gold 200 (Warm Sunny Wedding Nostalgia)</option>
                 <option value="disposable-400">Fuji Quicksnap Disposable 400 (Authentic 90s Disposable)</option>
                 <option value="ccd-flash">CCD Direct Flash (Canon PowerShot Digicam Vibe)</option>
