@@ -239,29 +239,29 @@ export function CameraScreen({
       // Background listener for archival resolution completion
       capturePromise
         .then(({ filteredBlob, originalBlob }) => {
-          setActiveReview((prev) => {
-            if (!prev) return null;
-            return {
-              ...prev,
-              filteredBlob,
-              originalBlob,
-            };
-          });
+          if (filteredBlob && filteredBlob.size > 0) {
+            setActiveReview((prev) => {
+              if (!prev) {
+                return {
+                  previewBitmap: null,
+                  blobsPromise: capturePromise,
+                  filteredBlob,
+                  originalBlob,
+                };
+              }
+              return {
+                ...prev,
+                filteredBlob,
+                originalBlob,
+              };
+            });
+          }
         })
         .catch((err) => {
-          console.error("Background photo render failed:", err);
+          if (err?.name !== "AbortError") {
+            console.error("Background photo render failed:", err);
+          }
         });
-
-      // Fallback if onPreviewReady did not open review within immediate frame
-      if (!previewOpened) {
-        const { filteredBlob, originalBlob } = await capturePromise;
-        setActiveReview({
-          previewBitmap: null,
-          blobsPromise: capturePromise,
-          filteredBlob,
-          originalBlob,
-        });
-      }
     } catch (err) {
       console.error("Capture error:", err);
       unfreezeViewfinder();
@@ -310,7 +310,7 @@ export function CameraScreen({
     }, 1000);
   };
 
-  const handleKeepPhoto = async () => {
+  const handleKeepPhoto = useCallback(async () => {
     if (!activeReview) return;
     const session = activeReview;
     const tKeep = performance.now();
@@ -321,14 +321,16 @@ export function CameraScreen({
     // Asynchronous background persist and upload as soon as archival blobs are ready
     try {
       const { filteredBlob, originalBlob } = await session.blobsPromise;
-      void onShotCaptured(filteredBlob, originalBlob);
+      if (filteredBlob && filteredBlob.size > 0) {
+        void onShotCaptured(filteredBlob, originalBlob);
+      }
     } catch (e) {
       console.error("Failed to persist shot in background:", e);
       showToast(t(lang, "keepFailed"));
     }
-  };
+  }, [activeReview, unfreezeViewfinder, onShotCaptured, showToast, lang]);
 
-  const handleRetakePhoto = () => {
+  const handleRetakePhoto = useCallback(() => {
     unfreezeViewfinder();
     if (activeReview?.previewBitmap) {
       try {
@@ -338,7 +340,7 @@ export function CameraScreen({
       }
     }
     setActiveReview(null);
-  };
+  }, [unfreezeViewfinder, activeReview]);
 
   // Viewfinder gestures & exposure
   const handleExposureChange = (deltaEV: number) => {

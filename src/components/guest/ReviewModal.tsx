@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { type Lang, t } from "@/lib/i18n";
 import { triggerHaptic } from "@/lib/camera/haptics";
 import type { CameraAspect } from "@/lib/imaging/geometry";
@@ -30,6 +30,7 @@ export function ReviewModal({
   onRetake,
 }: ReviewModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const imgRef = useRef<HTMLImageElement | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string>("");
   const [isDeveloped, setIsDeveloped] = useState(false);
   const [isKeeping, setIsKeeping] = useState(false);
@@ -37,39 +38,141 @@ export function ReviewModal({
 
   const isKeepingRef = useRef(false);
   const activeUrlRef = useRef<string | null>(null);
+  const photoBlobRef = useRef<Blob | null>(photoBlob ?? null);
+  const previewBitmapRef = useRef<ImageBitmap | null>(previewBitmap ?? null);
 
-  // Safe Blob URL lifecycle & Instant Canvas draw
+  // Keep refs synchronized
   useEffect(() => {
-    if (previewBitmap && canvasRef.current) {
-      const c = canvasRef.current;
-      c.width = previewBitmap.width;
-      c.height = previewBitmap.height;
-      const ctx = c.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(previewBitmap, 0, 0);
+    photoBlobRef.current = photoBlob ?? null;
+  }, [photoBlob]);
+
+  useEffect(() => {
+    previewBitmapRef.current = previewBitmap ?? null;
+  }, [previewBitmap]);
+
+  // Redraw canvas helper with safe error boundary
+  const redrawCanvas = useCallback(() => {
+    const bmp = previewBitmapRef.current;
+    const c = canvasRef.current;
+    if (bmp && c) {
+      try {
+        c.width = bmp.width;
+        c.height = bmp.height;
+        const ctx = c.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(bmp, 0, 0);
+        }
+        requestAnimationFrame(() => {
+          diagnostics.recordMark("t4");
+        });
+      } catch (err) {
+        console.warn("[ReviewModal] Canvas drawImage failed:", err);
       }
-      requestAnimationFrame(() => {
-        diagnostics.recordMark("t4");
-      });
-    } else if (photoBlob) {
+    }
+  }, []);
+
+  // Safe image recovery if blob URL expires or fails to load across sleep/wake
+  const handleImageError = useCallback(() => {
+    const blob = photoBlobRef.current;
+    if (blob && blob.size > 0) {
+      try {
+        const freshUrl = URL.createObjectURL(blob);
+        if (activeUrlRef.current && activeUrlRef.current !== freshUrl) {
+          URL.revokeObjectURL(activeUrlRef.current);
+        }
+        activeUrlRef.current = freshUrl;
+        setPhotoUrl(freshUrl);
+      } catch {
+        // Ultimate fallback: Convert blob to data URL (resilient across OS process backgrounding)
+        const reader = new FileReader();
+        reader.onload = () => {
+          if (typeof reader.result === "string") {
+            setPhotoUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(blob);
+      }
+    }
+  }, []);
+
+  // Update photo URL when a valid high-resolution photoBlob arrives
+  useEffect(() => {
+    if (photoBlob && photoBlob.size > 0) {
       const url = URL.createObjectURL(photoBlob);
+      const prevUrl = activeUrlRef.current;
       activeUrlRef.current = url;
       setPhotoUrl(url);
-    }
 
-    // Chemical development simulation: gentle analog bloom/fog reveal
+      if (prevUrl && prevUrl !== url) {
+        // Small delay before revoking previous URL to allow smooth visual transition
+        setTimeout(() => {
+          try {
+            URL.revokeObjectURL(prevUrl);
+          } catch {
+            /* ignore */
+          }
+        }, 100);
+      }
+    }
+  }, [photoBlob]);
+
+  // Initial canvas paint for fast previewBitmap
+  useEffect(() => {
+    if (previewBitmap) {
+      redrawCanvas();
+    }
+  }, [previewBitmap, redrawCanvas]);
+
+  // Lifecycle resilience: Redraw canvas or verify photo on visibilitychange / focus (sleep/lock recovery)
+  useEffect(() => {
+    const handleVisibilityOrResume = () => {
+      if (document.visibilityState === "visible") {
+        if (!photoBlobRef.current && previewBitmapRef.current) {
+          redrawCanvas();
+        } else if (photoBlobRef.current) {
+          // If the image tag is broken or failed to render while asleep, recover immediately
+          if (imgRef.current && (!imgRef.current.complete || imgRef.current.naturalWidth === 0)) {
+            handleImageError();
+          }
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityOrResume);
+    window.addEventListener("focus", handleVisibilityOrResume);
+    window.addEventListener("pageshow", handleVisibilityOrResume);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityOrResume);
+      window.removeEventListener("focus", handleVisibilityOrResume);
+      window.removeEventListener("pageshow", handleVisibilityOrResume);
+    };
+  }, [redrawCanvas, handleImageError]);
+
+  // Chemical development simulation: gentle analog bloom/fog reveal
+  useEffect(() => {
     const devTimer = setTimeout(() => {
       setIsDeveloped(true);
     }, 60);
 
     return () => {
       clearTimeout(devTimer);
+    };
+  }, []);
+
+  // Cleanup object URLs strictly on component unmount
+  useEffect(() => {
+    return () => {
       if (activeUrlRef.current) {
-        URL.revokeObjectURL(activeUrlRef.current);
+        try {
+          URL.revokeObjectURL(activeUrlRef.current);
+        } catch {
+          /* ignore */
+        }
         activeUrlRef.current = null;
       }
     };
-  }, [photoBlob, previewBitmap]);
+  }, []);
 
   const handleKeep = async () => {
     if (isKeepingRef.current) return;
@@ -137,8 +240,23 @@ export function ReviewModal({
         <div
           className={`relative w-full ${aspectClass} rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-white/10 bg-zinc-950 flex items-center justify-center transition-transform duration-300`}
         >
-          {/* Developed Photo (Instant canvas or Blob img) */}
-          {previewBitmap ? (
+          {/* Developed Photo (High-res photoBlob takes precedence, with fast preview canvas fallback) */}
+          {photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              ref={imgRef}
+              data-testid="review-image"
+              src={photoUrl}
+              alt="Developed shot"
+              onError={handleImageError}
+              onLoad={() => diagnostics.recordMark("t4")}
+              className={`w-full h-full object-cover transition-all duration-700 ease-out ${
+                isDeveloped
+                  ? "filter brightness-100 contrast-100 opacity-100 scale-100"
+                  : "filter brightness-50 contrast-125 opacity-30 scale-[1.02] blur-xs"
+              }`}
+            />
+          ) : previewBitmap ? (
             <canvas
               ref={canvasRef}
               data-testid="review-image"
@@ -150,20 +268,9 @@ export function ReviewModal({
               }`}
             />
           ) : (
-            photoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                data-testid="review-image"
-                src={photoUrl}
-                alt="Developed shot"
-                onLoad={() => diagnostics.recordMark("t4")}
-                className={`w-full h-full object-cover transition-all duration-700 ease-out ${
-                  isDeveloped
-                    ? "filter brightness-100 contrast-100 opacity-100 scale-100"
-                    : "filter brightness-50 contrast-125 opacity-30 scale-[1.02] blur-xs"
-                }`}
-              />
-            )
+            <div className="w-full h-full bg-zinc-900 flex items-center justify-center">
+              <span className="w-6 h-6 rounded-full border-2 border-amber-400 border-t-transparent animate-spin" />
+            </div>
           )}
 
           {/* Developing chemical emulsion fog effect */}

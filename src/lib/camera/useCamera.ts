@@ -551,7 +551,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
           // 3. Yield to main thread so ReviewModal mounts, paints, and records t4 (< 100ms budget)
           await new Promise((r) => setTimeout(r, 80));
           if (abortCtrl.signal.aborted) {
-            return { filteredBlob: new Blob(), originalBlob: new Blob() };
+            throw new DOMException("Capture aborted", "AbortError");
           }
 
           // 4. Raw frame snapshot from running stream for background 2560px archival rendering
@@ -636,14 +636,15 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
 
         if (abortCtrl.signal.aborted) {
           if (frozenSource instanceof ImageBitmap) frozenSource.close();
-          return { filteredBlob: new Blob(), originalBlob: new Blob() };
+          throw new DOMException("Capture aborted", "AbortError");
         }
 
         try {
           // Yield so main thread paints ReviewModal and processes touch events
           await new Promise((r) => setTimeout(r, 40));
           if (abortCtrl.signal.aborted) {
-            return { filteredBlob: new Blob(), originalBlob: new Blob() };
+            if (frozenSource instanceof ImageBitmap) frozenSource.close();
+            throw new DOMException("Capture aborted", "AbortError");
           }
 
           // Background archival photos rendered at full resolution (2560px)

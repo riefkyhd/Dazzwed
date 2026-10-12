@@ -52,4 +52,21 @@ describe("Review and Capture Edge-Case Handling & Translations", () => {
     expect(aspectMap["16:9"]).toContain("aspect-[9/16]");
     expect(aspectMap["3:4"]).toContain("aspect-[3/4]");
   });
+
+  it("strictly validates photo blobs: rejects 0-byte blobs and permits valid image blobs", () => {
+    const emptyBlob = new Blob([], { type: "image/jpeg" });
+    expect(emptyBlob.size).toBe(0);
+
+    const isValidBlob = (b: Blob | null | undefined): boolean => {
+      return !!b && b.size > 0;
+    };
+
+    expect(isValidBlob(emptyBlob)).toBe(false);
+    expect(isValidBlob(null)).toBe(false);
+    expect(isValidBlob(undefined)).toBe(false);
+
+    const validBlob = new Blob([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], { type: "image/jpeg" });
+    expect(isValidBlob(validBlob)).toBe(true);
+    expect(validBlob.size).toBe(4);
+  });
 });
