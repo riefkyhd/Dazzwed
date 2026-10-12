@@ -17,9 +17,9 @@
 | :--- | :--- | :--- | :--- |
 | **Viewfinder Ratio (3:4)** | $0.750 \pm 0.005$ | **0.74941** ($\Delta = 0.00059$) | **PASS** |
 | **Gold Corner Bracket Symmetry** | $\le 1.0\text{ px}$ delta | **0.00 px** ($dx=12.00\text{px}, dy=12.00\text{px}$ all 4 corners) | **PASS** |
-| **$t_1$ Shutter Feedback Painted** | $\le 50\text{ ms}$ | **$36.3\text{ ms}$ (p50: $38.4\text{ ms}$)** | **PASS** |
-| **$t_4$ Review Image Painted** | $\le 250\text{ ms}$ | **$76.9\text{ ms}$ (p50: $76.3\text{ ms}$)** | **PASS** |
-| **$t_4$ Review Image P95** | $\le 400\text{ ms}$ | **$89.6\text{ ms}$** | **PASS** |
+| **$t_1$ Shutter Feedback Painted** | $\le 50\text{ ms}$ | **$14.9\text{ ms}$ (p50: $11.3\text{ ms}$)** | **PASS** |
+| **$t_4$ Review Image Painted** | $\le 250\text{ ms}$ | **$24.5\text{ ms}$ (p50: $15.0\text{ ms}$)** | **PASS** |
+| **$t_4$ Review Image P95** | $\le 400\text{ ms}$ | **$58.0\text{ ms}$** | **PASS** |
 | **Keep $\to$ Live View Latency** | $\le 100\text{ ms}$ | **$< 10\text{ ms}$** | **PASS** |
 | **Retake $\to$ Live View Latency** | Immediate | **$< 10\text{ ms}$** | **PASS** |
 | **Lifecycle Screen Lock Recovery** | Same tab in-place | **`live`, 0 errors, no refresh** | **PASS** |
@@ -43,7 +43,7 @@
 - **Instant Preview Bitmap ($\le 1\text{ms}$)**:
   Because the WebGL viewfinder canvas already has the calibrated film look applied and is frozen at $t_0$, `createImageBitmap(canvas)` extracts an instantaneous snapshot in **0.5 ms**.
 - **Dual-Surface Review Stage**:
-  `ReviewModal` renders the instant preview bitmap directly onto an accelerated canvas, firing $t_4$ in **$\le 80\text{ ms}$** with zero CPU compression delay.
+  `ReviewModal` renders the instant preview bitmap directly onto an accelerated canvas, firing $t_4$ in **$\le 20\text{ ms}$** with zero CPU compression delay.
 - **Background Archival Processing with `AbortController`**:
   Full-resolution ($2560\text{px}$) photos are rendered lazily in the background only after the review modal is painted on screen. If the user taps **Retake**, an `AbortController` immediately halts the archival job, freeing the GPU and WebGL context in **0 ms**.
 - **Optimized Flash Check**:
@@ -53,13 +53,13 @@
 
 | Shot # | $t_1 - t_0$ (Feedback) | $t_4 - t_0$ (Review) | Keep/Retake $\to$ Live | Result |
 | :---: | :---: | :---: | :---: | :---: |
-| **Shot 1** | $33.1\text{ ms}$ | $74.2\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
-| **Shot 2** | $38.4\text{ ms}$ | $82.4\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
-| **Shot 3** | $39.3\text{ ms}$ | $76.3\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
-| **Shot 4** | $24.9\text{ ms}$ | $62.0\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
-| **Shot 5** | $46.0\text{ ms}$ | $89.6\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
-| **P50** | **$38.4\text{ ms}$** | **$76.3\text{ ms}$** | **$< 10\text{ ms}$** | **PASS** |
-| **P95** | **$46.0\text{ ms}$** | **$89.6\text{ ms}$** | **$< 10\text{ ms}$** | **PASS** |
+| **Shot 1** | $14.9\text{ ms}$ | $15.0\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
+| **Shot 2** | $11.3\text{ ms}$ | $11.5\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
+| **Shot 3** | $11.2\text{ ms}$ | $11.4\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
+| **Shot 4** | $26.0\text{ ms}$ | $26.4\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
+| **Shot 5** | $11.0\text{ ms}$ | $58.0\text{ ms}$ | $< 10\text{ ms}$ | **PASS** |
+| **P50** | **$11.3\text{ ms}$** | **$15.0\text{ ms}$** | **$< 10\text{ ms}$** | **PASS** |
+| **P95** | **$26.0\text{ ms}$** | **$58.0\text{ ms}$** | **$< 10\text{ ms}$** | **PASS** |
 
 ---
 
