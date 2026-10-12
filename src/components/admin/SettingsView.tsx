@@ -45,9 +45,15 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
   );
 
   const [availableLuts, setAvailableLuts] = useState<Array<{ fileName: string; url: string; name: string }>>([
-    { fileName: "dazz-cpm35.cube", url: "/luts/dazz-cpm35.cube", name: "Dazz Cam CPM35 (Classic 35mm Warmth)" },
-    { fileName: "fuji-classic-neg.cube", url: "/luts/fuji-classic-neg.cube", name: "Fujifilm Classic Neg (Teal & Crimson)" },
-    { fileName: "kodak-gold-200.cube", url: "/luts/kodak-gold-200.cube", name: "Kodak Gold 200 (Golden Nostalgia)" },
+    { fileName: "kodak-portra-400.cube", url: "/luts/kodak-portra-400.cube", name: "Kodak Portra 400 (Pastel Warmth & Flattering Skin)" },
+    { fileName: "cinestill-800t.cube", url: "/luts/cinestill-800t.cube", name: "CineStill 800T (Night Tungsten & Red Halation Glow)" },
+    { fileName: "fuji-eterna-250d.cube", url: "/luts/fuji-eterna-250d.cube", name: "Fujifilm Eterna 250D (Soft Cinema Tone & Muted Highlights)" },
+    { fileName: "ilford-hp5-plus.cube", url: "/luts/ilford-hp5-plus.cube", name: "Ilford HP5 Plus (Classic British Monochrome B&W)" },
+    { fileName: "super-8mm-vintage.cube", url: "/luts/super-8mm-vintage.cube", name: "Super 8mm Vintage (Retro 1970s Home Movie)" },
+    { fileName: "kodak-ektar-100.cube", url: "/luts/kodak-ektar-100.cube", name: "Kodak Ektar 100 (Vivid Landscape & Ultra-Fine Grain)" },
+    { fileName: "dazz-cpm35.cube", url: "/luts/dazz-cpm35.cube", name: "Dazz Cam CPM35 (Classic 35mm Rangefinder Warmth)" },
+    { fileName: "fuji-classic-neg.cube", url: "/luts/fuji-classic-neg.cube", name: "Fujifilm Classic Neg (Superia Teal & Crimson)" },
+    { fileName: "kodak-gold-200.cube", url: "/luts/kodak-gold-200.cube", name: "Kodak Gold 200 (Warm Sunny Wedding Nostalgia)" },
   ]);
   const [uploadingLut, setUploadingLut] = useState(false);
   const [lutUploadMsg, setLutUploadMsg] = useState<string | null>(null);
@@ -344,6 +350,8 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
             >
               <optgroup label="✨ Calibrated Film & Dazz Cam Recipes">
                 <option value="cpm-35">Dazz Cam CPM35 (Classic 35mm Rangefinder — Golden Warmth)</option>
+                <option value="portra-400">Kodak Portra 400 (Pastel Warmth & Flattering Skin Tones)</option>
+                <option value="cinestill-800t">CineStill 800T (Night Tungsten & Red Halation Glow)</option>
                 <option value="classic-neg">Fujifilm Classic Neg (Superia 400 — Deep Teal Foliage & Crimson)</option>
                 <option value="tri-x-400">Kodak Tri-X 400 (High-Contrast Black & White — Silver Grain)</option>
                 <option value="golden-200">Kodak Gold 200 (Warm Sunny Wedding Nostalgia)</option>

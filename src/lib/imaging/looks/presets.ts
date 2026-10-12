@@ -760,8 +760,176 @@ export const TRI_X_400_LOOK: LookRecipe = {
   dust: { density: 0.05, scratches: 0.02 },
 };
 
+/**
+ * 9. Kodak Portra 400 (The ultimate wedding portrait film stock)
+ */
+export const PORTRA_400_LOOK: LookRecipe = {
+  id: "portra-400",
+  name: "Kodak Portra 400",
+  version: 1,
+  lutUrl: "/luts/kodak-portra-400.cube",
+  aspectRatio: "3:2",
+  lens: {
+    radialBlur: { r0: 0.0003, r1: 0.0015 },
+    chromaticAberration: 0.0004,
+    distortion: 0.008,
+    vignette: { strength: 0.16, radius: 0.82, softness: 0.6, curvature: 4.0 },
+    bloom: { threshold: 0.86, strength: 0.14, radius: 0.012 },
+    halation: { threshold: 0.88, strength: 0.12, radius: 0.012, tint: [1.0, 0.40, 0.20] },
+  },
+  response: {
+    exposureEV: 0.05,
+    dyeMatrix: IDENTITY_MATRIX,
+    curveR: { contrast: 1.05, pivot: 0.50, toe: 0.01, shoulder: 0.90, type: "soft" },
+    curveG: { contrast: 1.05, pivot: 0.50, toe: 0.01, shoulder: 0.90, type: "soft" },
+    curveB: { contrast: 1.05, pivot: 0.50, toe: 0.01, shoulder: 0.90, type: "soft" },
+    localContrast: -0.05,
+    effectiveLines: 1400,
+    flashFalloff: { strength: 0.18, radius: 0.55 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("disposable"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.8 },
+    saturation: 1.02,
+    brightSatCurve: { shadowBoost: 0.05, highlightDesat: 0.10 },
+    highlightWarmth: 0.04,
+    shadowTint: [0.01, 0.0, -0.01],
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: {
+      amount: 0.13,
+      size: 0.0016,
+      roughness: 0.55,
+      chroma: 0.15,
+      exposureSensitivity: 0.35,
+    },
+    lightLeak: { probability: 0.0, strength: 0.0 },
+    dust: { density: 0.02, scratches: 0.01 },
+  },
+  dateStamp: {
+    enabled: true,
+    format: "'YY MM DD",
+    color: "#ff8800",
+    glow: true,
+    size: 0.028,
+    position: "br",
+  },
+  frame: { type: "none" },
+  intensity: 1.0,
+  whiteProtect: true,
+  reference: {
+    referenceId: "kodak-portra-400-lut",
+    referenceNotes: "Imported 3D LUT: Kodak Portra 400 with signature warm skin tones, gentle pastel roll-off, and fine silver-halide dye clouds.",
+  },
+
+  // Backward compatibility
+  exposureEV: 0.05,
+  curve: { contrast: 1.05, pivot: 0.50, toe: 0.01, shoulder: 0.90 },
+  lift: [0, 0, 0],
+  gamma: [1, 1, 1],
+  gain: [1, 1, 1],
+  matrix: IDENTITY_MATRIX,
+  saturation: 1.02,
+  splitTone: { shadowHue: 0, shadowSat: 0, highlightHue: 0, highlightSat: 0, balance: 0 },
+  softFocus: { amount: 0, radius: 0 },
+  sharpen: 0.04,
+  bloom: { threshold: 0.86, strength: 0.14, radius: 0.012 },
+  halation: { threshold: 0.88, strength: 0.12, radius: 0.012, tint: [1.0, 0.40, 0.20] },
+  grain: { amount: 0.13, size: 0.0016, roughness: 0.55, chroma: 0.15 },
+  vignette: { strength: 0.16, radius: 0.82, softness: 0.6 },
+  flashFalloff: { strength: 0.18, radius: 0.55 },
+  lightLeak: { probability: 0.0, strength: 0.0 },
+  dust: { density: 0.02, scratches: 0.01 },
+};
+
+/**
+ * 10. CineStill 800T (Night tungsten cinematic stock with halation)
+ */
+export const CINESTILL_800T_LOOK: LookRecipe = {
+  id: "cinestill-800t",
+  name: "CineStill 800T",
+  version: 1,
+  lutUrl: "/luts/cinestill-800t.cube",
+  aspectRatio: "3:2",
+  lens: {
+    radialBlur: { r0: 0.0005, r1: 0.0020 },
+    chromaticAberration: 0.0008,
+    distortion: 0.010,
+    vignette: { strength: 0.24, radius: 0.78, softness: 0.6, curvature: 4.0 },
+    bloom: { threshold: 0.78, strength: 0.24, radius: 0.018 },
+    halation: { threshold: 0.75, strength: 0.35, radius: 0.022, tint: [1.0, 0.20, 0.05] },
+  },
+  response: {
+    exposureEV: 0.0,
+    dyeMatrix: IDENTITY_MATRIX,
+    curveR: { contrast: 1.15, pivot: 0.48, toe: 0.02, shoulder: 0.85, type: "soft" },
+    curveG: { contrast: 1.12, pivot: 0.48, toe: 0.02, shoulder: 0.85, type: "soft" },
+    curveB: { contrast: 1.18, pivot: 0.48, toe: 0.03, shoulder: 0.82, type: "soft" },
+    localContrast: 0.05,
+    effectiveLines: 1300,
+    flashFalloff: { strength: 0.25, radius: 0.50 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("disposable"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.6 },
+    saturation: 1.08,
+    brightSatCurve: { shadowBoost: 0.08, highlightDesat: 0.12 },
+    highlightWarmth: 0.08,
+    shadowTint: [-0.02, 0.01, 0.03],
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: {
+      amount: 0.17,
+      size: 0.0019,
+      roughness: 0.60,
+      chroma: 0.25,
+      exposureSensitivity: 0.40,
+    },
+    lightLeak: { probability: 0.0, strength: 0.0 },
+    dust: { density: 0.03, scratches: 0.02 },
+  },
+  dateStamp: {
+    enabled: true,
+    format: "'YY MM DD",
+    color: "#ff3311",
+    glow: true,
+    size: 0.028,
+    position: "br",
+  },
+  frame: { type: "none" },
+  intensity: 1.0,
+  whiteProtect: true,
+  reference: {
+    referenceId: "cinestill-800t-vision3-500t",
+    referenceNotes: "Imported 3D LUT: CineStill 800T (Kodak Vision3 500T with remjet removed). Signature red/orange halation around practical lights, cool teal shadows, moody cinematic night aesthetic.",
+  },
+
+  // Backward compatibility
+  exposureEV: 0.0,
+  curve: { contrast: 1.15, pivot: 0.48, toe: 0.02, shoulder: 0.85 },
+  lift: [0, 0, 0],
+  gamma: [1, 1, 1],
+  gain: [1, 1, 1],
+  matrix: IDENTITY_MATRIX,
+  saturation: 1.08,
+  splitTone: { shadowHue: 0, shadowSat: 0, highlightHue: 0, highlightSat: 0, balance: 0 },
+  softFocus: { amount: 0, radius: 0 },
+  sharpen: 0.06,
+  bloom: { threshold: 0.78, strength: 0.24, radius: 0.018 },
+  halation: { threshold: 0.75, strength: 0.35, radius: 0.022, tint: [1.0, 0.20, 0.05] },
+  grain: { amount: 0.17, size: 0.0019, roughness: 0.60, chroma: 0.25 },
+  vignette: { strength: 0.24, radius: 0.78, softness: 0.6 },
+  flashFalloff: { strength: 0.25, radius: 0.50 },
+  lightLeak: { probability: 0.0, strength: 0.0 },
+  dust: { density: 0.03, scratches: 0.02 },
+};
+
 export const BUILTIN_LOOKS: LookRecipe[] = [
   CPM35_LOOK,
+  PORTRA_400_LOOK,
+  CINESTILL_800T_LOOK,
   CLASSIC_NEG_LOOK,
   TRI_X_400_LOOK,
   DISPOSABLE_400_LOOK,
@@ -772,6 +940,20 @@ export const BUILTIN_LOOKS: LookRecipe[] = [
 ];
 
 export function getLookById(id: string): LookRecipe {
-  const normalized = id.toLowerCase().replace(/[-_]/g, "");
-  return BUILTIN_LOOKS.find((l) => l.id.toLowerCase().replace(/[-_]/g, "") === normalized) || CPM35_LOOK;
+  const normalized = id.toLowerCase().replace(/[-_.]/g, "");
+  const found = BUILTIN_LOOKS.find((l) => l.id.toLowerCase().replace(/[-_.]/g, "") === normalized);
+  if (found) return found;
+
+  // If a .cube file name was passed directly (e.g. "kodak-portra-400.cube")
+  if (id.endsWith(".cube")) {
+    return {
+      ...DISPOSABLE_400_LOOK,
+      id,
+      version: 1,
+      name: id.replace(/\.cube$/, "").replace(/[-_]/g, " "),
+      lutUrl: `/luts/${id}`,
+    };
+  }
+
+  return CPM35_LOOK;
 }

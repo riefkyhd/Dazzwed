@@ -9,6 +9,18 @@ export const dynamic = "force-dynamic";
  * GET /api/admin/luts
  * Lists all available .cube LUT files in public/luts
  */
+const LUT_FRIENDLY_NAMES: Record<string, string> = {
+  "kodak-portra-400.cube": "Kodak Portra 400 (Pastel Warmth & Flattering Skin)",
+  "cinestill-800t.cube": "CineStill 800T (Night Tungsten & Red Halation Glow)",
+  "fuji-eterna-250d.cube": "Fujifilm Eterna 250D (Soft Cinema Tone & Muted Highlights)",
+  "ilford-hp5-plus.cube": "Ilford HP5 Plus (Classic British Monochrome B&W)",
+  "super-8mm-vintage.cube": "Super 8mm Vintage (Retro 1970s Home Movie)",
+  "kodak-ektar-100.cube": "Kodak Ektar 100 (Vivid Landscape & Ultra-Fine Grain)",
+  "dazz-cpm35.cube": "Dazz Cam CPM35 (Classic 35mm Rangefinder Warmth)",
+  "fuji-classic-neg.cube": "Fujifilm Classic Neg (Superia Teal & Crimson)",
+  "kodak-gold-200.cube": "Kodak Gold 200 (Warm Sunny Wedding Nostalgia)",
+};
+
 export async function GET() {
   const admin = await getAdminUser();
   if (!admin) {
@@ -24,7 +36,7 @@ export async function GET() {
       .map((fileName) => ({
         fileName,
         url: `/luts/${fileName}`,
-        name: fileName.replace(/\.cube$/, "").replace(/[-_]/g, " "),
+        name: LUT_FRIENDLY_NAMES[fileName] || fileName.replace(/\.cube$/, "").replace(/[-_]/g, " "),
       }));
 
     return NextResponse.json({ luts: cubeFiles });

@@ -18,6 +18,10 @@ function getLookChipLabel(look: LookRecipe): string {
   switch (look.id) {
     case "cpm35":
       return "CPM";
+    case "portra-400":
+      return "PORT";
+    case "cinestill-800t":
+      return "800T";
     case "classic-neg":
       return "NEG";
     case "tri-x-400":
