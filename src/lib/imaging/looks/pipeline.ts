@@ -134,51 +134,62 @@ vec3 oklabToLinearSrgb(vec3 lab) {
   );
 }
 
-// Pseudo-random isotropic hash for organic silver halide crystal boundaries
-float crystalHash(vec2 p) {
-  vec3 p3 = fract(vec3(p.xyx) * vec3(443.897, 441.423, 437.195));
-  p3 += dot(p3, p3.yzx + 19.19);
-  return fract((p3.x + p3.y) * p3.z) * 2.0 - 1.0;
+// High-performance, statistically isotropic 3D integer hash (Jarzynski & Olano, JCGT 2020)
+// Zero diagonal banding, zero moiré patterns, completely uniform across all GPU architectures
+uvec3 pcg3d(uvec3 v) {
+  v = v * 1664525u + 1013904223u;
+  v.x += v.y * v.z;
+  v.y += v.z * v.x;
+  v.z += v.x * v.y;
+  v ^= v >> 16u;
+  v.x += v.y * v.z;
+  v.y += v.z * v.x;
+  v.z += v.x * v.y;
+  return v;
 }
 
-// 2D simplex/triangular lattice noise for organic micro-grain (eliminates orthogonal grid bias)
-float simplexGrain(vec2 p) {
-  const float K1 = 0.366025404; // (sqrt(3)-1)/2
-  const float K2 = 0.211324865; // (3-sqrt(3))/6
-
-  vec2 i = floor(p + (p.x + p.y) * K1);
-  vec2 a = p - i + (i.x + i.y) * K2;
-  vec2 o = (a.x > a.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-  vec2 b = a - o + K2;
-  vec2 c = a - 1.0 + 2.0 * K2;
-
-  vec3 h = max(0.5 - vec3(dot(a, a), dot(b, b), dot(c, c)), 0.0);
-  vec3 n = h * h * h * h * vec3(
-    crystalHash(i),
-    crystalHash(i + o),
-    crystalHash(i + 1.0)
-  );
-  return dot(n, vec3(70.0));
+vec3 pcg3dFloat(uvec3 p) {
+  uvec3 h = pcg3d(p);
+  return vec3(h) * (1.0 / 4294967296.0);
 }
 
-// Low-frequency macro clumping noise for organic silver agglomeration
-float clumpingNoise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  f = f * f * (3.0 - 2.0 * f);
-  float a = crystalHash(i);
-  float b = crystalHash(i + vec2(1.0, 0.0));
-  float c = crystalHash(i + vec2(0.0, 1.0));
-  float d = crystalHash(i + vec2(1.0, 1.0));
-  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+// Triangular-PDF random distribution centered at 0.0 in range [-1.0, 1.0].
+// By Central Limit Theorem, overlapping silver halide crystals form a triangular/Gaussian distribution
+// rather than uniform digital noise, eliminating harsh digital salt-and-pepper spikes.
+vec3 triangularGrainNoise(uvec2 p, uint seed) {
+  vec3 r1 = pcg3dFloat(uvec3(p, seed));
+  vec3 r2 = pcg3dFloat(uvec3(p + uvec2(1597334677u, 3812015801u), seed + 1013904223u));
+  return (r1 + r2) - vec3(1.0);
 }
 
-// Multi-scale physical grain: micro-crystals modulated by macro-agglomeration clumping
-float physicalGrain(vec2 uv, float roughness) {
-  float micro = simplexGrain(uv);
-  float macroClump = clumpingNoise(uv * 0.42);
-  float clumpWeight = mix(0.18, 0.65, roughness);
-  return micro * (1.0 + clumpWeight * macroClump);
+// Organic multi-scale emulsion texture:
+// - Micro-structure: high-frequency fine silver halide crystals
+// - Macro-structure: gentle low-frequency dye-cloud agglomeration clumping (modulated by roughness)
+vec3 sampleEmulsionGrain(vec2 fragCoord, float grainSize, float roughness, float seedOffset) {
+  float scale = max(1.0, grainSize);
+  vec2 cell = fragCoord / scale;
+  uvec2 iCell = uvec2(cell);
+  uint uSeed = uint(abs(seedOffset) * 1000.0) + 1337u;
+
+  vec3 micro = triangularGrainNoise(iCell, uSeed);
+
+  if (roughness > 0.05) {
+    // Low-frequency clumping (smooth spatial variation, completely isotropic with no diagonal skew)
+    vec2 macroP = cell * 0.35;
+    uvec2 mCell = uvec2(macroP);
+    vec2 f = fract(macroP);
+    f = f * f * (3.0 - 2.0 * f); // Hermite cubic smoothstep
+
+    vec3 c00 = triangularGrainNoise(mCell, uSeed + 53u);
+    vec3 c10 = triangularGrainNoise(mCell + uvec2(1u, 0u), uSeed + 53u);
+    vec3 c01 = triangularGrainNoise(mCell + uvec2(0u, 1u), uSeed + 53u);
+    vec3 c11 = triangularGrainNoise(mCell + uvec2(1u, 1u), uSeed + 53u);
+
+    vec3 clump = mix(mix(c00, c10, f.x), mix(c01, c11, f.x), f.y);
+    micro = mix(micro, micro * (1.0 + clump * 0.65), clamp(roughness, 0.0, 1.0) * 0.55);
+  }
+
+  return micro;
 }
 
 // Filmic Tone Curve evaluation supporting soft and hard shoulders
@@ -467,46 +478,43 @@ void main() {
     return;
   }
 
-  // 4c. Exposure-Aware Physical Film Grain (Optical Density Modulation)
+  // 4c. Exposure-Aware Physical Film Grain (Subtractive Optical Density Modulation)
   if (u_grain.x > 0.0) {
-    float grainScale = max(0.0008, u_grain.y) * max(100.0, u_frameHeight);
-    vec2 grainUv = (gl_FragCoord.xy) / grainScale;
+    // grain.y is normalized size (e.g. 0.0016), scale by resolution height
+    float pixelGrainSize = max(1.0, u_grain.y * max(100.0, u_frameHeight) * 0.90);
     float seedOffset = u_isCapture ? u_seed : u_time * 12.0;
 
-    // Asymmetric Hurter-Driffield luminance curve:
-    // Suppressed in deep shadows (L < 0.04), peaks in mid-shadows (L ≈ 0.33), rolls off gracefully in highlights
-    float lDiff = (luma - 0.33) / 0.28;
-    float hdWeight = smoothstep(0.01, 0.10, luma) * exp(-0.5 * lDiff * lDiff);
+    // Asymmetric Kodak / Fujifilm RMS Granularity Response curve:
+    // - Shadows (< 0.03): minimal grain (film base D-min, unexposed negative has no grain)
+    // - Lower midtones (0.25 - 0.45): PEAK granularity where optical density contrast is highest
+    // - Highlights (> 0.70): smooth roll-off as negative saturates
+    // - Extreme highlights (> 0.90): near zero grain (specular highlights remain clean)
+    float lDiff = (luma - 0.35) / 0.28;
+    float hdWeight = smoothstep(0.02, 0.14, luma) * exp(-0.5 * lDiff * lDiff) * smoothstep(0.98, 0.70, luma);
 
-    // Increase grain in underexposed scenes up to cap
-    float expFactor = clamp(1.0 + (0.5 - u_sceneExposure) * u_grainExposureSens, 0.6, 2.2);
-    float grainStrength = u_grain.x * hdWeight * expFactor;
+    // Increase grain slightly in underexposed scenes up to cap
+    float expFactor = clamp(1.0 + (0.5 - u_sceneExposure) * u_grainExposureSens, 0.7, 1.4);
+    float grainStrength = u_grain.x * hdWeight * expFactor * 0.40;
 
-    // Physical grain calculation
+    // Organic emulsion density variation (multi-scale with PCG3D integer PRNG)
+    vec3 grainNoise = sampleEmulsionGrain(gl_FragCoord.xy, pixelGrainSize, u_grain.z, seedOffset);
+
     vec3 dDensity = vec3(0.0);
-
     if (u_grain.w > 0.0) {
-      // Color film: Subtractive CMY dye cloud layers (Cyan=Red, Magenta=Green, Yellow=Blue)
-      // Yellow dye layer in C-41 is coarsest (larger dye clouds), Magenta is sharpest
-      float gM = physicalGrain(grainUv + seedOffset, u_grain.z); // Green / Magenta
-      float gC = physicalGrain((grainUv + vec2(17.3, 31.7)) * 1.05 + seedOffset, u_grain.z); // Red / Cyan
-      float gY = physicalGrain((grainUv + vec2(43.1, 79.5)) * 0.78 + seedOffset, u_grain.z); // Blue / Yellow
-
-      // Blend between monochromatic silver grain and C-41 CMY dye clouds via chroma parameter
+      // Color film: C-41 chromogenic dye clouds (Yellow/B is coarsest, Magenta/G is sharpest)
       float chromaMix = clamp(u_grain.w, 0.0, 1.0);
-      dDensity.r = mix(gM, gC * 0.95, chromaMix);
-      dDensity.g = mix(gM, gM * 1.00, chromaMix);
-      dDensity.b = mix(gM, gY * 1.25, chromaMix);
+      dDensity.r = mix(grainNoise.y, grainNoise.x * 0.95, chromaMix);
+      dDensity.g = mix(grainNoise.y, grainNoise.y * 1.00, chromaMix);
+      dDensity.b = mix(grainNoise.y, grainNoise.z * 1.15, chromaMix);
     } else {
-      // Black & white (e.g. Tri-X 400): Strictly monochromatic silver halide crystals across all channels
-      float gMono = physicalGrain(grainUv + seedOffset, u_grain.z);
-      dDensity = vec3(gMono);
+      // Black & white: strictly monochromatic silver halide crystals
+      dDensity = vec3(grainNoise.y);
     }
 
-    // Physical Optical Density Modulation (Beer-Lambert Law):
-    // Transmittance T = 10^-D. Modulating D by dD -> T_new = T * 2^(dDensity * grainStrength * 1.8)
-    // Pure blacks remain pure (0 * 2^x = 0), midtones modulate organically, highlights roll off naturally
-    rgb = clamp(rgb * exp2(dDensity * grainStrength * 1.8), 0.0, 1.0);
+    // Subtractive Optical Density Modulation (Beer-Lambert Law):
+    // Real film grain does not sit on top as additive digital dirt; it modulates light absorption.
+    // Pure blacks remain deep & clean; midtones receive organic filmic texture; highlights roll off luminous.
+    rgb = clamp(rgb * exp2(dDensity * grainStrength), 0.0, 1.0);
   }
 
   // ==========================================
@@ -789,96 +797,81 @@ export class LookEnginePipeline {
     const whiteProtectVal = (options.whiteProtect ?? look.whiteProtect ?? true) ? 1.0 : 0.0;
     const disableGrainVal = !!options.disableAnimatedGrain;
 
-    // Check if static look uniforms need re-upload (look recipe changed, capture snapshot, or flags changed)
-    const needsStaticUpload =
-      options.isCapture ||
-      this.lastUploadedLookId !== look.id ||
-      this.lastUploadedIntensity !== intensityVal ||
-      this.lastUploadedWhiteProtect !== (whiteProtectVal === 1.0) ||
-      this.lastUploadedDisableGrain !== disableGrainVal;
+    // Always upload uniform parameters on every frame to guarantee 100% instant reactivity
+    // when any slider (exposure, curves, grain, bloom, halation, distortion) is modified.
+    // 1. Lens Model
+    const lens = look.lens;
+    gl.uniform2f(this.uRadialBlurLoc, lens?.radialBlur?.r0 ?? 0, lens?.radialBlur?.r1 ?? 0);
+    gl.uniform1f(this.uCaLoc, lens?.chromaticAberration ?? 0);
+    gl.uniform1f(this.uDistortionLoc, lens?.distortion ?? 0);
+    const vig = lens?.vignette ?? look.vignette;
+    gl.uniform4f(this.uVigLoc, vig.strength, vig.radius, vig.softness, vig.curvature ?? 4.0);
+    const bloom = lens?.bloom ?? look.bloom;
+    gl.uniform4f(this.uBloomLoc, bloom.threshold, bloom.strength, bloom.radius, 0.0);
+    const halation = lens?.halation ?? look.halation;
+    gl.uniform4f(this.uHalationLoc, halation.threshold, halation.strength, halation.radius, halation.tint ? 1.0 : 0.0);
+    const hTint = halation.tint ?? [1.0, 0.4, 0.15];
+    gl.uniform3f(this.uHalationTintLoc, hTint[0], hTint[1], hTint[2]);
 
-    if (needsStaticUpload) {
-      // 1. Lens Model
-      const lens = look.lens;
-      gl.uniform2f(this.uRadialBlurLoc, lens?.radialBlur?.r0 ?? 0, lens?.radialBlur?.r1 ?? 0);
-      gl.uniform1f(this.uCaLoc, lens?.chromaticAberration ?? 0);
-      gl.uniform1f(this.uDistortionLoc, lens?.distortion ?? 0);
-      const vig = lens?.vignette ?? look.vignette;
-      gl.uniform4f(this.uVigLoc, vig.strength, vig.radius, vig.softness, vig.curvature ?? 4.0);
-      const bloom = lens?.bloom ?? look.bloom;
-      gl.uniform4f(this.uBloomLoc, bloom.threshold, bloom.strength, bloom.radius, 0.0);
-      const halation = lens?.halation ?? look.halation;
-      gl.uniform4f(this.uHalationLoc, halation.threshold, halation.strength, halation.radius, halation.tint ? 1.0 : 0.0);
-      const hTint = halation.tint ?? [1.0, 0.4, 0.15];
-      gl.uniform3f(this.uHalationTintLoc, hTint[0], hTint[1], hTint[2]);
+    // 2. Film Response
+    const resp = look.response;
+    gl.uniform1f(this.uExpLoc, resp?.exposureEV ?? look.exposureEV);
+    const matrix: Matrix3x3 = resp?.dyeMatrix ?? look.matrix ?? [1, 0, 0, 0, 1, 0, 0, 0, 1];
+    this.cachedDyeMatrix.set(matrix);
+    gl.uniformMatrix3fv(this.uDyeMatrixLoc, false, this.cachedDyeMatrix);
 
-      // 2. Film Response
-      const resp = look.response;
-      gl.uniform1f(this.uExpLoc, resp?.exposureEV ?? look.exposureEV);
-      const matrix: Matrix3x3 = resp?.dyeMatrix ?? look.matrix ?? [1, 0, 0, 0, 1, 0, 0, 0, 1];
-      this.cachedDyeMatrix.set(matrix);
-      gl.uniformMatrix3fv(this.uDyeMatrixLoc, false, this.cachedDyeMatrix);
+    const curveR = resp?.curveR ?? look.curve;
+    const curveG = resp?.curveG ?? look.curve;
+    const curveB = resp?.curveB ?? look.curve;
+    gl.uniform4f(this.uCurveRLoc, curveR.contrast, curveR.pivot, curveR.toe, curveR.shoulder);
+    gl.uniform4f(this.uCurveGLoc, curveG.contrast, curveG.pivot, curveG.toe, curveG.shoulder);
+    gl.uniform4f(this.uCurveBLoc, curveB.contrast, curveB.pivot, curveB.toe, curveB.shoulder);
+    gl.uniform1i(this.uShoulderTypeLoc, (curveR.type ?? look.curve?.type) === "hard" ? 1 : 0);
+    gl.uniform1f(this.uLocalContrastLoc, resp?.localContrast ?? 0.0);
+    gl.uniform1f(this.uEffectiveLinesLoc, resp?.effectiveLines ?? 2000.0);
 
-      const curveR = resp?.curveR ?? look.curve;
-      const curveG = resp?.curveG ?? look.curve;
-      const curveB = resp?.curveB ?? look.curve;
-      gl.uniform4f(this.uCurveRLoc, curveR.contrast, curveR.pivot, curveR.toe, curveR.shoulder);
-      gl.uniform4f(this.uCurveGLoc, curveG.contrast, curveG.pivot, curveG.toe, curveG.shoulder);
-      gl.uniform4f(this.uCurveBLoc, curveB.contrast, curveB.pivot, curveB.toe, curveB.shoulder);
-      gl.uniform1i(this.uShoulderTypeLoc, (curveR.type ?? look.curve?.type) === "hard" ? 1 : 0);
-      gl.uniform1f(this.uLocalContrastLoc, resp?.localContrast ?? 0.0);
-      gl.uniform1f(this.uEffectiveLinesLoc, resp?.effectiveLines ?? 2000.0);
+    const flash = resp?.flashFalloff ?? look.flashFalloff;
+    gl.uniform4f(this.uFlashLoc, flash.strength, flash.radius, flash.centerX ?? 0.5, flash.centerY ?? 0.5);
 
-      const flash = resp?.flashFalloff ?? look.flashFalloff;
-      gl.uniform4f(this.uFlashLoc, flash.strength, flash.radius, flash.centerX ?? 0.5, flash.centerY ?? 0.5);
-
-      // 3. OKLCH Color Grading
-      const col = look.color;
-      const hueTable = col?.hueTable ?? [];
-      for (let i = 0; i < 24; i++) {
-        const node = hueTable[i];
-        this.cachedHueNodes[i * 4 + 0] = node ? node.hue : (i * 360) / 24;
-        this.cachedHueNodes[i * 4 + 1] = node ? node.dHue : 0.0;
-        this.cachedHueNodes[i * 4 + 2] = node ? node.dChroma : 1.0;
-        this.cachedHueNodes[i * 4 + 3] = node ? node.dLightness : 0.0;
-      }
-      gl.uniform4fv(this.uHueNodesLoc, this.cachedHueNodes);
-
-      const skin = col?.skinProtection;
-      gl.uniform4f(
-        this.uSkinProtectLoc,
-        skin?.enabled ? 1.0 : 0.0,
-        skin?.minHue ?? 20.0,
-        skin?.maxHue ?? 55.0,
-        skin?.strength ?? 0.75
-      );
-      gl.uniform1f(this.uSatLoc, col?.saturation ?? look.saturation);
-      gl.uniform2f(
-        this.uBrightSatLoc,
-        col?.brightSatCurve?.shadowBoost ?? 0.1,
-        col?.brightSatCurve?.highlightDesat ?? 0.3
-      );
-      gl.uniform1f(this.uHighlightWarmthLoc, col?.highlightWarmth ?? 0.15);
-      const sTint = col?.shadowTint ?? [0.0, 0.0, 0.0];
-      gl.uniform3f(this.uShadowTintLoc, sTint[0], sTint[1], sTint[2]);
-      gl.uniform1f(this.uWhiteProtectLoc, whiteProtectVal);
-
-      // 4. Emulsion Artifacts
-      const grain = look.emulsion?.grain ?? look.grain;
-      const grainAmt = options.disableAnimatedGrain && !options.isCapture ? grain.amount * 0.7 : grain.amount;
-      gl.uniform4f(this.uGrainLoc, grainAmt, grain.size, grain.roughness, grain.chroma);
-      gl.uniform1f(this.uGrainExpSensLoc, grain.exposureSensitivity ?? 0.5);
-      gl.uniform1f(this.uSceneExpLoc, options.sceneExposure ?? 0.5);
-
-      gl.uniform1f(this.uIntensityLoc, intensityVal);
-
-      if (!options.isCapture) {
-        this.lastUploadedLookId = look.id;
-        this.lastUploadedIntensity = intensityVal;
-        this.lastUploadedWhiteProtect = whiteProtectVal === 1.0;
-        this.lastUploadedDisableGrain = disableGrainVal;
-      }
+    // 3. OKLCH Color Grading
+    const col = look.color;
+    const hueTable = col?.hueTable ?? [];
+    for (let i = 0; i < 24; i++) {
+      const node = hueTable[i];
+      this.cachedHueNodes[i * 4 + 0] = node ? node.hue : (i * 360) / 24;
+      this.cachedHueNodes[i * 4 + 1] = node ? node.dHue : 0.0;
+      this.cachedHueNodes[i * 4 + 2] = node ? node.dChroma : 1.0;
+      this.cachedHueNodes[i * 4 + 3] = node ? node.dLightness : 0.0;
     }
+    gl.uniform4fv(this.uHueNodesLoc, this.cachedHueNodes);
+
+    const skin = col?.skinProtection;
+    gl.uniform4f(
+      this.uSkinProtectLoc,
+      skin?.enabled ? 1.0 : 0.0,
+      skin?.minHue ?? 20.0,
+      skin?.maxHue ?? 55.0,
+      skin?.strength ?? 0.75
+    );
+    gl.uniform1f(this.uSatLoc, col?.saturation ?? look.saturation);
+    gl.uniform2f(
+      this.uBrightSatLoc,
+      col?.brightSatCurve?.shadowBoost ?? 0.1,
+      col?.brightSatCurve?.highlightDesat ?? 0.3
+    );
+    gl.uniform1f(this.uHighlightWarmthLoc, col?.highlightWarmth ?? 0.15);
+    const sTint = col?.shadowTint ?? [0.0, 0.0, 0.0];
+    gl.uniform3f(this.uShadowTintLoc, sTint[0], sTint[1], sTint[2]);
+    gl.uniform1f(this.uWhiteProtectLoc, whiteProtectVal);
+
+    // 4. Emulsion Artifacts
+    const grain = look.emulsion?.grain ?? look.grain;
+    const grainAmt = options.disableAnimatedGrain && !options.isCapture ? grain.amount * 0.7 : grain.amount;
+    gl.uniform4f(this.uGrainLoc, grainAmt, grain.size, grain.roughness, grain.chroma);
+    gl.uniform1f(this.uGrainExpSensLoc, grain.exposureSensitivity ?? 0.5);
+    gl.uniform1f(this.uSceneExpLoc, options.sceneExposure ?? 0.5);
+
+    gl.uniform1f(this.uIntensityLoc, intensityVal);
 
     // Dynamic Debug Controls
     gl.uniform1i(this.uDebugStageLoc, options.debugStage ?? 0);
