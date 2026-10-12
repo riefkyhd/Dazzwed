@@ -103,10 +103,29 @@ export function constraintLadder({ deviceId, facing }: OpenOptions): MediaStream
     });
   } else if (facing === "user") {
     // Front selfie camera:
-    // Try exact user with 4:3 ladder rungs, then ideal user, then bare "user" constraint.
-    // NEVER fall back to { video: true } which defaults to rear camera on mobile.
-    pushResolutionRungs({ facingMode: { exact: "user" } });
-    pushResolutionRungs({ facingMode: { ideal: "user" } });
+    // Mobile front cameras are 1080p/2MP-8MP sensors. Use lightweight realistic resolutions (1920, 1440, 1280, 640)
+    // with { ideal: "user" } so mobile Camera2 / AVFoundation driver negotiates in <200ms without OverconstrainedError.
+    const frontResolutions = [
+      { w: 1920, h: 1440 },
+      { w: 1440, h: 1080 },
+      { w: 1280, h: 960 },
+      { w: 640, h: 480 },
+    ];
+    for (const res of frontResolutions) {
+      ladder.push({
+        audio: false,
+        video: {
+          facingMode: { exact: "user" },
+          width: { ideal: res.w },
+          height: { ideal: res.h },
+          aspectRatio: { ideal: 4 / 3 },
+        },
+      });
+    }
+    ladder.push({
+      audio: false,
+      video: { facingMode: { exact: "user" } },
+    });
     ladder.push({
       audio: false,
       video: { facingMode: { ideal: "user" } },

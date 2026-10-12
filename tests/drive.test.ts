@@ -3,6 +3,21 @@ import { generatePhotoFilename, uploadPhotoToDrive } from "@/lib/drive/upload";
 import { createRootFolder } from "@/lib/drive/folders";
 import type { drive_v3 } from "googleapis";
 
+vi.mock("@/lib/supabase/admin", () => ({
+  supabaseAdmin: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        }),
+      }),
+      update: () => ({
+        eq: vi.fn().mockResolvedValue({ error: null }),
+      }),
+    }),
+  }),
+}));
+
 describe("Google Drive Photo Uploads", () => {
   it("formats photo filenames cleanly with ISO timestamp, sanitized guest name, and shot count", () => {
     const fixedDate = new Date("2026-10-05T12:34:56.789Z");
@@ -70,5 +85,36 @@ describe("Google Drive Photo Uploads", () => {
       fields: "id, name",
     });
     expect(folderId).toBe(fakeRootId);
+  });
+
+  it("isolates guests with identical display names into separate Drive folders via unique roll code", async () => {
+    const { ensureGuestFolder } = await import("@/lib/drive/folders");
+    const { computeRollCodeFromGuestId } = await import("@/lib/guest/session");
+
+    const createdFolders: { name: string; id: string }[] = [];
+    const mockDrive = {
+      files: {
+        create: vi.fn().mockImplementation(async ({ requestBody }) => {
+          const id = `folder-${requestBody.name}`;
+          createdFolders.push({ name: requestBody.name, id });
+          return { data: { id } };
+        }),
+      },
+    } as unknown as drive_v3.Drive;
+
+    const guest1Id = "11111111-1111-4111-8111-111111111111";
+    const guest2Id = "22222222-2222-4222-8222-222222222222";
+    const sameName = "Riefky";
+
+    const code1 = computeRollCodeFromGuestId(guest1Id);
+    const code2 = computeRollCodeFromGuestId(guest2Id);
+    expect(code1).not.toBe(code2);
+
+    const folder1 = await ensureGuestFolder(mockDrive, "root-100", guest1Id, sameName);
+    const folder2 = await ensureGuestFolder(mockDrive, "root-100", guest2Id, sameName);
+
+    expect(folder1).not.toBe(folder2);
+    expect(createdFolders.some(f => f.name === `Riefky (${code1})`)).toBe(true);
+    expect(createdFolders.some(f => f.name === `Riefky (${code2})`)).toBe(true);
   });
 });

@@ -586,12 +586,13 @@ export function CameraScreen({
               <div className="w-16 flex justify-end">
                 <button
                   type="button"
+                  disabled={starting || restarting || isProcessing}
                   onClick={() => {
                     triggerHaptic([20]);
                     flip();
                   }}
                   aria-label={t(lang, "flip")}
-                  className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition-transform active:scale-90 touch-manipulation shadow-md cursor-pointer"
+                  className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition-transform active:scale-90 touch-manipulation shadow-md disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -674,12 +675,13 @@ export function CameraScreen({
             <div className="flex flex-col items-center gap-3">
               <button
                 type="button"
+                disabled={starting || restarting || isProcessing}
                 onClick={() => {
                   triggerHaptic([20]);
                   flip();
                 }}
                 aria-label={t(lang, "flip")}
-                className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 active:scale-90 shadow-md cursor-pointer"
+                className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 active:scale-90 shadow-md disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
               >
                 <svg
                   xmlns="http://www.w3.org/2000/svg"

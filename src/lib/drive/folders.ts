@@ -26,38 +26,101 @@ export async function createRootFolder(
   return folderId;
 }
 
-/**
- * Ensures the single shared "originals" subfolder exists inside the root event folder.
- * Caches in-memory per root folder ID so Drive list/create calls are never repeated.
- */
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { computeRollCodeFromGuestId } from "@/lib/guest/session";
+
+const guestFolderCache = new Map<string, string>();
 const originalsFolderCache = new Map<string, string>();
 
-export async function ensureEventOriginalsFolder(
+/**
+ * Ensures a per-guest subfolder exists inside the root event folder.
+ * Subfolder is named `${cleanName} (${rollCode})` so even guests with identical names
+ * get isolated folders distinguished by their unique 6-character roll code (e.g. "Riefky (7K9X2B)").
+ * Caches drive_folder_id in Supabase guests table and memory cache.
+ */
+export async function ensureGuestFolder(
   drive: drive_v3.Drive,
   rootFolderId: string,
+  guestId: string,
+  displayName: string | null,
 ): Promise<string> {
-  const cached = originalsFolderCache.get(rootFolderId);
+  const memCached = guestFolderCache.get(guestId);
+  if (memCached) return memCached;
+
+  const sb = supabaseAdmin();
+
+  // First check if already cached in Supabase
+  const { data: currentGuest, error: fetchErr } = await sb
+    .from("guests")
+    .select("drive_folder_id")
+    .eq("id", guestId)
+    .maybeSingle();
+
+  if (!fetchErr && currentGuest?.drive_folder_id) {
+    guestFolderCache.set(guestId, currentGuest.drive_folder_id);
+    return currentGuest.drive_folder_id;
+  }
+
+  // Create subfolder in Drive with unique roll code: e.g. "Riefky (7K9X2B)"
+  const rollCode = computeRollCodeFromGuestId(guestId);
+  const cleanName = displayName?.trim().replace(/[/\\?%*:|"<>]/g, "") || "Guest";
+  const folderName = `${cleanName} (${rollCode})`;
+
+  const res = await drive.files.create({
+    requestBody: {
+      name: folderName,
+      mimeType: "application/vnd.google-apps.folder",
+      parents: [rootFolderId],
+    },
+    fields: "id",
+  });
+
+  const folderId = res.data.id;
+  if (!folderId) {
+    throw new Error("Failed to create guest subfolder in Google Drive");
+  }
+
+  guestFolderCache.set(guestId, folderId);
+
+  // Save folderId in Supabase
+  await sb
+    .from("guests")
+    .update({ drive_folder_id: folderId })
+    .eq("id", guestId);
+
+  return folderId;
+}
+
+/**
+ * Ensures an "originals" subfolder exists inside the guest's folder (or target folder).
+ * Caches in-memory per parent folder ID so Drive list/create calls are never repeated.
+ */
+export async function ensureOriginalsFolder(
+  drive: drive_v3.Drive,
+  targetFolderId: string,
+): Promise<string> {
+  const cached = originalsFolderCache.get(targetFolderId);
   if (cached) return cached;
 
-  // Query if "originals" folder already exists inside rootFolderId
+  // Query if "originals" folder already exists inside targetFolderId
   const listRes = await drive.files.list({
-    q: `'${rootFolderId}' in parents and name = 'originals' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+    q: `'${targetFolderId}' in parents and name = 'originals' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
     fields: "files(id, name)",
     spaces: "drive",
   });
 
   if (listRes.data.files && listRes.data.files.length > 0 && listRes.data.files[0].id) {
     const id = listRes.data.files[0].id;
-    originalsFolderCache.set(rootFolderId, id);
+    originalsFolderCache.set(targetFolderId, id);
     return id;
   }
 
-  // Create "originals" subfolder once for the event
+  // Create "originals" subfolder inside targetFolderId
   const createRes = await drive.files.create({
     requestBody: {
       name: "originals",
       mimeType: "application/vnd.google-apps.folder",
-      parents: [rootFolderId],
+      parents: [targetFolderId],
     },
     fields: "id",
   });
@@ -66,29 +129,17 @@ export async function ensureEventOriginalsFolder(
   if (!folderId) {
     throw new Error("Failed to create originals subfolder in Google Drive");
   }
-  originalsFolderCache.set(rootFolderId, folderId);
+  originalsFolderCache.set(targetFolderId, folderId);
   return folderId;
 }
 
 /**
- * Backward compatibility alias for existing code.
+ * Alias for ensuring originals folder inside root or specified folder.
  */
-export async function ensureOriginalsFolder(
+export async function ensureEventOriginalsFolder(
   drive: drive_v3.Drive,
-  targetFolderId: string,
-): Promise<string> {
-  return ensureEventOriginalsFolder(drive, targetFolderId);
-}
-
-/**
- * Backward compatibility alias: in flat folder architecture, guest folder is the root folder.
- */
-export async function ensureGuestFolder(
-  _drive: drive_v3.Drive,
   rootFolderId: string,
-  _guestId: string,
-  _displayName: string | null,
 ): Promise<string> {
-  return rootFolderId;
+  return ensureOriginalsFolder(drive, rootFolderId);
 }
 

@@ -10,6 +10,7 @@ interface NativeCameraInputProps {
   disabled?: boolean;
   lang: Lang;
   variant?: "button" | "secondary";
+  beforeClick?: () => boolean;
 }
 
 export function NativeCameraInput({
@@ -18,11 +19,13 @@ export function NativeCameraInput({
   disabled,
   lang,
   variant = "secondary",
+  beforeClick,
 }: NativeCameraInputProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = () => {
     if (disabled) return;
+    if (beforeClick && !beforeClick()) return;
     // Persist pending native shoot state before OS launches camera app
     markNativePending(eventSlug);
     inputRef.current?.click();

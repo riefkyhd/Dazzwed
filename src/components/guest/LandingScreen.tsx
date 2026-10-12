@@ -11,7 +11,7 @@ interface LandingScreenProps {
   eventSlug: string;
   lang: Lang;
   onLanguageChange: (lang: Lang) => void;
-  onStartCamera: (name: string | null) => void;
+  onStartCamera: (name: string) => void;
   onNativePhoto: (file: File, name: string | null, quickThumb?: string) => void;
   onRestoreSuccess?: (data: { guestId: string; name: string | null; rollCode: string; shotsLeft: number }) => void;
 }
@@ -27,11 +27,24 @@ export function LandingScreen({
   onRestoreSuccess,
 }: LandingScreenProps) {
   const [name, setName] = useState("");
+  const [nameError, setNameError] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const nameInputRef = React.useRef<HTMLInputElement>(null);
+
+  const validateName = (): boolean => {
+    if (!name.trim()) {
+      setNameError(true);
+      nameInputRef.current?.focus();
+      return false;
+    }
+    setNameError(false);
+    return true;
+  };
 
   const handleStart = (e: React.FormEvent) => {
     e.preventDefault();
-    onStartCamera(name.trim() || null);
+    if (!validateName()) return;
+    onStartCamera(name.trim());
   };
 
   return (
@@ -111,26 +124,43 @@ export function LandingScreen({
         {/* Form: Optional Name */}
         <form onSubmit={handleStart} className="w-full space-y-4">
           <div className="text-left">
-            <label
-              htmlFor="guest-name"
-              className="block text-xs font-medium text-zinc-400 mb-1.5 ml-1"
-            >
-              {t(lang, "yourName")}
-            </label>
+            <div className="flex items-center justify-between mb-1.5 ml-1">
+              <label
+                htmlFor="guest-name"
+                className="block text-xs font-medium text-zinc-400"
+              >
+                {t(lang, "yourName")}
+              </label>
+              {nameError && (
+                <span className="text-xs text-rose-400 font-sans font-medium">
+                  {t(lang, "yourNameRequired")}
+                </span>
+              )}
+            </div>
             <input
+              ref={nameInputRef}
               id="guest-name"
               type="text"
+              required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError && e.target.value.trim()) setNameError(false);
+              }}
               placeholder={t(lang, "yourNamePlaceholder")}
               maxLength={60}
-              className="w-full px-4 py-3.5 rounded-xl bg-zinc-900 border border-zinc-700/80 text-white placeholder-zinc-500 focus:outline-none focus:border-accent text-sm transition-colors"
+              className={`w-full px-4 py-3.5 rounded-xl bg-zinc-900 border ${
+                nameError
+                  ? "border-rose-500 ring-1 ring-rose-500/40 focus:border-rose-400"
+                  : "border-zinc-700/80 focus:border-accent"
+              } text-white placeholder-zinc-500 focus:outline-none text-sm transition-colors`}
             />
           </div>
 
           <button
             type="submit"
-            className="w-full py-4 px-6 rounded-xl bg-accent text-accent-fg font-bold text-base shadow-lg shadow-amber-950/40 hover:brightness-110 active:scale-[0.99] transition-all touch-manipulation cursor-pointer"
+            disabled={!name.trim()}
+            className="w-full py-4 px-6 rounded-xl bg-accent text-accent-fg font-bold text-base shadow-lg shadow-amber-950/40 hover:brightness-110 active:scale-[0.99] transition-all touch-manipulation cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {t(lang, "startCamera")}
           </button>
@@ -139,7 +169,14 @@ export function LandingScreen({
         <div className="w-full mt-3">
           <NativeCameraInput
             eventSlug={eventSlug}
-            onFileSelected={(file, quickThumb) => onNativePhoto(file, name.trim() || null, quickThumb)}
+            beforeClick={() => {
+              if (!validateName()) return false;
+              return true;
+            }}
+            onFileSelected={(file, quickThumb) => {
+              if (!validateName()) return;
+              onNativePhoto(file, name.trim(), quickThumb);
+            }}
             lang={lang}
             variant="secondary"
           />

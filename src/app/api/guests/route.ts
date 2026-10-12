@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     if (data && !isExpired) {
       guest = data;
       const patch: { last_seen_at: string; display_name?: string } = { last_seen_at: new Date().toISOString() };
-      if (name && !data.display_name) {
+      if (name && (!data.display_name || data.display_name !== name)) {
         patch.display_name = name;
         guest.display_name = name;
       }
@@ -77,6 +77,9 @@ export async function POST(req: Request) {
     }
   }
   if (!guest) {
+    if (!name || name.trim().length === 0) {
+      return NextResponse.json({ error: "name_required" }, { status: 400 });
+    }
     const { data, error } = await sb
       .from("guests")
       .insert({ event_id: ev.id, display_name: name })

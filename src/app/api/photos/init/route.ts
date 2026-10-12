@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDriveClient, resolveDriveTokens } from "@/lib/drive/client";
-import { ensureEventOriginalsFolder } from "@/lib/drive/folders";
+import { ensureGuestFolder, ensureOriginalsFolder } from "@/lib/drive/folders";
 import { generatePhotoFilename } from "@/lib/drive/upload";
 import { getEventBySlug } from "@/lib/event-server";
 import { eventStatus } from "@/lib/event";
@@ -137,16 +137,21 @@ export async function POST(req: Request) {
     }
     const drive = getDriveClient(refreshToken);
 
-    // FLAT FOLDER ARCHITECTURE:
-    // Filtered photos are written directly to rootFolderId.
-    // Clean originals are written to a single shared "originals" subfolder inside rootFolderId.
-    // Zero per-guest folder creation calls needed during live event!
-    let targetParentFolderId = rootFolderId;
+    // Ensure per-guest folder exists: `${cleanName} (${rollCode})`
+    // Isolates folders even when guests have the same name
+    const guestFolderId = await ensureGuestFolder(
+      drive,
+      rootFolderId,
+      guest.id,
+      guest.display_name,
+    );
+
+    let targetParentFolderId = guestFolderId;
     let shotsUsed = 1;
 
     if (isOriginal) {
-      // Clean original: upload to "originals" subfolder without reserving another shot slot
-      targetParentFolderId = await ensureEventOriginalsFolder(drive, rootFolderId);
+      // Clean original: upload to "originals" subfolder inside guest folder
+      targetParentFolderId = await ensureOriginalsFolder(drive, guestFolderId);
 
       // Verify the parent photo exists
       const { data: existingPhoto } = await sb

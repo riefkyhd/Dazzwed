@@ -153,7 +153,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         }
 
         const cur = s.getVideoTracks()[0]?.getSettings().deviceId;
-        if (facing === "environment" && !lensChoice) {
+        if (facing === "environment" && !lensChoice && !targetDeviceId) {
           // If we didn't have deviceId initially or the device picked isn't the primary main lens
           const def = pickDefaultLens(knownDevices, cur);
           if (def && def !== cur) {
@@ -219,10 +219,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
         setError(kind);
         diagnostics.logEvent("CAMERA_ERROR", kind);
       } finally {
-        if (!cancelled) {
-          setStarting(false);
-          setRestarting(false);
-        }
+        setStarting(false);
+        setRestarting(false);
       }
     }
     runRef.current = () => run(true);
@@ -312,6 +310,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
     const sync = () => {
       if (v.videoWidth && v.videoHeight) {
         setAspect(v.videoWidth / v.videoHeight);
+        setStarting(false);
+        setRestarting(false);
       }
     };
 
@@ -386,6 +386,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
           }
 
           if (v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0 && lookPipelineRef.current) {
+            setStarting(false);
+            setRestarting(false);
             const longEdge = previewTier === "high" ? 1280 : previewTier === "standard" ? 960 : 720;
             const vw = v.videoWidth;
             const vh = v.videoHeight;
@@ -703,6 +705,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string) {
     setExposureCompensation,
     facing,
     flip: () => {
+      if (starting || restarting) return;
       setLensChoice(undefined);
       setFacing((f) => (f === "environment" ? "user" : "environment"));
     },
