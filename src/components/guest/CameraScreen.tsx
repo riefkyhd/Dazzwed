@@ -119,7 +119,7 @@ export function CameraScreen({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const [showLevel, setShowLevel] = useState(false);
-  const [mirrorFront, setMirrorFront] = useState(true);
+  const [mirrorFront, setMirrorFront] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [aeAfLocked, setAeAfLocked] = useState(false);
 
