@@ -26,11 +26,28 @@ function caps(track: MediaStreamTrack | null | undefined): ExtCaps {
   }
 }
 
+export const MIN_DIGITAL_ZOOM = 1;
+export const MAX_DIGITAL_ZOOM = 10;
+
 /** Native zoom range, or null (iOS Safari) => use digital zoom. */
 export function readZoomRange(track: MediaStreamTrack | null | undefined): ZoomRange | null {
   const z = caps(track).zoom;
   if (!z || typeof z.min !== "number" || typeof z.max !== "number" || z.max <= z.min) return null;
   return { min: z.min, max: z.max, step: z.step && z.step > 0 ? z.step : 0.1 };
+}
+
+/**
+ * Clamps a requested zoom factor to the track's reported capability range when available,
+ * or to the valid app digital crop range [1, MAX_DIGITAL_ZOOM] when native zoom is unavailable.
+ */
+export function clampZoomToRange(requested: number, range: ZoomRange | null | undefined): number {
+  if (!Number.isFinite(requested)) {
+    return range ? Math.max(range.min, Math.min(range.max, 1)) : MIN_DIGITAL_ZOOM;
+  }
+  if (range) {
+    return Math.max(range.min, Math.min(range.max, requested));
+  }
+  return Math.max(MIN_DIGITAL_ZOOM, Math.min(MAX_DIGITAL_ZOOM, requested));
 }
 
 export function hasTorch(track: MediaStreamTrack | null | undefined): boolean {
@@ -48,8 +65,15 @@ export function hasImageCaptureFlash(track: MediaStreamTrack | null | undefined)
   }
 }
 
-export async function applyNativeZoom(track: MediaStreamTrack, value: number): Promise<void> {
-  await track.applyConstraints({ advanced: [{ zoom: value } as MediaTrackConstraintSet] });
+export async function applyNativeZoom(
+  track: MediaStreamTrack,
+  value: number,
+  range?: ZoomRange | null
+): Promise<number> {
+  const effectiveRange = range !== undefined ? range : readZoomRange(track);
+  const clamped = effectiveRange ? clampZoomToRange(value, effectiveRange) : value;
+  await track.applyConstraints({ advanced: [{ zoom: clamped } as MediaTrackConstraintSet] });
+  return clamped;
 }
 
 export async function applyTorch(track: MediaStreamTrack, on: boolean): Promise<void> {

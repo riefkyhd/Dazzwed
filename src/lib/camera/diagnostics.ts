@@ -30,23 +30,108 @@ export interface ShutterMeasurement {
   latencyKeepToLive?: number;
 }
 
+export type ZoomMechanism =
+  | "base-1x"
+  | "camera-switch"
+  | "browser-zoom-constraint"
+  | "app-digital-crop";
+
+export type OpticalVerificationStatus =
+  | "CANNOT_VERIFY_FROM_BROWSER_API"
+  | "DIGITAL_CROP_ONLY"
+  | "SEPARATE_DEVICE_STREAM";
+
+export interface EnumeratedVideoInput {
+  index: number;
+  redactedId: string;
+  redactedGroupId?: string;
+  label: string;
+  classifiedKind: string;
+  classifiedFacing: string;
+  isActive: boolean;
+  inPicker: boolean;
+}
+
+export interface ZoomActionLogEntry {
+  timestamp: number;
+  timeStr: string;
+  action: "0.5x" | "1x" | "2x" | "3x" | "pinch" | "stream-init" | string;
+  requestedValue: number;
+  mechanism: ZoomMechanism;
+  opticalVerification: OpticalVerificationStatus;
+  opticalNotice: string;
+  streamRetained: boolean;
+  previousDeviceIdRedacted: string;
+  activeDeviceIdRedacted: string;
+  activeDeviceLabel: string;
+  constraintApplied: string;
+  constraintStatus: "success" | "error" | "not-applicable";
+  constraintError?: string;
+  reportedZoomAfter: number | null;
+  supportedZoomRange: { min: number; max: number; step: number } | null;
+  effectiveAppDigitalCrop: number;
+  resolutionAfter: string;
+}
+
+export function redactDeviceId(id?: string | null): string {
+  if (!id) return "none";
+  if (id === "default" || id.length <= 8) return id;
+  return `${id.slice(0, 4)}…${id.slice(-4)}`;
+}
+
+export function redactTrackSettings(
+  settings: (MediaTrackSettings & { zoom?: number; exposureCompensation?: number }) | null | undefined,
+  trackLabel?: string
+): Record<string, unknown> | null {
+  if (!settings) return null;
+  const copy: Record<string, unknown> = { ...settings };
+  if (typeof copy.deviceId === "string") {
+    copy.deviceId = redactDeviceId(copy.deviceId);
+  }
+  if (typeof copy.groupId === "string") {
+    copy.groupId = redactDeviceId(copy.groupId);
+  }
+  if (trackLabel !== undefined) {
+    copy.trackLabel = trackLabel || "(unlabeled)";
+  }
+  return copy;
+}
+
+export function getOpticalStatusNotice(status: OpticalVerificationStatus): string {
+  switch (status) {
+    case "CANNOT_VERIFY_FROM_BROWSER_API":
+      return "Browser API limitation: Physical lens CANNOT be determined from browser APIs. Browser zoom constraint (applyConstraints) is managed by OS/HAL; reported zoom does NOT prove physical telephoto lens switching. Confirm via physical lens occlusion test.";
+    case "DIGITAL_CROP_ONLY":
+      return "Confirmed App Digital Crop: Digital crop only (WebGL shader u_cropRect + 2D canvas crop on current sensor frame). No optical lens switch.";
+    case "SEPARATE_DEVICE_STREAM":
+      return "Confirmed Separate Device Stream: Opened separate videoinput deviceId stream via getUserMedia. Note: camera labels and deviceIds do NOT prove physical optical lens identity; confirm on device via physical lens occlusion test.";
+  }
+}
+
 export interface DiagnosticsState {
   lifecycleEvents: LifecycleEvent[];
   shutterHistory: ShutterMeasurement[];
   lastMeasurement: ShutterMeasurement | null;
   invariantViolations: string[];
+  videoInputs: EnumeratedVideoInput[];
+  zoomHistory: ZoomActionLogEntry[];
+  lastZoomAction: ZoomActionLogEntry | null;
 }
 
 type Listener = (state: DiagnosticsState) => void;
 
 class CameraDiagnosticsTracker {
-  private events: LifecycleEvent[] = [];
+  private events: LifecycleEvent[];
   private shutterHistory: ShutterMeasurement[] = [];
   private currentMeasurement: ShutterMeasurement | null = null;
   private invariantViolations: string[] = [];
+  private videoInputs: EnumeratedVideoInput[] = [];
+  private zoomHistory: ZoomActionLogEntry[] = [];
+  private lastZoomAction: ZoomActionLogEntry | null = null;
   private listeners = new Set<Listener>();
 
   constructor() {
+    this.events = [];
     if (typeof window !== "undefined") {
       (window as unknown as { __CAMERA_DIAGNOSTICS__: CameraDiagnosticsTracker }).__CAMERA_DIAGNOSTICS__ = this;
     }
@@ -61,10 +146,58 @@ class CameraDiagnosticsTracker {
       detail,
     };
     this.events.push(event);
-    if (this.events.length > 30) {
+    if (this.events.length > 40) {
       this.events.shift();
     }
     this.notify();
+  }
+
+  public setVideoInputs(inputs: EnumeratedVideoInput[]) {
+    this.videoInputs = inputs.map((item) => ({ ...item }));
+    this.notify();
+  }
+
+  public logZoomAction(
+    entry: Omit<ZoomActionLogEntry, "timestamp" | "timeStr" | "opticalNotice"> & {
+      opticalNotice?: string;
+    }
+  ) {
+    const now = performance.now();
+    const fullEntry: ZoomActionLogEntry = {
+      ...entry,
+      timestamp: now,
+      timeStr: new Date().toLocaleTimeString(),
+      opticalNotice: entry.opticalNotice ?? getOpticalStatusNotice(entry.opticalVerification),
+    };
+
+    this.lastZoomAction = fullEntry;
+
+    // Coalesce rapid continuous pinch updates (within 400ms) if status and device are unchanged,
+    // while keeping every discrete 0.5x/1x/2x/3x action and any error as separate entries.
+    const prev = this.zoomHistory[this.zoomHistory.length - 1];
+    if (
+      entry.action === "pinch" &&
+      prev &&
+      prev.action === "pinch" &&
+      prev.constraintStatus === entry.constraintStatus &&
+      prev.activeDeviceIdRedacted === entry.activeDeviceIdRedacted &&
+      entry.constraintStatus !== "error" &&
+      now - prev.timestamp < 400
+    ) {
+      this.zoomHistory[this.zoomHistory.length - 1] = fullEntry;
+    } else {
+      this.zoomHistory.push(fullEntry);
+      if (this.zoomHistory.length > 30) {
+        this.zoomHistory.shift();
+      }
+    }
+
+    const summaryDetail = `${fullEntry.action} [${fullEntry.mechanism}] req=${fullEntry.requestedValue.toFixed(2)}x rep=${
+      fullEntry.reportedZoomAfter != null ? `${fullEntry.reportedZoomAfter.toFixed(2)}x` : "n/a"
+    } crop=${fullEntry.effectiveAppDigitalCrop.toFixed(2)}x dev=${fullEntry.activeDeviceIdRedacted} (${fullEntry.constraintStatus}${
+      fullEntry.constraintError ? `: ${fullEntry.constraintError}` : ""
+    })`;
+    this.logEvent("ZOOM_ACTION", summaryDetail);
   }
 
   public logInvariantViolation(msg: string) {
@@ -154,6 +287,9 @@ class CameraDiagnosticsTracker {
       shutterHistory: [...this.shutterHistory],
       lastMeasurement: this.currentMeasurement ? { ...this.currentMeasurement } : null,
       invariantViolations: [...this.invariantViolations],
+      videoInputs: [...this.videoInputs],
+      zoomHistory: [...this.zoomHistory],
+      lastZoomAction: this.lastZoomAction ? { ...this.lastZoomAction } : null,
     };
   }
 
@@ -163,6 +299,17 @@ class CameraDiagnosticsTracker {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  public reset() {
+    this.events = [];
+    this.shutterHistory = [];
+    this.currentMeasurement = null;
+    this.invariantViolations = [];
+    this.videoInputs = [];
+    this.zoomHistory = [];
+    this.lastZoomAction = null;
+    this.notify();
   }
 
   private notify() {

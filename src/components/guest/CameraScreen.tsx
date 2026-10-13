@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect, useCallback, use } from "react";
 import { useSearchParams } from "next/navigation";
 import { type Lang, t } from "@/lib/i18n";
 import { useCamera } from "@/lib/camera/useCamera";
+import { getEffectiveDisplayZoom, resolveZoomPreset } from "@/lib/camera/lenses";
 import { useViewportLayout } from "@/lib/camera/useViewportLayout";
 import { triggerHaptic } from "@/lib/camera/haptics";
 import { diagnostics } from "@/lib/camera/diagnostics";
@@ -359,11 +360,22 @@ export function CameraScreen({
 
   const handleResetZoom = () => {
     triggerHaptic([20]);
+    const decision = resolveZoomPreset({ preset: 1, lenses, activeId, zoomRange });
+    if (decision.mechanism === "camera-switch" && decision.targetDeviceId) {
+      chooseLens(decision.targetDeviceId, 1);
+      return;
+    }
     if (zoomRange) setZoom(1);
     setDigitalZoom(1);
   };
 
-  const currentDisplayZoom = zoomRange ? zoom : digitalZoom;
+  const currentDisplayZoom = getEffectiveDisplayZoom({
+    activeId,
+    lenses,
+    zoom,
+    digitalZoom,
+    zoomRange,
+  });
 
   const { isLandscape, mode, viewfinderRect } = layout;
 
@@ -452,8 +464,8 @@ export function CameraScreen({
         {/* Retro 4 Corner Brackets (always inside viewfinder, hidden in full-bleed 16:9) */}
         <ViewfinderFrame visible={mode === "banded"} />
 
-        {/* L1 Floating Lens Chips (Floating over lower ~8% of viewfinder like iPhone) */}
-        {layout.density === "L1" && facing === "environment" && lenses.length > 1 && (
+        {/* L1 Floating Lens Chips (Floating over lower ~8% of viewfinder in banded L1) */}
+        {layout.density === "L1" && mode === "banded" && facing === "environment" && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
             <LensBar
               lenses={lenses}
@@ -544,8 +556,8 @@ export function CameraScreen({
               />
             </div>
 
-            {/* Lens Bar (Shown in bottom cluster for L0; in L1 it floats over viewfinder) */}
-            {layout.density === "L0" && facing === "environment" && (
+            {/* Lens Bar (Shown in bottom cluster for L0 and full-bleed 16:9; in banded L1 it floats over viewfinder) */}
+            {(layout.density === "L0" || mode === "full-bleed") && facing === "environment" && (
               <div className="flex items-center justify-center w-full min-h-[36px]">
                 <LensBar
                   lenses={lenses}
@@ -892,6 +904,9 @@ export function CameraScreen({
           trackSettings={trackSettings}
           exposureCompensation={exposureCompValue}
           zoom={currentDisplayZoom}
+          nativeZoom={zoom}
+          digitalZoom={digitalZoom}
+          zoomRange={zoomRange}
           facing={facing}
           measuredFps={measuredFps}
           onClose={() => setShowHud(false)}
