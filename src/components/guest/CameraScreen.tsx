@@ -482,9 +482,9 @@ export function CameraScreen({
         {/* Retro 4 Corner Brackets (always inside viewfinder, hidden in full-bleed 16:9) */}
         <ViewfinderFrame visible={mode === "banded"} />
 
-        {/* L1 Floating Lens Chips (Floating over lower ~8% of viewfinder in banded L1) */}
-        {layout.density === "L1" && mode === "banded" && facing === "environment" && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
+        {/* Floating Lens Zoom Toggle inside Live Camera View (Smartphone Camera style) */}
+        {facing === "environment" && (
+          <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
             <LensBar
               lenses={lenses}
               activeId={activeId}
@@ -541,13 +541,13 @@ export function CameraScreen({
             />
           </header>
 
-          {/* Bottom Bar Zone */}
+          {/* Bottom Bar Zone (Streamlined without zoom crowding) */}
           <footer
             style={{
-              paddingBottom: "max(env(safe-area-inset-bottom), 20px)",
-              minHeight: `${layout.bottomBarHeight}px`,
+              paddingBottom: "max(env(safe-area-inset-bottom), 16px)",
+              height: `${layout.bottomBarHeight}px`,
             }}
-            className={`relative z-20 flex flex-col items-center justify-between w-full px-4 pt-1 transition-colors ${
+            className={`relative z-10 flex flex-col items-center justify-center gap-1.5 w-full px-4 pt-1 transition-colors ${
               mode === "banded" ? "bg-black" : "bg-gradient-to-t from-black/90 via-black/50 to-transparent"
             }`}
           >
@@ -574,22 +574,6 @@ export function CameraScreen({
                 onOpenLookDrawer={() => setLookDrawerOpen(true)}
               />
             </div>
-
-            {/* Lens Bar (Shown in bottom cluster for L0 and full-bleed 16:9; in banded L1 it floats over viewfinder) */}
-            {(layout.density === "L0" || mode === "full-bleed") && facing === "environment" && (
-              <div className="flex items-center justify-center w-full min-h-[36px]">
-                <LensBar
-                  lenses={lenses}
-                  activeId={activeId}
-                  zoomRange={zoomRange}
-                  currentZoom={zoom}
-                  digitalZoom={digitalZoom}
-                  onSelectLens={chooseLens}
-                  onSetZoom={setZoom}
-                  onSetDigitalZoom={setDigitalZoom}
-                />
-              </div>
-            )}
 
             {/* Shutter Row with Film Badge and Flip Camera */}
             <div className="flex items-center justify-between w-full max-w-sm px-2 pt-1 pb-1">

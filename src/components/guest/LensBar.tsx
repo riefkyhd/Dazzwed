@@ -7,6 +7,7 @@ import {
   type Lens,
   type ZoomPreset,
 } from "@/lib/camera/lenses";
+import { triggerHaptic } from "@/lib/camera/haptics";
 
 interface LensBarProps {
   lenses: Lens[];
@@ -50,6 +51,7 @@ export function LensBar({
   });
 
   const handlePresetClick = (preset: ZoomPreset) => {
+    triggerHaptic([15]);
     const plan = resolveZoomPreset({
       preset,
       lenses,
@@ -78,20 +80,30 @@ export function LensBar({
     }
   };
 
+  const is05Active = effectiveZoom < 0.9;
+  const is1xActive = effectiveZoom >= 0.9 && effectiveZoom < 1.8;
+  const is2xActive = effectiveZoom >= 1.8 && effectiveZoom < 2.8;
+  const is3xActive = effectiveZoom >= 2.8;
+
   return (
-    <div className="flex items-center gap-1.5 p-1 rounded-full bg-zinc-950/80 backdrop-blur-md border border-zinc-800 shadow-lg">
-      {/* 0.5x Ultra Wide (only when ultra-wide device or sub-1x browser zoom range exists) */}
+    <div
+      role="group"
+      aria-label="Camera Zoom"
+      className="flex items-center gap-1 p-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 shadow-xl shadow-black/40 select-none animate-in fade-in zoom-in-95 duration-200"
+    >
+      {/* 0.5x Ultra Wide */}
       {(ultrawide || hasNativeUltraWideZoom) && (
         <button
           type="button"
           onClick={() => handlePresetClick(0.5)}
-          className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold transition-all active:scale-95 ${
-            effectiveZoom < 0.9
-              ? "bg-amber-400 text-black shadow"
-              : "text-zinc-400 hover:text-white"
+          aria-label="0.5x Ultra Wide"
+          className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
+            is05Active
+              ? "bg-amber-400 text-black scale-105 shadow-md shadow-amber-400/25"
+              : "text-zinc-200/90 hover:text-white hover:bg-white/10 active:scale-90"
           }`}
         >
-          0.5x
+          0.5
         </button>
       )}
 
@@ -99,39 +111,42 @@ export function LensBar({
       <button
         type="button"
         onClick={() => handlePresetClick(1)}
-        className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold transition-all active:scale-95 ${
-          effectiveZoom >= 0.9 && effectiveZoom < 1.8
-            ? "bg-amber-400 text-black shadow"
-            : "text-zinc-400 hover:text-white"
+        aria-label="1x Main Lens"
+        className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
+          is1xActive
+            ? "bg-amber-400 text-black scale-105 shadow-md shadow-amber-400/25"
+            : "text-zinc-200/90 hover:text-white hover:bg-white/10 active:scale-90"
         }`}
       >
         1x
       </button>
 
-      {/* 2x Preset (Explicit 2x lens -> Browser zoom constraint -> App digital crop fallback) */}
+      {/* 2x Preset */}
       <button
         type="button"
         onClick={() => handlePresetClick(2)}
-        className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold transition-all active:scale-95 ${
-          effectiveZoom >= 1.8 && effectiveZoom < 2.8
-            ? "bg-amber-400 text-black shadow"
-            : "text-zinc-400 hover:text-white"
+        aria-label="2x Zoom"
+        className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
+          is2xActive
+            ? "bg-amber-400 text-black scale-105 shadow-md shadow-amber-400/25"
+            : "text-zinc-200/90 hover:text-white hover:bg-white/10 active:scale-90"
         }`}
       >
-        2x
+        2
       </button>
 
-      {/* 3x Preset (Explicit 3x lens -> Browser zoom constraint -> App digital crop fallback) */}
+      {/* 3x Preset */}
       <button
         type="button"
         onClick={() => handlePresetClick(3)}
-        className={`px-2.5 py-1 rounded-full text-xs font-mono font-bold transition-all active:scale-95 ${
-          effectiveZoom >= 2.8
-            ? "bg-amber-400 text-black shadow"
-            : "text-zinc-400 hover:text-white"
+        aria-label="3x Zoom"
+        className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
+          is3xActive
+            ? "bg-amber-400 text-black scale-105 shadow-md shadow-amber-400/25"
+            : "text-zinc-200/90 hover:text-white hover:bg-white/10 active:scale-90"
         }`}
       >
-        3x
+        3
       </button>
     </div>
   );

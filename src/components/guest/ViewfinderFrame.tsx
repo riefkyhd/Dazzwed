@@ -25,8 +25,8 @@ export function ViewfinderFrame({ visible = true }: ViewfinderFrameProps) {
         data-testid="corner-bracket-tl"
         style={{
           position: "absolute",
-          top: "12px",
-          left: "12px",
+          top: "16px",
+          left: "16px",
           width: "16px",
           height: "16px",
           borderTop: "1.5px solid rgba(251, 191, 36, 0.45)",
@@ -39,8 +39,8 @@ export function ViewfinderFrame({ visible = true }: ViewfinderFrameProps) {
         data-testid="corner-bracket-tr"
         style={{
           position: "absolute",
-          top: "12px",
-          right: "12px",
+          top: "16px",
+          right: "16px",
           width: "16px",
           height: "16px",
           borderTop: "1.5px solid rgba(251, 191, 36, 0.45)",
@@ -53,8 +53,8 @@ export function ViewfinderFrame({ visible = true }: ViewfinderFrameProps) {
         data-testid="corner-bracket-bl"
         style={{
           position: "absolute",
-          bottom: "12px",
-          left: "12px",
+          bottom: "16px",
+          left: "16px",
           width: "16px",
           height: "16px",
           borderBottom: "1.5px solid rgba(251, 191, 36, 0.45)",
@@ -67,8 +67,8 @@ export function ViewfinderFrame({ visible = true }: ViewfinderFrameProps) {
         data-testid="corner-bracket-br"
         style={{
           position: "absolute",
-          bottom: "12px",
-          right: "12px",
+          bottom: "16px",
+          right: "16px",
           width: "16px",
           height: "16px",
           borderBottom: "1.5px solid rgba(251, 191, 36, 0.45)",
