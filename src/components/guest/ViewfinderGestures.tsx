@@ -431,19 +431,7 @@ export function ViewfinderGestures({
         </div>
       )}
 
-      {/* Floating Zoom Snap Pill (Shows when zoom != 1x; tap resets) */}
-      {zoom > 1.05 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20">
-          <button
-            type="button"
-            onClick={onResetZoom}
-            aria-label="Snap zoom back to 1x"
-            className="px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/20 text-white font-mono text-xs font-bold active:scale-90 transition-all shadow-lg pointer-events-auto cursor-pointer"
-          >
-            {zoom.toFixed(1)}x &bull; Tap 1x
-          </button>
-        </div>
-      )}
+
     </div>
   );
 }
