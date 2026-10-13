@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   createInitialGestureState,
   processGestureEvent,
-  PINCH_COOLDOWN,
 } from "@/lib/camera/gesture-machine";
 
 describe("Viewfinder Gesture State Machine", () => {
@@ -183,7 +182,7 @@ describe("Viewfinder Gesture State Machine", () => {
   });
 
   it("directly triggers slider drag when touching ring hit-box", () => {
-    let state = createInitialGestureState();
+    const state = createInitialGestureState();
     const isRingHit = (x: number, y: number) => x > 50 && x < 150 && y > 50 && y < 150;
 
     const res = processGestureEvent(

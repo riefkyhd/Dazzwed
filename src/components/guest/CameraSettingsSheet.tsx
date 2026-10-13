@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { triggerHaptic } from "@/lib/camera/haptics";
 import type { Lang } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
+import type { PerformanceMode, QualityTier } from "@/lib/camera/adaptive-controller";
 
 interface CameraSettingsSheetProps {
   open: boolean;
@@ -19,6 +20,9 @@ interface CameraSettingsSheetProps {
   rollCode?: string | null;
   eventSlug: string;
   lang: Lang;
+  performanceMode?: PerformanceMode;
+  onSelectPerformanceMode?: (mode: PerformanceMode) => void;
+  qualityTier?: QualityTier;
 }
 
 export function CameraSettingsSheet({
@@ -35,6 +39,9 @@ export function CameraSettingsSheet({
   rollCode,
   eventSlug,
   lang,
+  performanceMode = "auto",
+  onSelectPerformanceMode,
+  qualityTier = "A",
 }: CameraSettingsSheetProps) {
   const [copied, setCopied] = useState(false);
 
@@ -144,6 +151,35 @@ export function CameraSettingsSheet({
               <div className="w-5 h-5 rounded-full bg-black shadow" />
             </button>
           </div>
+
+          {/* Performance Mode (Auto / Quality / Smooth) */}
+          {onSelectPerformanceMode && (
+            <div className="pt-2 border-t border-zinc-800 space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-zinc-400">
+                <span>{lang === "id" ? "Mode Performa" : "Performance Mode"}</span>
+                <span className="font-mono text-amber-400 uppercase font-semibold">Tier {qualityTier}</span>
+              </div>
+              <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-950/80 rounded-xl border border-zinc-800">
+                {(["auto", "quality", "smooth"] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic([15]);
+                      onSelectPerformanceMode(m);
+                    }}
+                    className={`py-1.5 px-2 rounded-lg text-xs font-medium capitalize transition-all ${
+                      performanceMode === m
+                        ? "bg-amber-400 text-black font-bold shadow"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    {m === "auto" ? (lang === "id" ? "Otomatis" : "Auto") : m === "quality" ? (lang === "id" ? "Kualitas" : "Quality") : (lang === "id" ? "Lancar" : "Smooth")}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Roll Code & Restore Link */}
           {rollCode && (

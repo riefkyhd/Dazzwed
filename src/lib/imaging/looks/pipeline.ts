@@ -1,4 +1,5 @@
 import type { LookRecipe, Matrix3x3 } from "./types";
+import { getCachedCubeLUT, preloadCubeLUT, resolveLutUrl, type ParsedCubeLUT } from "./cube-lut";
 
 /**
  * GLSL 3.00 ES Vertex Shader
@@ -21,17 +22,22 @@ void main() {
  * Stages:
  * 1. Lens Model: Barrel distortion, lateral chromatic aberration, radial softness, detail budget
  * 2. Film Response: Linear exposure EV, flash falloff, 3x3 dye matrix, per-channel curves (R/G/B), local contrast
- * 3. OKLab/OKLCH Grading: 24-node hue table, skin protection (20-55 deg), brightness-dependent sat, gamut mapping, white protect
+ * 3. OKLab/OKLCH Grading & 3D LUT: 24-node hue table, skin protection (20-55 deg), brightness-dependent sat, gamut mapping, optional 3D .cube LUT, white protect
  * 4. Emulsion Optics: Bloom/halation screen blend, cos^4 vignette, exposure-aware multi-octave grain
  * 5. Output: Intensity blend, stage bisection, NaN/Inf hardware fallback
  */
 const FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision highp float;
+precision highp sampler3D;
 
 in vec2 v_texCoord;
 out vec4 outColor;
 
 uniform sampler2D u_image;
+uniform sampler3D u_lut;
+uniform bool u_hasLut;
+uniform float u_lutSize;
+uniform float u_lutStrength;
 uniform vec2 u_resolution;
 uniform float u_time;
 uniform float u_seed;
@@ -441,6 +447,15 @@ void main() {
     rgb = clamp(rgb + u_shadowTint * stWeight, 0.0, 1.0);
   }
 
+  // 3g2. Optional 3D .cube LUT Stage (hardware trilinear TEXTURE_3D)
+  if (u_hasLut && u_lutStrength > 0.001) {
+    float lutScale = (u_lutSize - 1.0) / max(2.0, u_lutSize);
+    float lutOffset = 0.5 / max(2.0, u_lutSize);
+    vec3 lutCoord = clamp(rgb, 0.0, 1.0) * lutScale + lutOffset;
+    vec3 lutRgb = texture(u_lut, lutCoord).rgb;
+    rgb = mix(rgb, lutRgb, clamp(u_lutStrength, 0.0, 1.0));
+  }
+
   // 3h. White Protect: smooth pull toward neutral luma for extreme highlights
   float luma = dot(rgb, vec3(0.299, 0.587, 0.114));
   if (u_whiteProtect > 0.5 && luma > 0.85) {
@@ -562,6 +577,7 @@ export interface LookEngineRenderOptions {
   seed?: number;
   time?: number;
   disableAnimatedGrain?: boolean;
+  grainTickHz?: number; // 24 by default; 0 for static under low tier or prefers-reduced-motion
   intensity?: number;
   whiteProtect?: boolean;
   debugStage?: number; // 0 = all
@@ -570,6 +586,8 @@ export interface LookEngineRenderOptions {
   sceneExposure?: number; // mean log-luminance (default 0.5)
   cropRect?: { x: number; y: number; width: number; height: number }; // normalized [0, 1] texture coordinates
   mirror?: boolean;
+  lut?: ParsedCubeLUT;
+  lutStrength?: number;
 }
 
 export class LookEnginePipeline {
@@ -578,8 +596,16 @@ export class LookEnginePipeline {
   private positionBuffer: WebGLBuffer | null = null;
   private texCoordBuffer: WebGLBuffer | null = null;
   private texture: WebGLTexture | null = null;
+  private lutTexture: WebGLTexture | null = null;
+  private uploadedLutKey: string | null = null;
+  private uploadedLutSize: number = 0;
 
   // Cached uniform locations
+  private uImageLoc: WebGLUniformLocation | null = null;
+  private uLutLoc: WebGLUniformLocation | null = null;
+  private uHasLutLoc: WebGLUniformLocation | null = null;
+  private uLutSizeLoc: WebGLUniformLocation | null = null;
+  private uLutStrengthLoc: WebGLUniformLocation | null = null;
   private uResLoc: WebGLUniformLocation | null = null;
   private uTimeLoc: WebGLUniformLocation | null = null;
   private uSeedLoc: WebGLUniformLocation | null = null;
@@ -632,13 +658,10 @@ export class LookEnginePipeline {
   private cachedDyeMatrix = new Float32Array(9);
   private cachedHueNodes = new Float32Array(24 * 4);
   private lastUploadedLookId: string | null = null;
-  private lastUploadedIntensity: number | null = null;
-  private lastUploadedWhiteProtect: boolean | null = null;
-  private lastUploadedDisableGrain: boolean | null = null;
 
-  constructor(private canvas: HTMLCanvasElement) {
-    this.canvas.addEventListener("webglcontextlost", this.handleContextLost, false);
-    this.canvas.addEventListener("webglcontextrestored", this.handleContextRestored, false);
+  constructor(private canvas: HTMLCanvasElement | OffscreenCanvas) {
+    this.canvas.addEventListener("webglcontextlost", this.handleContextLost as EventListener, false);
+    this.canvas.addEventListener("webglcontextrestored", this.handleContextRestored as EventListener, false);
     this.initWebGL();
   }
 
@@ -647,20 +670,39 @@ export class LookEnginePipeline {
     console.warn("Look Engine WebGL2 context lost");
     this.gl = null;
     this.lastUploadedLookId = null;
+    this.uploadedLutKey = null;
   };
 
   private handleContextRestored = () => {
     console.info("Look Engine WebGL2 context restored. Rebuilding shaders.");
     this.lastUploadedLookId = null;
+    this.uploadedLutKey = null;
     this.initWebGL();
   };
 
   private initWebGL() {
-    const gl = this.canvas.getContext("webgl2", {
+    const attribs: WebGLContextAttributes = {
       alpha: false,
       premultipliedAlpha: false,
-      preserveDrawingBuffer: true,
-    });
+      antialias: false,
+      depth: false,
+      stencil: false,
+      preserveDrawingBuffer: false,
+      powerPreference: "high-performance",
+      desynchronized: true,
+    };
+    let gl = this.canvas.getContext("webgl2", attribs) as WebGL2RenderingContext | null;
+    if (!gl) {
+      gl = this.canvas.getContext("webgl2", {
+        alpha: false,
+        premultipliedAlpha: false,
+        antialias: false,
+        depth: false,
+        stencil: false,
+        preserveDrawingBuffer: false,
+        powerPreference: "high-performance",
+      }) as WebGL2RenderingContext | null;
+    }
     if (!gl) return;
     this.gl = gl;
 
@@ -706,7 +748,7 @@ export class LookEnginePipeline {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.texCoordBuffer);
     gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
 
-    // Texture
+    // 2D Frame Texture (TEXTURE0)
     this.texture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -714,7 +756,21 @@ export class LookEnginePipeline {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
 
+    // 3D LUT Texture (TEXTURE1)
+    this.lutTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_3D, this.lutTexture);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_WRAP_R, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_3D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+
     // Cache Uniform Locations
+    this.uImageLoc = gl.getUniformLocation(prog, "u_image");
+    this.uLutLoc = gl.getUniformLocation(prog, "u_lut");
+    this.uHasLutLoc = gl.getUniformLocation(prog, "u_hasLut");
+    this.uLutSizeLoc = gl.getUniformLocation(prog, "u_lutSize");
+    this.uLutStrengthLoc = gl.getUniformLocation(prog, "u_lutStrength");
     this.uResLoc = gl.getUniformLocation(prog, "u_resolution");
     this.uTimeLoc = gl.getUniformLocation(prog, "u_time");
     this.uSeedLoc = gl.getUniformLocation(prog, "u_seed");
@@ -757,6 +813,10 @@ export class LookEnginePipeline {
     this.uIntensityLoc = gl.getUniformLocation(prog, "u_intensity");
     this.uDebugStageLoc = gl.getUniformLocation(prog, "u_debugStage");
     this.uDebugOverlayLoc = gl.getUniformLocation(prog, "u_debugOverlay");
+
+    gl.useProgram(prog);
+    gl.uniform1i(this.uImageLoc, 0);
+    gl.uniform1i(this.uLutLoc, 1);
   }
 
   private compileShader(type: number, src: string): WebGLShader | null {
@@ -789,9 +849,58 @@ export class LookEnginePipeline {
     gl.bindTexture(gl.TEXTURE_2D, this.texture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
 
+    // Optional 3D LUT texture binding & upload
+    const lutData: ParsedCubeLUT | undefined =
+      options.lut ?? (look.lutUrl ? getCachedCubeLUT(look.lutUrl) : undefined);
+
+    if (look.lutUrl && !lutData && typeof window !== "undefined") {
+      void preloadCubeLUT(look.lutUrl);
+    }
+
+    if (lutData && this.lutTexture) {
+      const lutKey = look.lutUrl ? resolveLutUrl(look.lutUrl) : `inline-${lutData.title ?? ""}-${lutData.size}`;
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_3D, this.lutTexture);
+      if (this.uploadedLutKey !== lutKey || this.uploadedLutSize !== lutData.size) {
+        gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+        gl.texImage3D(
+          gl.TEXTURE_3D,
+          0,
+          gl.RGB8,
+          lutData.size,
+          lutData.size,
+          lutData.size,
+          0,
+          gl.RGB,
+          gl.UNSIGNED_BYTE,
+          lutData.byteData
+        );
+        this.uploadedLutKey = lutKey;
+        this.uploadedLutSize = lutData.size;
+      }
+      const defaultLutStrength = look.id.endsWith(".cube") ? 1.0 : 0.25;
+      const lutStrength = options.lutStrength ?? look.lutStrength ?? defaultLutStrength;
+      gl.uniform1i(this.uHasLutLoc, 1);
+      gl.uniform1f(this.uLutSizeLoc, lutData.size);
+      gl.uniform1f(this.uLutStrengthLoc, lutStrength);
+      gl.activeTexture(gl.TEXTURE0);
+    } else {
+      gl.uniform1i(this.uHasLutLoc, 0);
+      gl.uniform1f(this.uLutSizeLoc, 17);
+      gl.uniform1f(this.uLutStrengthLoc, 0.0);
+    }
+
     // Uniform values
     gl.uniform2f(this.uResLoc, options.width, options.height);
-    gl.uniform1f(this.uTimeLoc, (options.time ?? performance.now()) * 0.001);
+
+    // Discrete grain tick (default 24 Hz; 0 for static under low tier or reduced motion)
+    const timeMs = options.time ?? performance.now();
+    const grainTickHz = options.grainTickHz !== undefined
+      ? options.grainTickHz
+      : (options.disableAnimatedGrain ? 0 : 24);
+    const tick = grainTickHz > 0 ? Math.floor((timeMs / 1000) * grainTickHz) : 0;
+    gl.uniform1f(this.uTimeLoc, tick / 12.0);
+
     gl.uniform1f(this.uSeedLoc, (options.seed ?? 42) % 1000);
     gl.uniform1i(this.uIsCaptureLoc, options.isCapture ? 1 : 0);
     gl.uniform1f(this.uFrameHeightLoc, options.height);
@@ -804,7 +913,6 @@ export class LookEnginePipeline {
     // Runtime intensity & flags
     const intensityVal = options.intensity ?? look.intensity ?? (options.isNativeCamera ? 0.7 : 1.0);
     const whiteProtectVal = (options.whiteProtect ?? look.whiteProtect ?? true) ? 1.0 : 0.0;
-    const disableGrainVal = !!options.disableAnimatedGrain;
 
     // Always upload uniform parameters on every frame to guarantee 100% instant reactivity
     // when any slider (exposure, curves, grain, bloom, halation, distortion) is modified.
@@ -903,6 +1011,10 @@ export class LookEnginePipeline {
       if (this.texture) {
         gl.deleteTexture(this.texture);
         this.texture = null;
+      }
+      if (this.lutTexture) {
+        gl.deleteTexture(this.lutTexture);
+        this.lutTexture = null;
       }
       if (this.positionBuffer) {
         gl.deleteBuffer(this.positionBuffer);

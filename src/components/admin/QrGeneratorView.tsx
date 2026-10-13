@@ -12,12 +12,16 @@ interface QrGeneratorViewProps {
 }
 
 export function QrGeneratorView({ event }: QrGeneratorViewProps) {
-  const [baseUrl, setBaseUrl] = useState(() =>
-    typeof window !== "undefined" ? window.location.origin : "",
-  );
+  const [baseUrl, setBaseUrl] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [qrSvg, setQrSvg] = useState<string>("");
   const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setBaseUrl(window.location.origin);
+    }
+  }, []);
 
   const guestUrl = `${baseUrl || "https://dazzwed.vercel.app"}/e/${event.slug}`;
 

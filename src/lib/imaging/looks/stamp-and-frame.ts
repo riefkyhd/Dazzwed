@@ -16,8 +16,10 @@ export interface StampFrameOptions {
   coupleNames?: string;
 }
 
+export type Canvas2DContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
+
 export function drawEmulsionExtras(
-  ctx: CanvasRenderingContext2D,
+  ctx: Canvas2DContext,
   w: number,
   h: number,
   look: LookRecipe,
@@ -82,7 +84,7 @@ export function drawEmulsionExtras(
 }
 
 export function drawDateStamp(
-  ctx: CanvasRenderingContext2D,
+  ctx: Canvas2DContext,
   w: number,
   h: number,
   look: LookRecipe,
@@ -121,7 +123,7 @@ export function drawDateStamp(
 }
 
 export function drawInstantFrame(
-  ctx: CanvasRenderingContext2D,
+  ctx: Canvas2DContext,
   w: number,
   h: number,
   look: LookRecipe,

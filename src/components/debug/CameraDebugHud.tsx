@@ -35,12 +35,15 @@ export function CameraDebugHud({
   nativeZoom,
   digitalZoom,
   zoomRange,
-  facing,
   measuredFps,
   onClose,
 }: CameraDebugHudProps) {
   const [diagState, setDiagState] = useState<DiagnosticsState>(() => diagnostics.getState());
-  const [permissionState, setPermissionState] = useState<string>("querying...");
+  const [permissionState, setPermissionState] = useState<string>(() =>
+    typeof navigator !== "undefined" && typeof navigator.permissions?.query === "function"
+      ? "querying..."
+      : "unsupported"
+  );
   const [copied, setCopied] = useState(false);
   const [minimized, setMinimized] = useState(false);
 
@@ -51,7 +54,7 @@ export function CameraDebugHud({
   // Query Permissions API
   useEffect(() => {
     let cancelled = false;
-    if (typeof navigator !== "undefined" && navigator.permissions?.query) {
+    if (typeof navigator !== "undefined" && typeof navigator.permissions?.query === "function") {
       navigator.permissions.query({ name: "camera" as PermissionName })
         .then((status) => {
           if (cancelled) return;
@@ -63,8 +66,6 @@ export function CameraDebugHud({
         .catch(() => {
           if (!cancelled) setPermissionState("unsupported");
         });
-    } else {
-      setPermissionState("unsupported");
     }
     return () => {
       cancelled = true;
@@ -90,7 +91,7 @@ export function CameraDebugHud({
   }, [diagState.lastZoomAction, zoomRange, digitalZoom]);
 
   const opticalNotice = getOpticalStatusNotice(currentOpticalStatus);
-  const stats = useMemo(() => diagnostics.getShutterStats(), [diagState.shutterHistory]);
+  const stats = diagnostics.getShutterStats();
 
   const vfRatio = layout.viewfinderRect.height > 0
     ? layout.viewfinderRect.width / layout.viewfinderRect.height

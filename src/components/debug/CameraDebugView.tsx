@@ -20,8 +20,23 @@ export function CameraDebugView() {
     current?: number;
   } | null>(null);
 
-  const [isSecure] = useState(() => (typeof window !== "undefined" ? window.isSecureContext : true));
+  const [isSecure, setIsSecure] = useState(true);
   const [browserCaps, setBrowserCaps] = useState<Record<string, boolean | string | number>>({});
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setIsSecure(window.isSecureContext);
+      setBrowserCaps({
+        wakeLock: "wakeLock" in navigator,
+        requestVideoFrameCallback: "requestVideoFrameCallback" in HTMLVideoElement.prototype,
+        offscreenCanvas: typeof OffscreenCanvas !== "undefined",
+        webWorker: typeof Worker !== "undefined",
+        screenOrientation: "orientation" in screen,
+        visualViewport: typeof window.visualViewport !== "undefined",
+        devicePixelRatio: window.devicePixelRatio || 1,
+      });
+    }
+  }, []);
   const [streamMeta, setStreamMeta] = useState<{
     width: number;
     height: number;
@@ -162,18 +177,6 @@ export function CameraDebugView() {
     requestAnimationFrame(() => {
       if (active) void refreshDevices();
     });
-
-    if (typeof window !== "undefined") {
-      setBrowserCaps({
-        wakeLock: "wakeLock" in navigator,
-        requestVideoFrameCallback: "requestVideoFrameCallback" in HTMLVideoElement.prototype,
-        offscreenCanvas: typeof OffscreenCanvas !== "undefined",
-        webWorker: typeof Worker !== "undefined",
-        screenOrientation: "orientation" in screen,
-        visualViewport: typeof window.visualViewport !== "undefined",
-        devicePixelRatio: window.devicePixelRatio || 1,
-      });
-    }
 
     return () => {
       active = false;

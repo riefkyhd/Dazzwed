@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { fitLongestEdge, cropForAspectAndZoom } from "@/lib/imaging/geometry";
 
 describe("Chaos and Edge-Case Hardening Tests", () => {

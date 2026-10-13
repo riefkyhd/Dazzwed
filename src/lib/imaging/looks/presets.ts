@@ -1,4 +1,5 @@
 import type { LookRecipe, HueNode, Matrix3x3 } from "./types";
+import { resolveLutUrl } from "./cube-lut";
 
 /**
  * Standard 24-node hue table generator with analog film color tendencies:
@@ -32,7 +33,7 @@ export function generateFilmHueTable(
         dChroma = 1.10;
       }
     } else if (type === "classic-neg") {
-      // Fujifilm Superia / Classic Neg:
+      // Classic Neg 400:
       // Signature deep teal foliage (75-140 deg shifted -16 deg with muted chroma)
       if (hue >= 75 && hue <= 140) {
         dHue = -16;
@@ -54,7 +55,7 @@ export function generateFilmHueTable(
         dChroma = 0.90;
       }
     } else if (type === "cpm35") {
-      // Dazz Cam CPM35 (Classic 35mm Rangefinder):
+      // Rangefinder 35:
       // Warm, lush golden-hour greens (+6 deg warm drift)
       if (hue >= 75 && hue <= 140) {
         dHue = 6;
@@ -229,8 +230,8 @@ export const DISPOSABLE_400_LOOK: LookRecipe = {
   intensity: 1.0,
   whiteProtect: true,
   reference: {
-    referenceId: "fuji-quicksnap-400-iso",
-    referenceNotes: "Calibrated against outdoor daylight Fuji Quicksnap 400 scans; authentic 3:2 frame, warm highlight rolloff and plastic lens edge softness.",
+    referenceId: "disposable-400-iso",
+    referenceNotes: "Calibrated 400 ISO single-use disposable film recipe; 3:2 frame, warm highlight rolloff, and plastic meniscus lens edge softness.",
     oklabMeanError: 0.038,
     oklabP95Error: 0.071,
     sceneChecklistTested: ["skin daylight", "foliage", "white dress", "direct flash"],
@@ -257,11 +258,11 @@ export const DISPOSABLE_400_LOOK: LookRecipe = {
 };
 
 /**
- * 3. CCD Flash (Recalibrated 2000s Digicam Flash look)
+ * 3. Digicam Flash (Recalibrated 2000s CCD Digicam Flash look)
  */
 export const CCD_FLASH_LOOK: LookRecipe = {
   id: "ccd-flash",
-  name: "CCD Flash",
+  name: "Digicam Flash",
   version: 2,
   aspectRatio: "4:3",
   lens: {
@@ -312,8 +313,8 @@ export const CCD_FLASH_LOOK: LookRecipe = {
   intensity: 1.0,
   whiteProtect: true,
   reference: {
-    referenceId: "canon-ixus-v3-ccd",
-    referenceNotes: "Calibrated against direct-flash party portraits on 2002 Canon IXUS V3; 4:3 CCD sensor with sharp specular clip and central flashlight falloff.",
+    referenceId: "digicam-ccd-flash",
+    referenceNotes: "Calibrated 2000s compact CCD sensor recipe; 4:3 framing with crisp specular shoulder and central flash falloff.",
     oklabMeanError: 0.041,
     oklabP95Error: 0.078,
     sceneChecklistTested: ["direct flash portrait", "colored venue lights", "white shirt"],
@@ -340,11 +341,11 @@ export const CCD_FLASH_LOOK: LookRecipe = {
 };
 
 /**
- * 4. Instant (Recalibrated Polaroid/Instant Film aesthetic)
+ * 4. Instant Square (Recalibrated Instant Film aesthetic)
  */
 export const INSTANT_LOOK: LookRecipe = {
   id: "instant-film",
-  name: "Instant",
+  name: "Instant Square",
   version: 2,
   aspectRatio: "1:1",
   lens: {
@@ -392,8 +393,8 @@ export const INSTANT_LOOK: LookRecipe = {
   intensity: 1.0,
   whiteProtect: true,
   reference: {
-    referenceId: "polaroid-600-color",
-    referenceNotes: "Calibrated against Polaroid 600 color chemistry; square 1:1 format, lifted milky blacks, and iconic white margin.",
+    referenceId: "instant-square-600",
+    referenceNotes: "Calibrated instant integral film chemistry; square 1:1 format, lifted milky blacks, and classic white border.",
     oklabMeanError: 0.044,
     oklabP95Error: 0.082,
     sceneChecklistTested: ["backlit window", "skin daylight", "warm indoor tungsten"],
@@ -467,10 +468,11 @@ export const GOLDEN_200_LOOK: LookRecipe = {
   frame: { type: "none" },
   intensity: 1.0,
   whiteProtect: true,
-  lutUrl: "/luts/kodak-gold-200.cube",
+  lutUrl: "/luts/golden-200.cube",
+  lutStrength: 0.20,
   reference: {
-    referenceId: "kodak-gold-200-wedding",
-    referenceNotes: "Calibrated against Kodak Gold 200 35mm wedding daylight photos; golden highlights, gentle red-orange halation, and flattering warm skin tones.",
+    referenceId: "golden-200-wedding",
+    referenceNotes: "Calibrated warm 200 ISO daylight wedding negative; golden highlights, gentle red-orange halation, and flattering warm skin tones.",
     oklabMeanError: 0.035,
     oklabP95Error: 0.065,
     sceneChecklistTested: ["skin daylight", "sky", "white dress", "warm indoor tungsten"],
@@ -498,7 +500,7 @@ export const GOLDEN_200_LOOK: LookRecipe = {
 
 export const CLASSIC_NEG_LOOK: LookRecipe = {
   id: "classic-neg",
-  name: "Classic Neg",
+  name: "Classic Neg 400",
   version: 2,
   aspectRatio: "3:2",
   lens: {
@@ -541,10 +543,11 @@ export const CLASSIC_NEG_LOOK: LookRecipe = {
   frame: { type: "none" },
   intensity: 1.0,
   whiteProtect: true,
-  lutUrl: "/luts/fuji-classic-neg.cube",
+  lutUrl: "/luts/classic-neg-400.cube",
+  lutStrength: 0.20,
   reference: {
-    referenceId: "fujicolor-superia-400",
-    referenceNotes: "Calibrated against Fujicolor Superia 400 negative film; iconic deep teal foliage greens, punchy contrast, and preserved natural skin tones.",
+    referenceId: "classic-neg-400",
+    referenceNotes: "Calibrated 400 ISO color negative film; deep teal foliage greens, punchy contrast, and preserved natural skin tones.",
     oklabMeanError: 0.036,
     oklabP95Error: 0.068,
     sceneChecklistTested: ["skin daylight", "foliage", "sky", "white dress"],
@@ -571,11 +574,11 @@ export const CLASSIC_NEG_LOOK: LookRecipe = {
 };
 
 /**
- * 7. CPM 35 (Recalibrated Dazz Cam 35mm Rangefinder Aesthetic)
+ * 7. Rangefinder 35 (Recalibrated 35mm Rangefinder Aesthetic)
  */
 export const CPM35_LOOK: LookRecipe = {
   id: "cpm-35",
-  name: "CPM 35",
+  name: "Rangefinder 35",
   version: 2,
   aspectRatio: "3:2",
   lens: {
@@ -629,10 +632,11 @@ export const CPM35_LOOK: LookRecipe = {
   frame: { type: "none" },
   intensity: 1.0,
   whiteProtect: true,
-  lutUrl: "/luts/dazz-cpm35.cube",
+  lutUrl: "/luts/rangefinder-35.cube",
+  lutStrength: 0.20,
   reference: {
-    referenceId: "dazz-cam-cpm35-rangefinder",
-    referenceNotes: "Calibrated against Dazz Cam CPM35 classic 35mm rangefinder aesthetic; warm golden highlights, lush gentle glow, lifted creamy shadows.",
+    referenceId: "rangefinder-35-warm",
+    referenceNotes: "Calibrated 35mm compact rangefinder aesthetic; warm golden highlights, lush gentle glow, and lifted creamy shadows.",
     oklabMeanError: 0.039,
     oklabP95Error: 0.072,
     sceneChecklistTested: ["skin daylight", "golden hour", "warm indoor tungsten", "direct flash"],
@@ -659,15 +663,11 @@ export const CPM35_LOOK: LookRecipe = {
 };
 
 /**
- * 8. Kodak Tri-X 400 (Signature High-Contrast Panchromatic Black & White)
- * - Panchromatic Yellow-filter response: blocks harsh blue wash, makes skin luminous & creamy
- * - Hurter & Driffield curve: punchy 1.22 midtone contrast, deep inky silver blacks, soft highlight rolloff
- * - 100% Monochromatic metallic silver grain (chroma = 0.0)
- * - Silver gelatin highlight bloom & rangefinder vignette
+ * 8. Panchromatic B&W 400 (High-Contrast Panchromatic Black & White)
  */
 export const TRI_X_400_LOOK: LookRecipe = {
   id: "tri-x-400",
-  name: "Tri-X 400",
+  name: "Panchromatic B&W 400",
   version: 2,
   aspectRatio: "3:2",
   lens: {
@@ -733,8 +733,8 @@ export const TRI_X_400_LOOK: LookRecipe = {
   intensity: 1.0,
   whiteProtect: true,
   reference: {
-    referenceId: "kodak-tri-x-400-panchromatic",
-    referenceNotes: "Calibrated against Kodak Tri-X 400 panchromatic silver gelatin emulsion; inky blacks, luminous skin, crisp micro-contrast.",
+    referenceId: "panchromatic-bw-400",
+    referenceNotes: "Calibrated 400 ISO panchromatic silver gelatin emulsion; inky blacks, luminous skin, and crisp micro-contrast.",
     oklabMeanError: 0.012,
     oklabP95Error: 0.025,
     sceneChecklistTested: ["skin daylight", "candlelit reception", "direct flash party", "white dress"],
@@ -761,13 +761,14 @@ export const TRI_X_400_LOOK: LookRecipe = {
 };
 
 /**
- * 9. Kodak Portra 400 (The ultimate wedding portrait film stock)
+ * 9. Warm Portrait 400 (Wedding portrait color negative stock)
  */
 export const PORTRA_400_LOOK: LookRecipe = {
   id: "portra-400",
-  name: "Kodak Portra 400",
+  name: "Warm Portrait 400",
   version: 2,
-  lutUrl: "/luts/kodak-portra-400.cube",
+  lutUrl: "/luts/warm-portrait-400.cube",
+  lutStrength: 0.20,
   aspectRatio: "3:2",
   lens: {
     radialBlur: { r0: 0.0003, r1: 0.0015 },
@@ -819,8 +820,8 @@ export const PORTRA_400_LOOK: LookRecipe = {
   intensity: 1.0,
   whiteProtect: true,
   reference: {
-    referenceId: "kodak-portra-400-lut",
-    referenceNotes: "Imported 3D LUT: Kodak Portra 400 with signature warm skin tones, gentle pastel roll-off, and fine silver-halide dye clouds.",
+    referenceId: "warm-portrait-400",
+    referenceNotes: "First-party 3D LUT & color model: Warm Portrait 400 with flattering skin tones, pastel highlight roll-off, and fine grain.",
   },
 
   // Backward compatibility
@@ -844,13 +845,14 @@ export const PORTRA_400_LOOK: LookRecipe = {
 };
 
 /**
- * 10. CineStill 800T (Night tungsten cinematic stock with halation)
+ * 10. Tungsten 800T (Night tungsten cinematic stock with halation)
  */
 export const CINESTILL_800T_LOOK: LookRecipe = {
   id: "cinestill-800t",
-  name: "CineStill 800T",
+  name: "Tungsten 800T",
   version: 2,
-  lutUrl: "/luts/cinestill-800t.cube",
+  lutUrl: "/luts/tungsten-800t.cube",
+  lutStrength: 0.20,
   aspectRatio: "3:2",
   lens: {
     radialBlur: { r0: 0.0005, r1: 0.0020 },
@@ -902,8 +904,8 @@ export const CINESTILL_800T_LOOK: LookRecipe = {
   intensity: 1.0,
   whiteProtect: true,
   reference: {
-    referenceId: "cinestill-800t-vision3-500t",
-    referenceNotes: "Imported 3D LUT: CineStill 800T (Kodak Vision3 500T with remjet removed). Signature red/orange halation around practical lights, cool teal shadows, moody cinematic night aesthetic.",
+    referenceId: "tungsten-800t",
+    referenceNotes: "First-party 3D LUT & color model: Tungsten 800T with red/orange halation around practical lights and cool teal shadows.",
   },
 
   // Backward compatibility
@@ -927,13 +929,14 @@ export const CINESTILL_800T_LOOK: LookRecipe = {
 };
 
 /**
- * 11. Fujifilm Eterna 250D (Muted contrast, soft cinema motion-picture stock)
+ * 11. Cinema 250D (Muted contrast, soft cinema motion-picture stock)
  */
 export const FUJI_ETERNA_LOOK: LookRecipe = {
   id: "fuji-eterna-250d",
-  name: "Fujifilm Eterna 250D",
+  name: "Cinema 250D",
   version: 2,
-  lutUrl: "/luts/fuji-eterna-250d.cube",
+  lutUrl: "/luts/cinema-250d.cube",
+  lutStrength: 0.20,
   aspectRatio: "16:9",
   lens: {
     radialBlur: { r0: 0.0003, r1: 0.0012 },
@@ -985,8 +988,8 @@ export const FUJI_ETERNA_LOOK: LookRecipe = {
   intensity: 1.0,
   whiteProtect: true,
   reference: {
-    referenceId: "fuji-eterna-250d",
-    referenceNotes: "Imported 3D LUT: Fujifilm Eterna 250D motion-picture negative with gentle cinematic highlights and understated saturation.",
+    referenceId: "cinema-250d",
+    referenceNotes: "First-party 3D LUT & color model: Cinema 250D motion-picture negative with gentle cinematic highlights and understated saturation.",
   },
 
   // Backward compatibility
@@ -1010,13 +1013,14 @@ export const FUJI_ETERNA_LOOK: LookRecipe = {
 };
 
 /**
- * 12. Ilford HP5 Plus 400 (Legendary high-contrast silver halide B&W)
+ * 12. Mono Street 400 (High-contrast silver halide B&W)
  */
 export const ILFORD_HP5_LOOK: LookRecipe = {
   id: "ilford-hp5-plus",
-  name: "Ilford HP5 Plus",
+  name: "Mono Street 400",
   version: 2,
-  lutUrl: "/luts/ilford-hp5-plus.cube",
+  lutUrl: "/luts/mono-street-400.cube",
+  lutStrength: 0.20,
   aspectRatio: "3:2",
   lens: {
     radialBlur: { r0: 0.0004, r1: 0.0018 },
@@ -1028,7 +1032,11 @@ export const ILFORD_HP5_LOOK: LookRecipe = {
   },
   response: {
     exposureEV: 0.0,
-    dyeMatrix: IDENTITY_MATRIX,
+    dyeMatrix: [
+      0.33, 0.56, 0.11,
+      0.33, 0.56, 0.11,
+      0.33, 0.56, 0.11,
+    ],
     curveR: { contrast: 1.25, pivot: 0.46, toe: 0.04, shoulder: 0.82, type: "hard" },
     curveG: { contrast: 1.25, pivot: 0.46, toe: 0.04, shoulder: 0.82, type: "hard" },
     curveB: { contrast: 1.25, pivot: 0.46, toe: 0.04, shoulder: 0.82, type: "hard" },
@@ -1068,8 +1076,8 @@ export const ILFORD_HP5_LOOK: LookRecipe = {
   intensity: 1.0,
   whiteProtect: true,
   reference: {
-    referenceId: "ilford-hp5-plus",
-    referenceNotes: "Imported 3D LUT: Ilford HP5 Plus 400 monochrome panchromatic film with punchy midtone contrast and organic grain clumping.",
+    referenceId: "mono-street-400",
+    referenceNotes: "First-party 3D LUT & color model: Mono Street 400 monochrome film with punchy midtone contrast and organic grain clumping.",
   },
 
   // Backward compatibility
@@ -1078,7 +1086,7 @@ export const ILFORD_HP5_LOOK: LookRecipe = {
   lift: [0, 0, 0],
   gamma: [1, 1, 1],
   gain: [1, 1, 1],
-  matrix: IDENTITY_MATRIX,
+  matrix: [0.33, 0.56, 0.11, 0.33, 0.56, 0.11, 0.33, 0.56, 0.11],
   saturation: 0.0,
   splitTone: { shadowHue: 0, shadowSat: 0, highlightHue: 0, highlightSat: 0, balance: 0 },
   softFocus: { amount: 0, radius: 0 },
@@ -1100,6 +1108,7 @@ export const SUPER_8_LOOK: LookRecipe = {
   name: "Super 8mm Vintage",
   version: 2,
   lutUrl: "/luts/super-8mm-vintage.cube",
+  lutStrength: 0.20,
   aspectRatio: "4:3",
   lens: {
     radialBlur: { r0: 0.0008, r1: 0.0030 },
@@ -1152,7 +1161,7 @@ export const SUPER_8_LOOK: LookRecipe = {
   whiteProtect: true,
   reference: {
     referenceId: "super-8mm-vintage",
-    referenceNotes: "Imported 3D LUT: 1970s Super 8mm celluloid with warm nostalgic color shift, strong optical vignetting, and heavy organic grain.",
+    referenceNotes: "First-party 3D LUT & color model: 1970s Super 8mm celluloid with warm nostalgic color shift, strong optical vignetting, and organic grain.",
   },
 
   // Backward compatibility
@@ -1176,13 +1185,14 @@ export const SUPER_8_LOOK: LookRecipe = {
 };
 
 /**
- * 14. Kodak Ektar 100 (Ultra-vivid colors and micro-contrast)
+ * 14. Vivid 100 (Ultra-vivid colors and micro-contrast)
  */
 export const KODAK_EKTAR_LOOK: LookRecipe = {
   id: "kodak-ektar-100",
-  name: "Kodak Ektar 100",
+  name: "Vivid 100",
   version: 2,
-  lutUrl: "/luts/kodak-ektar-100.cube",
+  lutUrl: "/luts/vivid-100.cube",
+  lutStrength: 0.20,
   aspectRatio: "3:2",
   lens: {
     radialBlur: { r0: 0.0002, r1: 0.0010 },
@@ -1234,8 +1244,8 @@ export const KODAK_EKTAR_LOOK: LookRecipe = {
   intensity: 1.0,
   whiteProtect: true,
   reference: {
-    referenceId: "kodak-ektar-100",
-    referenceNotes: "Imported 3D LUT: Kodak Ektar 100 with ultra-fine grain, saturated primaries, and high micro-contrast resolution.",
+    referenceId: "vivid-100",
+    referenceNotes: "First-party 3D LUT & color model: Vivid 100 with ultra-fine grain, saturated primaries, and high micro-contrast resolution.",
   },
 
   // Backward compatibility
@@ -1275,19 +1285,55 @@ export const BUILTIN_LOOKS: LookRecipe[] = [
   NEUTRAL_LOOK,
 ];
 
+const LOOK_ALIAS_MAP: Record<string, LookRecipe> = {
+  rangefinder35: CPM35_LOOK,
+  dazzcpm35: CPM35_LOOK,
+  dazzcpm35cube: CPM35_LOOK,
+  rangefinder35cube: CPM35_LOOK,
+  warmportrait400: PORTRA_400_LOOK,
+  kodakportra400: PORTRA_400_LOOK,
+  kodakportra400cube: PORTRA_400_LOOK,
+  warmportrait400cube: PORTRA_400_LOOK,
+  tungsten800t: CINESTILL_800T_LOOK,
+  tungsten800tcube: CINESTILL_800T_LOOK,
+  cinestill800tcube: CINESTILL_800T_LOOK,
+  cinema250d: FUJI_ETERNA_LOOK,
+  cinema250dcube: FUJI_ETERNA_LOOK,
+  fujieterna250dcube: FUJI_ETERNA_LOOK,
+  classicneg400: CLASSIC_NEG_LOOK,
+  classicneg400cube: CLASSIC_NEG_LOOK,
+  fujiclassicnegcube: CLASSIC_NEG_LOOK,
+  panchromaticbw400: TRI_X_400_LOOK,
+  kodaktrix400: TRI_X_400_LOOK,
+  monostreet400: ILFORD_HP5_LOOK,
+  monostreet400cube: ILFORD_HP5_LOOK,
+  ilfordhp5pluscube: ILFORD_HP5_LOOK,
+  vivid100: KODAK_EKTAR_LOOK,
+  vivid100cube: KODAK_EKTAR_LOOK,
+  kodakektar100cube: KODAK_EKTAR_LOOK,
+  golden200cube: GOLDEN_200_LOOK,
+  kodakgold200cube: GOLDEN_200_LOOK,
+  digicamflash: CCD_FLASH_LOOK,
+  instantsquare: INSTANT_LOOK,
+  instant: INSTANT_LOOK,
+};
+
 export function getLookById(id: string): LookRecipe {
   const normalized = id.toLowerCase().replace(/[-_.]/g, "");
-  const found = BUILTIN_LOOKS.find((l) => l.id.toLowerCase().replace(/[-_.]/g, "") === normalized);
+  const found =
+    BUILTIN_LOOKS.find((l) => l.id.toLowerCase().replace(/[-_.]/g, "") === normalized) ??
+    LOOK_ALIAS_MAP[normalized];
   if (found) return found;
 
-  // If a .cube file name was passed directly (e.g. "kodak-portra-400.cube")
+  // If a custom .cube file name was passed directly
   if (id.endsWith(".cube")) {
     return {
-      ...DISPOSABLE_400_LOOK,
+      ...NEUTRAL_LOOK,
       id,
       version: 2,
       name: id.replace(/\.cube$/, "").replace(/[-_]/g, " "),
-      lutUrl: `/luts/${id}`,
+      lutUrl: resolveLutUrl(`/luts/${id}`),
+      lutStrength: 1.0,
     };
   }
 

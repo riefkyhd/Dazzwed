@@ -9,7 +9,6 @@ import {
   saveSessionTriple,
   clearSessionTriple,
   clearNativePending,
-  wasNativePending,
   markSessionActive,
   clearSessionActive,
   wasUncleanExit,
@@ -46,6 +45,29 @@ const CameraScreen = dynamic(
     ),
   }
 );
+
+export function resolveThemeLooks(theme: unknown): {
+  allowedLookIds?: string[];
+  defaultLookId: string;
+} {
+  if (!theme || typeof theme !== "object") {
+    return { defaultLookId: "cpm-35" };
+  }
+  const t = theme as Record<string, unknown>;
+  const rawAllowed = t.allowedLookIds ?? t.allowedLooks;
+  const allowedLookIds = Array.isArray(rawAllowed)
+    ? rawAllowed.filter((x): x is string => typeof x === "string")
+    : undefined;
+
+  const rawDefault = t.defaultLookId ?? t.activeLookId;
+  let defaultLookId = typeof rawDefault === "string" ? rawDefault : "cpm-35";
+
+  if (allowedLookIds && allowedLookIds.length > 0 && !allowedLookIds.includes(defaultLookId)) {
+    defaultLookId = allowedLookIds[0];
+  }
+
+  return { allowedLookIds, defaultLookId };
+}
 
 interface GuestAppProps {
   event: EventRow;
@@ -96,12 +118,14 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
   // Track active session for unclean exit detection
   useEffect(() => {
     if (typeof window === "undefined") return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
     if (wasUncleanExit(event.slug)) {
       setWelcomeToast(true);
-      setTimeout(() => setWelcomeToast(false), 4500);
+      timer = setTimeout(() => setWelcomeToast(false), 4500);
     }
     markSessionActive(event.slug);
     return () => {
+      if (timer) clearTimeout(timer);
       clearSessionActive(event.slug);
     };
   }, [event.slug]);
@@ -431,13 +455,7 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
         return;
       }
 
-      const defaultLookId =
-        event.theme &&
-        typeof event.theme === "object" &&
-        "activeLookId" in event.theme &&
-        typeof (event.theme as Record<string, unknown>).activeLookId === "string"
-          ? ((event.theme as Record<string, unknown>).activeLookId as string)
-          : "cpm-35";
+      const { defaultLookId } = resolveThemeLooks(event.theme);
       const activeLook = getLookById(defaultLookId) ?? CPM35_LOOK;
 
       let finalBlob: Blob = file;
@@ -569,16 +587,8 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
           lang={lang}
           onShotCaptured={handleShotCaptured}
           onNativePhoto={handleNativePhoto}
-          allowedLookIds={
-            event.theme && typeof event.theme === "object" && "allowedLooks" in event.theme && Array.isArray((event.theme as Record<string, unknown>).allowedLooks)
-              ? ((event.theme as Record<string, unknown>).allowedLooks as string[])
-              : undefined
-          }
-          defaultLookId={
-            event.theme && typeof event.theme === "object" && "activeLookId" in event.theme && typeof (event.theme as Record<string, unknown>).activeLookId === "string"
-              ? ((event.theme as Record<string, unknown>).activeLookId as string)
-              : "cpm-35"
-          }
+          allowedLookIds={resolveThemeLooks(event.theme).allowedLookIds}
+          defaultLookId={resolveThemeLooks(event.theme).defaultLookId}
         />
       )}
 

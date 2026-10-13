@@ -27,14 +27,21 @@ export function GuestGalleryModal({
 }: GuestGalleryModalProps) {
   const [photos, setPhotos] = useState<GalleryPhoto[]>([]);
   const [loading, setLoading] = useState(true);
+  const [prevOpen, setPrevOpen] = useState(isOpen);
   const [selectedPhoto, setSelectedPhoto] = useState<GalleryPhoto | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  if (isOpen !== prevOpen) {
+    setPrevOpen(isOpen);
+    if (isOpen) {
+      setLoading(true);
+    }
+  }
 
   useEffect(() => {
     if (!isOpen || !guestId) return;
     let isMounted = true;
     let loadedPhotos: GalleryPhoto[] = [];
-    setLoading(true);
 
     void getGuestGalleryPhotos(guestId).then((items) => {
       if (isMounted) {

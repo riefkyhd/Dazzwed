@@ -5,45 +5,33 @@ import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [mode, setMode] = useState<"login" | "setup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    setSuccess(null);
 
     try {
-      const endpoint = mode === "setup" ? "/api/auth/setup-admin" : "/api/auth/login";
-      const res = await fetch(endpoint, {
+      const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
       });
 
-      const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
+      const data = (await res.json()) as { ok?: boolean; error?: string };
 
       if (!res.ok || !data.ok) {
-        throw new Error(data.error || "Authentication failed");
+        throw new Error("Invalid email or password.");
       }
 
-      if (mode === "setup") {
-        setSuccess(data.message || "Admin password created!");
-        setTimeout(() => {
-          router.push("/admin");
-          router.refresh();
-        }, 1200);
-      } else {
-        router.push("/admin");
-        router.refresh();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      router.push("/admin");
+      router.refresh();
+    } catch {
+      setError("Invalid email or password.");
     } finally {
       setLoading(false);
     }
@@ -61,43 +49,16 @@ export default function AdminLoginPage() {
             </svg>
           </div>
           <h1 className="text-2xl font-serif font-bold text-white tracking-tight">Disposable Cam</h1>
-          <p className="text-xs uppercase tracking-widest text-amber-400 font-mono mt-1">Admin Portal</p>
+          <p className="text-xs uppercase tracking-widest text-amber-400 font-mono mt-1">Admin Sign In</p>
         </div>
 
-        {/* Tab Toggle */}
-        <div className="flex bg-zinc-900/90 p-1 rounded-xl mb-6 border border-zinc-800 text-xs font-medium">
-          <button
-            type="button"
-            onClick={() => { setMode("login"); setError(null); }}
-            className={`flex-1 py-2 rounded-lg transition-all ${mode === "login" ? "bg-amber-400 text-black font-semibold shadow" : "text-zinc-400 hover:text-zinc-200"}`}
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode("setup"); setError(null); }}
-            className={`flex-1 py-2 rounded-lg transition-all ${mode === "setup" ? "bg-amber-400 text-black font-semibold shadow" : "text-zinc-400 hover:text-zinc-200"}`}
-          >
-            Initial Setup
-          </button>
-        </div>
-
-        {/* Mode explanation */}
         <p className="text-xs text-zinc-400 mb-6 leading-relaxed text-center">
-          {mode === "login"
-            ? "Sign in with your allowlisted admin email and password."
-            : "First time logging in? Enter your allowlisted email to create your admin password."}
+          Sign in with your administrator email and password to manage your event.
         </p>
 
         {error && (
           <div className="p-3.5 mb-5 rounded-xl bg-red-950/60 border border-red-800 text-red-200 text-xs leading-relaxed">
             {error}
-          </div>
-        )}
-
-        {success && (
-          <div className="p-3.5 mb-5 rounded-xl bg-emerald-950/60 border border-emerald-800 text-emerald-200 text-xs leading-relaxed">
-            {success} Redirecting to dashboard…
           </div>
         )}
 
@@ -111,7 +72,7 @@ export default function AdminLoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="e.g. riefkyhd.dev@gmail.com"
+              placeholder="couple@example.com"
               className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-sm text-zinc-100 placeholder:text-zinc-600 transition-colors"
             />
           </div>
@@ -126,7 +87,7 @@ export default function AdminLoginPage() {
               minLength={8}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimum 8 characters"
+              placeholder="Enter your password"
               className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-sm text-zinc-100 placeholder:text-zinc-600 transition-colors"
             />
           </div>
@@ -136,13 +97,9 @@ export default function AdminLoginPage() {
             disabled={loading}
             className="w-full mt-2 py-3 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-black font-semibold text-sm shadow-lg shadow-amber-400/10 active:scale-[0.98] transition-all cursor-pointer"
           >
-            {loading ? "Processing…" : mode === "login" ? "Sign In to Admin" : "Create Password & Sign In"}
+            {loading ? "Signing in…" : "Sign In"}
           </button>
         </form>
-
-        <div className="mt-8 pt-6 border-t border-zinc-900 text-center text-[11px] text-zinc-500">
-          Only allowlisted emails in <code className="text-zinc-400">ADMIN_EMAILS</code> are granted access.
-        </div>
       </div>
     </div>
   );

@@ -2,7 +2,6 @@ import { describe, it, expect } from "vitest";
 import {
   computeRollCodeFromGuestId,
   normalizeRollCode,
-  ROLL_CHARS,
 } from "@/lib/guest/session";
 
 describe("Film Roll Code Architecture", () => {

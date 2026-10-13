@@ -49,7 +49,7 @@ flowchart LR
 Photos are stored directly in the couple's dedicated Google Drive using Google Drive API v3 (`drive.file` scope).
 
 ### 2.1 Google Cloud Project & OAuth Credentials
-1. Log in to [Google Cloud Console](https://console.cloud.google.com/) using the **couple's dedicated Google account** (gives 15 GB of completely free storage).
+1. Log in to [Google Cloud Console](https://console.cloud.google.com/) using the **couple's dedicated Google account** (15 GB free tier or Google One plan up to 2 TB+; quota is read dynamically from `drive.about.get`).
 2. Create a project: e.g. `disposable-cam-wedding`.
 3. Enable **Google Drive API** in **APIs & Services → Library**.
 4. Configure **OAuth Consent Screen**:
@@ -70,13 +70,13 @@ Photos are stored directly in the couple's dedicated Google Drive using Google D
 ### 2.2 One-Time Authorization & Dedicated Root Folder Creation
 1. Start your local server (`npm run dev`) or deploy to Vercel.
 2. Navigate to `/admin/connect-drive`.
-3. Click **Authorize Google Account** and sign in with the owner's Google account (using the 400 GB plan).
+3. Click **Authorize Google Account** and sign in with the owner's Google account (free tier or Google One plan).
 4. The callback automatically:
    - Uses strict `drive.file` scope only so nothing else in your Google Drive is touched.
    - Obtains an offline `GOOGLE_REFRESH_TOKEN`.
    - Programmatically creates a dedicated root folder: `Disposable Cam - <couple_names>` in Google Drive.
-   - Saves `drive_root_folder_id` in Supabase and displays both keys on screen.
-5. Copy `GOOGLE_REFRESH_TOKEN` and `DRIVE_ROOT_FOLDER_ID` into `.env.local` and your Vercel Environment Variables.
+   - Saves `drive_root_folder_id` in Supabase and displays the folder ID on screen.
+5. Copy `DRIVE_ROOT_FOLDER_ID` (and optional `GOOGLE_REFRESH_TOKEN` fallback) into `.env.local` and your Vercel Environment Variables.
 6. **Share with Partner**: Open the created root folder in Google Drive (`https://drive.google.com/drive/folders/<DRIVE_ROOT_FOLDER_ID>`), click **Share**, and add your partner's email with **Editor** permissions. This allows both of you to view, download, and organize guest photos live from both phones.
 
 ---
@@ -109,11 +109,10 @@ Photos are stored directly in the couple's dedicated Google Drive using Google D
 Access the admin portal by visiting `/admin`.
 
 ### 4.1 Admin Authentication (`/admin/login`)
-- Only email addresses allowlisted in `ADMIN_EMAILS` (and `public.admin_emails`) can log in.
-- **First-Time Setup**: If you haven't set an admin password yet, click **"Initial Setup"**, type your email and desired password (minimum 8 characters), and click **"Create Password & Sign In"**.
+- Only email addresses allowlisted in `ADMIN_EMAILS` (and `public.admin_emails`) can log in using their Supabase Auth email and password.
 
 ### 4.2 Dashboard (`/admin`)
-- Metric cards: **Confirmed Photos**, **Guests Registered**, **Drive Usage Bar** (against 15 GB free tier), and **Failed Uploads**.
+- Metric cards: **Confirmed Photos**, **Guests Registered**, **Drive Usage Bar** (dynamically reported from Google Drive `storageQuota.limit`), and **Failed Uploads**.
 - **Live Drive Health**: click "Run Live Health Check" to verify OAuth token validity, remaining storage quota, and test upload/deletion in the root folder.
 - Quick links to open the root Google Drive folder and view recent photo logs.
 
@@ -125,7 +124,7 @@ Access the admin portal by visiting `/admin`.
 - **Theme Customizer**: adjust accent color (default `#D4AF37` gold) and dark background color (`#0C0A09`).
 
 ### 4.4 Photo & Guest Management (`/admin/photos`)
-- **Guest Breakdown**: lists every guest with display name, registered date, last active timestamp, shot counter, and direct link to their per-guest subfolder in Google Drive.
+- **Guest Breakdown**: lists every guest with display name, registered date, last active timestamp, shot counter, and roll status.
 - **Photo Records**: filter by `all`, `confirmed`, `hidden`, or `failed`.
 - **Hide Photo**: moves the file in Google Drive to a `Hidden Photos` subfolder and marks status as `hidden` (note: hidden photos still count toward the guest's shot limit).
 - **Delete Photo**: permanently deletes the file from Google Drive and removes the database record.
@@ -144,32 +143,32 @@ Access the admin portal by visiting `/admin`.
 
 - **Guest Landing (`/e/[slug]`)**:
   - Warm editorial aesthetic with couple names, instructions, language toggle (**English default / Bahasa Indonesia toggle**), and privacy note ("Photos are visible only to the couple").
-  - Anonymous guest creation and session stored in `localStorage` and `httpOnly` cookie.
+  - Anonymous guest creation and session stored in `localStorage` and `httpOnly` cookie, plus a 6-character roll recovery code.
 - **Viewfinder & Disposable Feel**:
-  - Full-screen `getUserMedia` (rear camera default with flip lens toggle).
+  - Full-screen `getUserMedia` with live WebGL2 film look preview (including 3D `.cube` LUT support).
   - Shutter animation with haptic feedback (`navigator.vibrate([35])`).
   - Retro LCD shot counter ("15 left").
-  - **No photo preview**: guests never see captured photos; they go directly to the couple.
+  - **Develop & Review (Keep or Retake)**: after snapping, guests preview the developed frame and choose **Keep** or **Retake**. Only kept shots count toward their roll limit.
 - **Camera Heuristics & Controls**:
-  - **Lens Picker**: dynamically filters real back camera labels (iOS standard vs ultra-wide vs telephoto; Android vendor formats).
+  - **Lens & Zoom Controls**: supports `0.5×`, `1×`, `2×`, and `3×` discrete controls plus pinch-to-zoom inside the viewfinder, choosing between verified physical multi-camera inputs, browser-managed `applyConstraints({ advanced: [{ zoom }] })`, or matched digital crop fallback.
   - **Main Lens Preference**: avoids the iOS bug where `facingMode: "environment"` defaults to the ultra-wide lens.
-  - **Zoom**: native slider on Android via `track.applyConstraints({ advanced: [{ zoom }] })`; digital 1x / 2x zoom on iOS Safari.
-  - **Torch**: feature-detected toggle on Android; hidden on iOS.
-  - **Stream auto-restart**: recovers stream on tab switch, lock/unlock, or incoming phone calls.
+  - **Torch / Flash**: feature-detected hardware torch on supported rear cameras with screen-flash fallback on front cameras.
+  - **Stream auto-restart**: recovers stream in-place on tab switch, lock/unlock, or incoming phone calls.
 - **Client-Side Image Processing**:
-  - Resized on phone to max 1920px longest edge, JPEG quality ladder (~0.8 to ~0.56) keeping files under ~900 KB (well within Vercel's 4.5 MB body limit).
-  - Baked-in warm film tone, subtle vignette, and fine procedural film grain.
-  - EXIF and GPS location data stripped.
+  - In-app camera shots are rendered at up to **2560 px** longest edge (JPEG quality `0.90`).
+  - Native OS camera shots are rendered at up to **4096 px** longest edge (JPEG quality `0.92`) alongside the clean unfiltered original uploaded to the `originals` subfolder.
+  - Baked-in OKLab/OKLCH film color science, optional 3D `.cube` LUT, halation, vignette, and optical density film grain.
+  - EXIF and GPS location data stripped via canvas re-encode.
 - **Offline-Safe IndexedDB Queue**:
   - Stores captured shot immediately in IndexedDB with client-generated UUID `shotId`.
-  - Background uploader with max 2 concurrent uploads, exponential backoff with jitter, and `Retry-After` header handling.
+  - Background uploader with max 2 concurrent uploads, resumable 2 MiB chunks, exponential backoff with jitter, and `Retry-After` header handling.
   - Automatically resumes queue on page reopen, airplane mode toggle, or connection recovery.
 - **Native OS Camera Fallback**:
   - "Use my phone's camera app" button triggers `<input type="file" accept="image/*" capture="environment">`.
   - Session and pending state persisted before opening native camera so tab reloads preserve quota.
-  - Same client resize, grain/tint, and idempotency pipeline.
+  - Uses Web Worker image decode (`worker-src 'self' blob:`) and the same WebGL2 film look + idempotency pipeline.
 - **Hardware Diagnostics (`/debug/camera`)**:
-  - Accessible on real phones to inspect device labels, track constraints, and camera capabilities.
+  - Admin-gated in production; accessible on real phones in development or admin sessions to inspect enumerated devices, track constraints, zoom mechanisms, and camera capabilities.
 
 ---
 
@@ -207,32 +206,35 @@ rclone copy "google-drive:Disposable Cam - Alice & Bob" ./wedding-photos-backup/
 
 ## 8. Automated Testing & Verification
 
-Run the comprehensive test suite (unit tests, SQL logic on in-process Postgres, IndexedDB store, camera heuristics, and QR generation):
+Run the comprehensive test suite (unit tests, SQL logic on in-process Postgres, IndexedDB store, camera heuristics, 3D `.cube` LUT evaluation, and QR generation):
 
 ```bash
-# Run all 56 automated vitest tests across 11 test suites
+# Run all 214 automated vitest tests across 30 test suites
 npm test
+
+# Run all 112 Playwright E2E tests across 8 mobile matrix profiles
+npx playwright test
 
 # Run TypeScript typecheck
 npm run typecheck
 
-# Run ESLint
-npm run lint
-
 # Run Next.js production build
 npm run build
 
-# Run high-concurrency load test (50 concurrent guests x 15 photos = 750 uploads)
-npm run loadtest
+# Run real-device QA harness on connected Android device via ADB
+node scripts/device-qa.mjs
+
+# Run 500-guest traffic & concurrency stress simulation
+node --env-file=.env.local scripts/stress-500.mjs
 ```
 
 ### Concurrency Load Test Output
-The load test (`scripts/loadtest.mjs`) simulates 50 concurrent guests shooting 15 photos simultaneously against the live Singapore Supabase database:
-- **50 Concurrent Guests** x 15 shots = 750 operations in ~3.15s (238 ops/sec).
-- **100% Shot Limit Enforcement**: 50 out of 50 16th-shot attempts rejected with `limit_reached`.
-- **100% Idempotency**: duplicate submissions detected and preserved.
+The load test (`scripts/stress-500.mjs`) simulates 500 active guests shooting simultaneously against the live Singapore Supabase database:
+- **500 Active Guests** created in ~3.01s (insert p50: 81.8 ms).
+- **100% Unique Roll Codes**: 500/500 generated with 0.0% collision rate.
+- **100% Roll Recovery**: 20/20 sampled recovery checks resolved accurately.
+- **100% Shot Reservation Integrity**: 100 simultaneous burst reservations succeeded atomically via `reserve_shot`.
 - **0 Dropped Photos**.
-- **p95 Latency**: ~550 ms.
 
 ---
 
@@ -241,17 +243,17 @@ The load test (`scripts/loadtest.mjs`) simulates 50 concurrent guests shooting 1
 Follow this checklist 1–2 weeks before the wedding:
 
 - [ ] **Google Cloud OAuth Status**: Confirm Consent Screen status is **"In production"** (NOT "Testing").
-- [ ] **Dedicated Account**: Confirm authorization is done with the couple's fresh Google account (15 GB available).
+- [ ] **Dedicated Account**: Confirm authorization is done with the couple's Google account and has sufficient free storage quota.
 - [ ] **Drive Health Status**: Open `/admin` and click **"Run Live Health Check"**; verify status is **GREEN**.
 - [ ] **Keepalive Cron**: Confirm Vercel cron is enabled (`vercel.json`), or trigger `GET /api/cron/keepalive` with `CRON_SECRET` to verify.
 - [ ] **Test on iPhone Safari**:
   - Scan QR code with iOS Camera.
   - Verify in-app camera opens with standard back lens (not ultra-wide).
-  - Verify 1x / 2x digital zoom works.
+  - Verify `1×` / `2×` / `3×` zoom controls and Keep/Retake review flow work.
   - Verify 15 shots can be taken and shutter haptics trigger.
 - [ ] **Test on Android Chrome**:
   - Scan QR code with Google Lens / Chrome.
-  - Verify pinch-to-zoom / zoom slider works.
+  - Verify pinch-to-zoom and `0.5×` / `1×` / `2×` / `3×` zoom buttons work.
   - Verify torch toggle functions.
 - [ ] **Test In-App Browsers**:
   - Send `/e/<slug>` link via Instagram DM and WhatsApp.

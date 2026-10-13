@@ -30,6 +30,7 @@ interface DashboardViewProps {
     };
     estimatedPhotosRemaining?: number;
     currentTier?: string;
+    limitBytes?: number;
     percentUsed?: number;
     remainingBytes?: number;
     storageWarning?: boolean;
@@ -68,8 +69,12 @@ export function DashboardView({
     }
   }
 
-  // Drive quota estimation (400 GB plan)
-  const quotaLimitBytes = 400 * 1024 * 1024 * 1024; // 400 GB
+  // Drive quota from live drive.about.get (with 400 GB fallback)
+  const quotaLimitBytes =
+    health?.storageQuota?.limitBytes ??
+    metrics.limitBytes ??
+    400 * 1024 * 1024 * 1024;
+  const quotaLimitGB = Math.round(quotaLimitBytes / (1024 * 1024 * 1024));
   const totalGB = (metrics.totalSizeBytes / (1024 * 1024 * 1024)).toFixed(2);
   const totalMB = (metrics.totalSizeBytes / (1024 * 1024)).toFixed(1);
   const actualPercentUsed = typeof metrics.percentUsed === "number"
@@ -177,7 +182,7 @@ export function DashboardView({
         <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-              Drive Usage (400 GB)
+              Drive Usage ({quotaLimitGB} GB)
             </span>
             <span className={`text-[11px] font-mono ${Number(actualPercentUsed) >= 85 ? "text-red-400" : "text-emerald-400"}`}>
               {actualPercentUsed}% used

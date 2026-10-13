@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getDriveClient, resolveDriveTokens } from "@/lib/drive/client";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { verifyGuestSession } from "@/lib/api/verify-session";
 
 export const dynamic = "force-dynamic";
 
@@ -12,18 +13,32 @@ export async function POST(req: Request) {
       driveFileId?: string;
       sizeBytes?: number;
       isOriginal?: boolean;
+      guestId?: string;
+      eventSlug?: string;
     } | null;
 
     if (!body) {
       return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
     }
 
-    const { shotId, driveFileId, sizeBytes, isOriginal = false } = body;
+    const { shotId, driveFileId, sizeBytes, isOriginal = false, guestId, eventSlug } = body;
     const shotIdParsed = z.uuid().safeParse(shotId);
     const driveFileIdParsed = z.string().min(5).safeParse(driveFileId);
 
     if (!shotIdParsed.success || !driveFileIdParsed.success) {
       return NextResponse.json({ error: "Invalid shotId or driveFileId" }, { status: 400 });
+    }
+
+    let verifiedGuestId: string | null = null;
+    if (guestId && eventSlug) {
+      const guestIdParsed = z.uuid().safeParse(guestId);
+      const slugParsed = z.string().min(2).max(63).safeParse(eventSlug);
+      if (guestIdParsed.success && slugParsed.success) {
+        verifiedGuestId = verifyGuestSession(req, slugParsed.data, guestIdParsed.data);
+        if (!verifiedGuestId) {
+          return NextResponse.json({ error: "Session mismatch or missing session cookie" }, { status: 403 });
+        }
+      }
     }
 
     const sb = supabaseAdmin();
@@ -53,7 +68,7 @@ export async function POST(req: Request) {
 
     if (isOriginal) {
       // Update original_drive_file_id on the existing photo
-      const { error: updateErr } = await sb
+      let query = sb
         .from("photos")
         .update({
           original_drive_file_id: fileMeta.data.id,
@@ -61,12 +76,18 @@ export async function POST(req: Request) {
         })
         .eq("shot_id", shotIdParsed.data);
 
+      if (verifiedGuestId) {
+        query = query.eq("guest_id", verifiedGuestId);
+      }
+
+      const { error: updateErr } = await query;
+
       if (updateErr) {
         return NextResponse.json({ error: "Failed to link original photo in DB" }, { status: 500 });
       }
     } else {
       // Mark primary filtered photo confirmed in database
-      const { error: updateErr } = await sb
+      let query = sb
         .from("photos")
         .update({
           status: "confirmed",
@@ -75,6 +96,12 @@ export async function POST(req: Request) {
           updated_at: new Date().toISOString(),
         })
         .eq("shot_id", shotIdParsed.data);
+
+      if (verifiedGuestId) {
+        query = query.eq("guest_id", verifiedGuestId);
+      }
+
+      const { error: updateErr } = await query;
 
       if (updateErr) {
         return NextResponse.json({ error: "Failed to confirm photo in DB" }, { status: 500 });

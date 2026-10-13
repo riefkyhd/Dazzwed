@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect, useCallback, use } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { type Lang, t } from "@/lib/i18n";
 import { useCamera } from "@/lib/camera/useCamera";
@@ -14,12 +14,12 @@ import { ViewfinderFrame } from "./ViewfinderFrame";
 import { CameraSettingsSheet } from "./CameraSettingsSheet";
 import { ShutterButton } from "./ShutterButton";
 import { LensBar } from "./LensBar";
-import { NativeCameraInput } from "./NativeCameraInput";
 import { CameraRecoveryOverlay } from "./CameraRecoveryOverlay";
 import { CameraDebugHud } from "@/components/debug/CameraDebugHud";
 import { ReviewModal } from "./ReviewModal";
 import { LookDial } from "./LookDial";
 import { GuestGalleryModal } from "./GuestGalleryModal";
+import { getLookById, CPM35_LOOK } from "@/lib/imaging/looks/presets";
 
 interface CameraScreenProps {
   eventSlug: string;
@@ -75,10 +75,7 @@ export function CameraScreen({
     setZoom,
     digitalZoom,
     setDigitalZoom,
-    torchAvailable,
     hasHardwareFlash,
-    torchOn,
-    toggleTorch,
     flashMode,
     setFlashMode,
     capture,
@@ -91,6 +88,9 @@ export function CameraScreen({
     exposureCompValue,
     setExposureCompensation,
     unfreezeViewfinder,
+    performanceMode,
+    setPerformanceMode,
+    qualityTier,
   } = useCamera(true, defaultLookId, mirrorFront);
 
   // Responsive Layout Engine
@@ -133,11 +133,9 @@ export function CameraScreen({
 
   // Initial loading tracking so flip camera switches are completely silent without overlays
   const [hasInitialized, setHasInitialized] = useState(false);
-  useEffect(() => {
-    if (live && !hasInitialized) {
-      setHasInitialized(true);
-    }
-  }, [live, hasInitialized]);
+  if (live && !hasInitialized) {
+    setHasInitialized(true);
+  }
 
   // Clean up timer on unmount
   useEffect(() => {
@@ -150,6 +148,9 @@ export function CameraScreen({
   // Transient look selection with caption toast
   const handleSelectLook = useCallback(
     (look: Parameters<typeof setActiveLook>[0]) => {
+      if (allowedLookIds && allowedLookIds.length > 0 && !allowedLookIds.includes(look.id)) {
+        return;
+      }
       setActiveLook(look);
       setLookCaption(look.name);
       if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
@@ -157,14 +158,23 @@ export function CameraScreen({
         setLookCaption(null);
       }, 2000);
     },
-    [setActiveLook]
+    [allowedLookIds, setActiveLook]
   );
+
+  // Enforce allowedLookIds on activeLook
+  useEffect(() => {
+    if (allowedLookIds && allowedLookIds.length > 0 && !allowedLookIds.includes(activeLook.id)) {
+      const fallback = getLookById(allowedLookIds[0]) ?? CPM35_LOOK;
+      setActiveLook(fallback);
+    }
+  }, [allowedLookIds, activeLook.id, setActiveLook]);
 
   // Sync status modal state
   const [syncStatusOpen, setSyncStatusOpen] = useState(false);
 
   // Web Audio click / mechanical shutter sound synthesizer
   const playShutterSound = useCallback(() => {
+    if (!soundEnabled) return;
     try {
       const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       if (!AudioCtx) return;
@@ -213,13 +223,11 @@ export function CameraScreen({
       setIsProcessing(true);
       const isMirrored = facing === "user" && mirrorFront;
 
-      let previewOpened = false;
       const capturePromise = capture(
         cameraAspect,
         undefined,
         isMirrored,
         (fastPreview) => {
-          previewOpened = true;
           if (fastPreview instanceof ImageBitmap) {
             setActiveReview({
               previewBitmap: fastPreview,
@@ -736,6 +744,9 @@ export function CameraScreen({
         rollCode={rollCode}
         eventSlug={eventSlug}
         lang={lang}
+        performanceMode={performanceMode}
+        onSelectPerformanceMode={setPerformanceMode}
+        qualityTier={qualityTier}
       />
 
       {/* Sync Status Sheet */}

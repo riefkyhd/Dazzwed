@@ -6,6 +6,8 @@ import {
 import type { LookRecipe } from "./looks/types";
 import { DISPOSABLE_400_LOOK } from "./looks/presets";
 import { LookEnginePipeline } from "./looks/pipeline";
+import { preloadCubeLUT, type ParsedCubeLUT } from "./looks/cube-lut";
+import { applyLookToCanvas2D } from "./looks/cpu-fallback";
 import { drawEmulsionExtras, drawDateStamp, drawInstantFrame } from "./looks/stamp-and-frame";
 
 type Source = HTMLVideoElement | ImageBitmap | HTMLImageElement;
@@ -14,52 +16,6 @@ function sourceSize(src: Source): { w: number; h: number } {
   if (src instanceof HTMLVideoElement) return { w: src.videoWidth, h: src.videoHeight };
   if (src instanceof HTMLImageElement) return { w: src.naturalWidth, h: src.naturalHeight };
   return { w: src.width, h: src.height };
-}
-
-let grainTile: HTMLCanvasElement | null = null;
-function getGrainTile(): HTMLCanvasElement {
-  if (grainTile) return grainTile;
-  const size = 256;
-  const c = document.createElement("canvas");
-  c.width = c.height = size;
-  const ctx = c.getContext("2d")!;
-  const img = ctx.createImageData(size, size);
-  for (let i = 0; i < img.data.length; i += 4) {
-    const v = 128 + (Math.random() + Math.random() + Math.random() - 1.5) * 90;
-    img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
-    img.data[i + 3] = 255;
-  }
-  ctx.putImageData(img, 0, 0);
-  return (grainTile = c);
-}
-
-/** Warm tint, soft vignette and film grain baked into the pixels. */
-function applyFilmLook(ctx: CanvasRenderingContext2D, w: number, h: number) {
-  ctx.save();
-  // warm cast
-  ctx.globalCompositeOperation = "multiply";
-  ctx.fillStyle = "rgba(255, 236, 205, 0.35)";
-  ctx.fillRect(0, 0, w, h);
-  ctx.globalCompositeOperation = "soft-light";
-  ctx.fillStyle = "rgba(255, 170, 70, 0.16)";
-  ctx.fillRect(0, 0, w, h);
-  // vignette
-  ctx.globalCompositeOperation = "source-over";
-  const g = ctx.createRadialGradient(w / 2, h / 2, Math.min(w, h) * 0.35, w / 2, h / 2, Math.hypot(w, h) / 2);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, "rgba(0,0,0,0.28)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, 0, w, h);
-  // grain (random offset so every shot differs)
-  const pattern = ctx.createPattern(getGrainTile(), "repeat");
-  if (pattern) {
-    ctx.globalCompositeOperation = "overlay";
-    ctx.globalAlpha = 0.2;
-    ctx.translate(Math.random() * 256, Math.random() * 256);
-    ctx.fillStyle = pattern;
-    ctx.fillRect(-256, -256, w + 512, h + 512);
-  }
-  ctx.restore();
 }
 
 function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
@@ -115,7 +71,7 @@ export function prewarmCapturePipeline(): void {
 }
 
 /**
- * Crop → resize → Look Engine WebGL shader → 2D extras → JPEG.
+ * Crop → resize → Look Engine WebGL shader (or CPU LookRecipe fallback) → 2D extras → JPEG.
  * Re-encoding through canvas drops all EXIF/GPS metadata.
  */
 export async function renderShot(
@@ -190,17 +146,19 @@ export async function renderShot(
     }
   }
 
-  // 1. Run WebGL2 Look Engine pipeline (calibrated recipes match live viewfinder 1:1)
+  // 1. Run WebGL2 Look Engine pipeline (calibrated recipes + native 3D LUT match live viewfinder 1:1)
   let rendered = false;
   let processedCanvas: HTMLCanvasElement | null = null;
+  let loadedLut: ParsedCubeLUT | undefined;
+  const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
 
   try {
+    loadedLut = look.lutUrl ? await preloadCubeLUT(look.lutUrl) : undefined;
     const { pipeline: p, canvas: glCanvas } = getSharedCapturePipeline();
     if (glCanvas.width !== out.width || glCanvas.height !== out.height) {
       glCanvas.width = out.width;
       glCanvas.height = out.height;
     }
-    const targetIntensity = intensity ?? (sourceType === "native" ? 0.70 : (look.intensity ?? 1.0));
     rendered = p.render(sourceToRender, look, {
       width: out.width,
       height: out.height,
@@ -208,28 +166,11 @@ export async function renderShot(
       seed,
       isNativeCamera: sourceType === "native",
       intensity: targetIntensity,
+      lut: loadedLut,
     });
     if (rendered) processedCanvas = glCanvas;
   } catch (err) {
-    console.warn("WebGL2 Look Engine failed, falling back to 3D LUT / 2D canvas:", err);
-  }
-
-  // Fallback to custom 3D LUT postprocessing only if Look Engine render failed and LUT provided
-  if (!rendered && look.lutUrl) {
-    try {
-      const { renderWithPostProcessing } = await import("./renderThree");
-      processedCanvas = await renderWithPostProcessing(sourceToRender, {
-        width: out.width,
-        height: out.height,
-        lutUrl: look.lutUrl,
-        bloomThreshold: look.lens?.bloom?.threshold ?? 0.82,
-        bloomIntensity: look.lens?.bloom?.strength ?? 0.35,
-        grainAmount: look.emulsion?.grain?.amount ?? 0.12,
-      });
-      rendered = true;
-    } catch (err) {
-      console.warn("3D LUT PostProcessing failed, falling back to 2D canvas:", err);
-    }
+    console.warn("WebGL2 Look Engine failed, falling back to CPU LookRecipe pipeline:", err);
   }
 
   // 2. Composite onto 2D canvas to support post-shader 2D extras
@@ -240,7 +181,7 @@ export async function renderShot(
   if (rendered && processedCanvas) {
     ctx2d.drawImage(processedCanvas, 0, 0);
   } else {
-    // Fallback 2D if WebGL unavailable
+    // Fallback 2D if WebGL unavailable — uses the exact same LookRecipe color science
     if (mirror) {
       ctx2d.save();
       ctx2d.translate(out.width, 0);
@@ -250,7 +191,12 @@ export async function renderShot(
     } else {
       ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
     }
-    applyFilmLook(ctx2d, out.width, out.height);
+    applyLookToCanvas2D(ctx2d, out.width, out.height, look, {
+      isNativeCamera: sourceType === "native",
+      intensity: targetIntensity,
+      seed,
+      lut: loadedLut,
+    });
   }
 
   if (interCanvas) {
@@ -309,20 +255,23 @@ export async function compositeProcessed2D(
   const look = options.look ?? DISPOSABLE_400_LOOK;
   const seed = options.seed ?? 42;
 
-  drawEmulsionExtras(ctx, w, h, look, seed);
-  if (look.dateStamp.enabled) {
-    drawDateStamp(ctx, w, h, look, options.dateStampDate);
-  }
-  if (look.frame.type === "instant") {
-    drawInstantFrame(ctx, w, h, look, options.coupleNames);
-  }
+  try {
+    drawEmulsionExtras(ctx, w, h, look, seed);
+    if (look.dateStamp.enabled) {
+      drawDateStamp(ctx, w, h, look, options.dateStampDate);
+    }
+    if (look.frame.type === "instant") {
+      drawInstantFrame(ctx, w, h, look, options.coupleNames);
+    }
 
-  const outBlob = await toBlob(canvas, options.quality ?? 0.95);
-  canvas.width = canvas.height = 0;
-  if ("close" in imgBitmap && processedSource !== imgBitmap) {
-    imgBitmap.close();
+    const outBlob = await toBlob(canvas, options.quality ?? 0.95);
+    canvas.width = canvas.height = 0;
+    return outBlob;
+  } finally {
+    if ("close" in imgBitmap && processedSource !== imgBitmap) {
+      imgBitmap.close();
+    }
   }
-  return outBlob;
 }
 
 /** Decode a file from the OS camera/picker, honouring EXIF orientation. */

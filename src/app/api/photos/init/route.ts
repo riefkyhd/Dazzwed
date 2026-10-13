@@ -9,6 +9,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp, verifyTurnstileToken } from "@/lib/rate-limit";
 import { getAdaptiveStorageGuard } from "@/lib/drive/health";
 import { computeRollCodeFromGuestId } from "@/lib/guest/session";
+import { verifyGuestSession } from "@/lib/api/verify-session";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,13 @@ export async function POST(req: Request) {
 
     if (!slugParsed.success || !guestIdParsed.success || !shotIdParsed.success || !sizeParsed.success) {
       return NextResponse.json({ error: "Invalid input parameters or file size too large" }, { status: 400 });
+    }
+
+    // Session cookie verification: ensure the request comes from the guest who owns the cookie.
+    // This is a second identity binding on top of the DB guest-belongs-to-event check below.
+    const verifiedGuestId = verifyGuestSession(req, slugParsed.data, guestIdParsed.data);
+    if (!verifiedGuestId) {
+      return NextResponse.json({ error: "Session mismatch or missing session cookie" }, { status: 403 });
     }
 
     // Rate limit

@@ -25,23 +25,32 @@ export interface ProcessImageResponse {
   error?: string;
 }
 
+/**
+ * NOTE: The blob-URL inline worker path below is only reached when `document` is
+ * undefined (i.e. an SSR context), which never happens for camera photo processing.
+ * The primary path in processImageOffThread() calls renderShot() directly on the
+ * main thread (lines ~252-279 below), which uses the full WebGL2 LookEnginePipeline
+ * with LookRecipe color science.
+ *
+ * We intentionally do NOT maintain a divergent 2D-canvas film-look implementation
+ * inside the worker string. If this secondary path is ever reached it will fail loudly
+ * rather than silently producing a look that doesn't match the LookRecipe pipeline.
+ */
 const workerCode = `
 self.onmessage = async (e) => {
-  const { id, blob, maxEdge = 4096, quality = 0.92, applyFilter = true } = e.data;
+  const { id, blob, maxEdge = 4096, quality = 0.92 } = e.data;
 
   try {
     let bitmap;
     try {
       bitmap = await createImageBitmap(blob, { imageOrientation: "from-image" });
-    } catch (err) {
-      // Fallback for browsers that don't support imageOrientation
+    } catch {
       bitmap = await createImageBitmap(blob);
     }
 
     const origW = bitmap.width;
     const origH = bitmap.height;
 
-    // Calculate scaled dimensions
     let targetW = origW;
     let targetH = origH;
     const longest = Math.max(origW, origH);
@@ -63,69 +72,11 @@ self.onmessage = async (e) => {
     ctx.drawImage(bitmap, 0, 0, targetW, targetH);
     bitmap.close();
 
-    if (applyFilter) {
-      // Warm multiply cast
-      ctx.save();
-      ctx.globalCompositeOperation = "multiply";
-      ctx.fillStyle = "rgba(255, 236, 205, 0.35)";
-      ctx.fillRect(0, 0, targetW, targetH);
+    // Film look is NOT applied here. This worker path is a last-resort decode/resize
+    // only. Look processing requires the LookEnginePipeline on the main thread.
 
-      // Warm soft-light cast
-      ctx.globalCompositeOperation = "soft-light";
-      ctx.fillStyle = "rgba(255, 170, 70, 0.16)";
-      ctx.fillRect(0, 0, targetW, targetH);
-
-      // Vignette
-      ctx.globalCompositeOperation = "source-over";
-      const g = ctx.createRadialGradient(
-        targetW / 2,
-        targetH / 2,
-        Math.min(targetW, targetH) * 0.35,
-        targetW / 2,
-        targetH / 2,
-        Math.hypot(targetW, targetH) / 2
-      );
-      g.addColorStop(0, "rgba(0,0,0,0)");
-      g.addColorStop(1, "rgba(0,0,0,0.28)");
-      ctx.fillStyle = g;
-      ctx.fillRect(0, 0, targetW, targetH);
-
-      // Procedural grain
-      const grainCanvas = new OffscreenCanvas(256, 256);
-      const gCtx = grainCanvas.getContext("2d");
-      if (gCtx) {
-        const imgData = gCtx.createImageData(256, 256);
-        for (let i = 0; i < imgData.data.length; i += 4) {
-          const v = 128 + (Math.random() + Math.random() + Math.random() - 1.5) * 90;
-          imgData.data[i] = imgData.data[i + 1] = imgData.data[i + 2] = v;
-          imgData.data[i + 3] = 255;
-        }
-        gCtx.putImageData(imgData, 0, 0);
-
-        const pattern = ctx.createPattern(grainCanvas, "repeat");
-        if (pattern) {
-          ctx.globalCompositeOperation = "overlay";
-          ctx.globalAlpha = 0.2;
-          ctx.translate(Math.random() * 256, Math.random() * 256);
-          ctx.fillStyle = pattern;
-          ctx.fillRect(-256, -256, targetW + 512, targetH + 512);
-        }
-      }
-      ctx.restore();
-    }
-
-    const outBlob = await canvas.convertToBlob({
-      type: "image/jpeg",
-      quality: quality,
-    });
-
-    self.postMessage({
-      id,
-      success: true,
-      blob: outBlob,
-      width: targetW,
-      height: targetH,
-    });
+    const outBlob = await canvas.convertToBlob({ type: "image/jpeg", quality });
+    self.postMessage({ id, success: true, blob: outBlob, width: targetW, height: targetH });
   } catch (err) {
     self.postMessage({
       id,

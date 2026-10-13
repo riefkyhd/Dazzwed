@@ -23,6 +23,13 @@ import type { LookRecipe } from "@/lib/imaging/looks/types";
 import { CPM35_LOOK, getLookById } from "@/lib/imaging/looks/presets";
 import type { LookEnginePipeline } from "@/lib/imaging/looks/pipeline";
 import { diagnostics, redactDeviceId, type EnumeratedVideoInput } from "./diagnostics";
+import {
+  AdaptivePerformanceController,
+  resolveInitialPerfMode,
+  resolveInitialTier,
+  type QualityTier,
+  type PerformanceMode,
+} from "./adaptive-controller";
 
 export type Facing = "environment" | "user";
 
@@ -71,8 +78,6 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
   const runRef = useRef<() => Promise<void>>(async () => {});
   const zoomQueue = useRef<Promise<void>>(Promise.resolve());
   const lookPipelineRef = useRef<LookEnginePipeline | null>(null);
-  const animFrameRef = useRef<number | null>(null);
-  const frameTimes = useRef<number[]>([]);
   const isFrozenRef = useRef(false);
   const lastFpsUpdateRef = useRef<number>(0);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -91,7 +96,35 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
   const [starting, setStarting] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [measuredFps, setMeasuredFps] = useState<number>(30);
-  const [previewTier, setPreviewTier] = useState<"high" | "standard" | "lite">("high");
+  const [performanceMode, setPerformanceModeState] = useState<PerformanceMode>(resolveInitialPerfMode);
+  const [qualityTier, setQualityTierState] = useState<QualityTier>(() =>
+    resolveInitialTier(resolveInitialPerfMode())
+  );
+  const perfControllerRef = useRef<AdaptivePerformanceController | null>(null);
+  if (perfControllerRef.current == null) {
+    perfControllerRef.current = new AdaptivePerformanceController(performanceMode, qualityTier);
+  }
+
+  const setPerformanceMode = useCallback((m: PerformanceMode) => {
+    perfControllerRef.current?.setMode(m);
+    setPerformanceModeState(m);
+    if (perfControllerRef.current) {
+      setQualityTierState(perfControllerRef.current.getTier());
+    }
+  }, []);
+
+  const isCapturingRef = useRef(false);
+  const isGesturingRef = useRef(false);
+  const gestureDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markGesturing = useCallback(() => {
+    isGesturingRef.current = true;
+    if (gestureDebounceRef.current) clearTimeout(gestureDebounceRef.current);
+    gestureDebounceRef.current = setTimeout(() => {
+      isGesturingRef.current = false;
+    }, 500);
+  }, []);
+
   const [facing, setFacing] = useState<Facing>("environment");
   const [lensChoice, setLensChoice] = useState<string | undefined>(undefined);
   const [lenses, setLenses] = useState<Lens[]>([]);
@@ -117,7 +150,18 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     }
     return getLookById(defaultLookId);
   });
-  const [disableAnimatedGrain, setDisableAnimatedGrain] = useState(false);
+  const activeLookRef = useRef(activeLook);
+  const cameraAspectRef = useRef(cameraAspect);
+  const facingRef = useRef(facing);
+  const mirrorFrontRef = useRef(mirrorFront);
+
+  useEffect(() => {
+    activeLookRef.current = activeLook;
+    cameraAspectRef.current = cameraAspect;
+    facingRef.current = facing;
+    mirrorFrontRef.current = mirrorFront;
+  }, [activeLook, cameraAspect, facing, mirrorFront]);
+
   const [exposureCompRange, setExposureCompRange] = useState<ExposureCompRange | null>(null);
   const [exposureCompValue, setExposureCompValue] = useState<number>(0);
 
@@ -533,7 +577,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       }
     }, 1000);
 
-    // Lazy load and start Look Engine WebGL2 viewfinder loop
+    // Lazy load and start Look Engine WebGL2 viewfinder loop driven by rVFC (or rAF)
     if (c) {
       import("@/lib/imaging/looks/pipeline").then(({ LookEnginePipeline }) => {
         if (destroyed || !canvasRef.current) return;
@@ -541,52 +585,80 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         lookPipelineRef.current = pipeline;
 
         let lastTime = performance.now();
-        let loopTimer: number | null = null;
+        let inFlight = false;
+        let rvfcHandle: number | null = null;
+        let rafHandle: number | null = null;
 
-        const renderLoop = (now: DOMHighResTimeStamp) => {
+        const videoEl = v as HTMLVideoElement & {
+          requestVideoFrameCallback?: (callback: (now: number, metadata: { captureTime?: number; expectedDisplayTime?: number }) => void) => number;
+          cancelVideoFrameCallback?: (handle: number) => void;
+        };
+        const hasRvfc = typeof videoEl.requestVideoFrameCallback === "function";
+
+        // Pre-allocated crop rectangle to prevent 30/60fps heap allocations
+        const normTargetCropRect = { x: 0, y: 0, width: 1, height: 1 };
+
+        const processTick = (
+          now: DOMHighResTimeStamp,
+          metadata?: { captureTime?: number; expectedDisplayTime?: number }
+        ) => {
           if (destroyed) return;
 
-          // If viewfinder is frozen for capture / review, pause frame updates on canvas
-          if (isFrozenRef.current) {
-            animFrameRef.current = requestAnimationFrame(renderLoop);
+          // Track rVFC sensor-to-presentation latency if metadata is present
+          if (
+            metadata &&
+            typeof metadata.captureTime === "number" &&
+            typeof metadata.expectedDisplayTime === "number"
+          ) {
+            const sensorLatency = metadata.expectedDisplayTime - metadata.captureTime;
+            if (sensorLatency > 0 && sensorLatency < 1000) {
+              diagnostics.recordRvfcLatency(sensorLatency);
+            }
+          }
+
+          // If viewfinder is frozen for capture / review, or page is hidden, pause rendering
+          if (
+            isFrozenRef.current ||
+            (typeof document !== "undefined" && document.visibilityState === "hidden")
+          ) {
+            scheduleNext();
             return;
           }
 
-          // Measure fps over rolling window
+          // One frame in flight: drop stale frames if previous render is still executing
+          if (inFlight) {
+            scheduleNext();
+            return;
+          }
+
           const delta = now - lastTime;
           lastTime = now;
-          if (delta > 0) {
-            frameTimes.current.push(1000 / delta);
-            if (frameTimes.current.length > 30) frameTimes.current.shift();
-            const avg = frameTimes.current.reduce((a, b) => a + b, 0) / frameTimes.current.length;
 
-            // Throttle React state update to at most once per 2.5s to prevent 60Hz component re-render churn
-            if (now - lastFpsUpdateRef.current > 2500) {
+          const ctrl = perfControllerRef.current;
+          if (ctrl && delta > 0) {
+            ctrl.recordFrame(delta, now, isCapturingRef.current, isGesturingRef.current);
+
+            // Throttle React state telemetry to at most once per 2 seconds
+            if (now - lastFpsUpdateRef.current > 2000) {
               lastFpsUpdateRef.current = now;
-              setMeasuredFps(Math.round(avg));
-            }
-
-            // Performance degradation ladder:
-            // 1. animated grain off (< 24 fps)
-            // 2. preview resolution tier down (< 20 fps, < 15 fps)
-            if (avg < 24) {
-              setDisableAnimatedGrain(true);
-            }
-            if (avg < 20 && previewTier === "high") {
-              setPreviewTier("standard");
-            } else if (avg < 15 && previewTier === "standard") {
-              setPreviewTier("lite");
+              const { measuredFps: curFps } = ctrl.getTelemetry();
+              setMeasuredFps(curFps);
+              setQualityTierState(ctrl.getTier());
             }
           }
 
           if (v.readyState >= 2 && v.videoWidth > 0 && v.videoHeight > 0 && lookPipelineRef.current) {
             setStarting(false);
             setRestarting(false);
-            const longEdge = previewTier === "high" ? 1280 : previewTier === "standard" ? 960 : 720;
+
+            inFlight = true;
+
+            const config = ctrl ? ctrl.getConfig() : null;
+            const longEdge = config ? config.previewLongEdge : 1280;
             const vw = v.videoWidth;
             const vh = v.videoHeight;
-            const targetAspect = cameraAspect || "3:4";
-            const effectiveDigitalZoom = Math.max(1, digitalZoom);
+            const targetAspect = cameraAspectRef.current || "3:4";
+            const effectiveDigitalZoom = Math.max(1, digitalZoomRef.current);
 
             const targetCrop = cropForAspectAndZoom(vw, vh, targetAspect, effectiveDigitalZoom);
             const out = fitLongestEdge(targetCrop.sw, targetCrop.sh, longEdge);
@@ -597,36 +669,64 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               canvasRef.current.height = out.height;
             }
 
-            const normTargetCropRect = {
-              x: targetCrop.sx / vw,
-              y: targetCrop.sy / vh,
-              width: targetCrop.sw / vw,
-              height: targetCrop.sh / vh,
-            };
+            normTargetCropRect.x = targetCrop.sx / vw;
+            normTargetCropRect.y = targetCrop.sy / vh;
+            normTargetCropRect.width = targetCrop.sw / vw;
+            normTargetCropRect.height = targetCrop.sh / vh;
 
-            const isMirrored = facing === "user" && mirrorFront;
-            lookPipelineRef.current.render(v, activeLook, {
-              width: out.width,
-              height: out.height,
-              isCapture: false,
-              disableAnimatedGrain,
-              cropRect: normTargetCropRect,
-              mirror: isMirrored,
-            });
+            const isMirrored = facingRef.current === "user" && mirrorFrontRef.current;
+            const currentLook = activeLookRef.current;
+
+            try {
+              lookPipelineRef.current.render(v, currentLook, {
+                width: out.width,
+                height: out.height,
+                isCapture: false,
+                disableAnimatedGrain: config ? !config.animatedGrain : false,
+                grainTickHz: config ? config.grainTickHz : 24,
+                cropRect: normTargetCropRect,
+                mirror: isMirrored,
+              });
+            } finally {
+              inFlight = false;
+            }
           }
 
-          // Schedule next frame using requestAnimationFrame
-          animFrameRef.current = requestAnimationFrame(renderLoop);
+          scheduleNext();
         };
 
-        animFrameRef.current = requestAnimationFrame(renderLoop);
+        const scheduleNext = () => {
+          if (destroyed) return;
+          if (hasRvfc && typeof videoEl.requestVideoFrameCallback === "function") {
+            rvfcHandle = videoEl.requestVideoFrameCallback((now, meta) => processTick(now, meta));
+          } else {
+            rafHandle = requestAnimationFrame((now) => processTick(now));
+          }
+        };
+
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === "visible") {
+            lastTime = performance.now();
+            scheduleNext();
+          }
+        };
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+
+        scheduleNext();
+
+        return () => {
+          document.removeEventListener("visibilitychange", handleVisibilityChange);
+          if (hasRvfc && rvfcHandle !== null && typeof videoEl.cancelVideoFrameCallback === "function") {
+            videoEl.cancelVideoFrameCallback(rvfcHandle);
+          }
+          if (rafHandle !== null) cancelAnimationFrame(rafHandle);
+        };
       });
     }
 
     return () => {
       destroyed = true;
       clearInterval(watchdogTimer);
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
       if (lookPipelineRef.current) lookPipelineRef.current.destroy();
       lookPipelineRef.current = null;
       v.removeEventListener("loadedmetadata", sync);
@@ -634,9 +734,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       v.removeEventListener("canplay", ensurePlay);
       v.removeEventListener("playing", sync);
     };
-  }, [stream, previewTier, activeLook, disableAnimatedGrain, cameraAspect, digitalZoom, zoomRange, facing, mirrorFront]);
+  }, [stream]);
 
   const setZoom = useCallback((value: number) => {
+    markGesturing();
     const currentZr = zoomRangeRef.current;
     const clamped = currentZr ? clampZoomToRange(value, currentZr) : value;
     setZoomValue(clamped);
@@ -710,9 +811,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         }
       })
       .catch(() => {});
-  }, []);
+  }, [markGesturing]);
 
   const setDigitalZoom = useCallback((value: number) => {
+    markGesturing();
     const clamped = clampZoomToRange(value, null);
     const prevDigital = digitalZoomRef.current;
     digitalZoomRef.current = clamped;
@@ -751,7 +853,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           ? `${settings.width}x${settings.height}`
           : "unknown",
     });
-  }, []);
+  }, [markGesturing]);
 
   const toggleTorch = useCallback(async () => {
     const t = streamRef.current?.getVideoTracks()[0];
@@ -772,13 +874,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
   const setExposureCompensation = useCallback(
     async (ev: number) => {
+      markGesturing();
       const t = streamRef.current?.getVideoTracks()[0];
       if (!t || !exposureCompRange) return;
       const clamped = Math.max(exposureCompRange.min, Math.min(exposureCompRange.max, ev));
       setExposureCompValue(clamped);
       await applyExposureCompensation(t, clamped);
     },
-    [exposureCompRange]
+    [exposureCompRange, markGesturing]
   );
 
   const unfreezeViewfinder = useCallback(() => {
@@ -804,6 +907,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         const c = canvasRef.current;
         const track = streamRef.current?.getVideoTracks()[0];
         if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
+        isCapturingRef.current = true;
         const targetAspect = aspectOverride || cameraAspect;
         const isMirrored = mirrorOverride !== undefined ? mirrorOverride : (facing === "user" && mirrorFront);
 
@@ -952,7 +1056,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             throw new DOMException("Capture aborted", "AbortError");
           }
 
-          // Background archival photos rendered at full resolution (2560px)
+          // Background archival photos rendered at tier high resolution (max 4096px, q0.92)
           const effectiveDigitalZoom = Math.max(1, digitalZoom);
           const filteredBlob = await renderShot(frozenSource, {
             zoom: effectiveDigitalZoom,
@@ -961,8 +1065,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             look: activeLook,
             seed: shotSeed,
             mirror: isMirrored,
-            maxEdge: 2560,
-            quality: 0.90,
+            maxEdge: 4096,
+            quality: 0.92,
           });
 
           await new Promise((r) => setTimeout(r, 20));
@@ -972,13 +1076,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             aspect: targetAspect,
             applyFilter: false,
             mirror: isMirrored,
-            maxEdge: 2560,
-            quality: 0.90,
+            maxEdge: 4096,
+            quality: 0.92,
           });
 
           diagnostics.recordMark("t5");
           return { filteredBlob, originalBlob };
         } finally {
+          isCapturingRef.current = false;
           if (frozenSource instanceof ImageBitmap) {
             frozenSource.close();
           }
@@ -997,7 +1102,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     starting,
     restarting,
     measuredFps,
-    previewTier,
+    previewTier: qualityTier,
+    qualityTier,
+    performanceMode,
+    setPerformanceMode,
     aspect,
     cameraAspect,
     setCameraAspect,

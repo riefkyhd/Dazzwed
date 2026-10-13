@@ -7,6 +7,7 @@ import { getEventBySlug } from "@/lib/event-server";
 import { eventStatus } from "@/lib/event";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp, verifyTurnstileToken } from "@/lib/rate-limit";
+import { verifyGuestSession } from "@/lib/api/verify-session";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -49,6 +50,12 @@ export async function POST(req: Request) {
     const guestId = guestIdParsed.data;
     const shotId = shotIdParsed.data;
     const eventSlug = slugParsed.data;
+
+    // Session cookie verification: ensure request has matching httpOnly guest cookie
+    const verifiedGuestId = verifyGuestSession(req, eventSlug, guestId);
+    if (!verifiedGuestId) {
+      return NextResponse.json({ error: "Session mismatch or missing session cookie" }, { status: 403 });
+    }
 
     // Rate limiting & Turnstile protection
     const ip = getClientIp(req);

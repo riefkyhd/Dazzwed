@@ -104,6 +104,7 @@ export default async function AdminDashboardPage() {
         tierMix,
         estimatedPhotosRemaining: storageGuard.estimatedPhotosRemaining,
         currentTier: storageGuard.tier,
+        limitBytes: storageGuard.limitBytes,
         percentUsed: storageGuard.percentUsed,
         remainingBytes: storageGuard.remainingBytes,
         storageWarning: storageGuard.warning,

@@ -16,22 +16,23 @@ interface LookDialProps {
 /** Short abbreviations for chips that fit without overflowing/clipping */
 function getLookChipLabel(look: LookRecipe): string {
   switch (look.id) {
+    case "cpm-35":
     case "cpm35":
-      return "CPM";
+      return "35MM";
     case "portra-400":
       return "PORT";
     case "cinestill-800t":
       return "800T";
     case "fuji-eterna-250d":
-      return "ETRN";
+      return "250D";
     case "classic-neg":
       return "NEG";
     case "tri-x-400":
       return "B&W";
     case "ilford-hp5-plus":
-      return "HP5";
+      return "MONO";
     case "kodak-ektar-100":
-      return "EKTR";
+      return "V100";
     case "super-8mm-vintage":
       return "SUP8";
     case "disposable-400":
@@ -40,6 +41,7 @@ function getLookChipLabel(look: LookRecipe): string {
       return "200";
     case "ccd-flash":
       return "CCD";
+    case "instant-film":
     case "instant":
       return "INST";
     case "neutral":

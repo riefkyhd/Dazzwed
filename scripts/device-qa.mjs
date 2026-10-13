@@ -14,8 +14,7 @@
  *   node scripts/device-qa.mjs [--all] [--geometry] [--shutter] [--lifecycle] [--screencap]
  */
 
-import { execSync, spawn } from "node:child_process";
-import fs from "node:fs";
+import { execSync } from "node:child_process";
 import path from "node:path";
 
 const ADB_PATHS = [
@@ -70,11 +69,44 @@ function setupPortForwarding() {
   adbExec("reverse tcp:3000 tcp:3000");
 }
 
-// 3. Connect to Chrome CDP Target
 async function getCdpTargets() {
-  const res = await fetch("http://127.0.0.1:9222/json");
-  if (!res.ok) throw new Error(`Failed to fetch CDP targets: ${res.statusText}`);
-  return await res.json();
+  try {
+    const res = await fetch("http://127.0.0.1:9222/json");
+    if (res.ok) {
+      const list = await res.json();
+      if (Array.isArray(list) && list.length > 0) return list;
+    }
+  } catch (e) {
+    /* fallback to browser session */
+  }
+
+  // Fallback to browser websocket
+  return new Promise((resolve, reject) => {
+    const ws = new WebSocket("ws://127.0.0.1:9222/devtools/browser");
+    ws.addEventListener("open", () => {
+      ws.send(JSON.stringify({ id: 1, method: "Target.getTargets" }));
+    });
+    ws.addEventListener("message", (evt) => {
+      try {
+        const data = JSON.parse(evt.data);
+        if (data.id === 1) {
+          const targets = (data.result?.targetInfos || []).map((t) => ({
+            id: t.targetId,
+            type: t.type,
+            title: t.title,
+            url: t.url,
+            webSocketDebuggerUrl: `ws://127.0.0.1:9222/devtools/page/${t.targetId}`,
+          }));
+          ws.close();
+          resolve(targets);
+        }
+      } catch (err) {
+        ws.close();
+        reject(err);
+      }
+    });
+    ws.addEventListener("error", (err) => reject(err));
+  });
 }
 
 class CdpClient {
@@ -133,7 +165,6 @@ function captureScreenRaw() {
   const buf = adbRaw("exec-out screencap");
   const width = buf.readUInt32LE(0);
   const height = buf.readUInt32LE(4);
-  const format = buf.readUInt32LE(8);
   // Pixel offset begins at byte 12 (or 16 on some Android builds)
   // Let's verify offset: width * height * 4 should match buffer length
   const offset = buf.length === width * height * 4 + 12 ? 12 : 16;

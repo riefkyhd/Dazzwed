@@ -19,6 +19,8 @@ export interface DriveHealthResult {
 export interface StorageGuardResult {
   allowed: boolean;
   tier: "high" | "original";
+  limitBytes: number;
+  usageBytes: number;
   percentUsed: number;
   remainingBytes: number;
   estimatedPhotosRemaining: number;
@@ -29,7 +31,7 @@ export interface StorageGuardResult {
 let cachedGuard: { result: StorageGuardResult; expiresAt: number } | null = null;
 
 /**
- * Evaluates Drive quota (400 GB plan) with 60s in-memory cache:
+ * Evaluates Drive quota via drive.about.get({ fields: "storageQuota" }) with 60s in-memory cache:
  * - Always uses "high" tier (max 4096 px long edge, JPEG q0.92, or original for native camera)
  * - Warning when usage >= 85%
  * - Halt uploads only when usage >= 98%
@@ -40,13 +42,16 @@ export async function getAdaptiveStorageGuard(): Promise<StorageGuardResult> {
     return cachedGuard.result;
   }
 
+  const defaultLimit = 400 * 1024 * 1024 * 1024;
   const { refreshToken } = await resolveDriveTokens();
   if (!refreshToken) {
     return {
       allowed: true,
       tier: "high",
+      limitBytes: defaultLimit,
+      usageBytes: 0,
       percentUsed: 0,
-      remainingBytes: 400 * 1024 * 1024 * 1024,
+      remainingBytes: defaultLimit,
       estimatedPhotosRemaining: 80000,
     };
   }
@@ -56,7 +61,7 @@ export async function getAdaptiveStorageGuard(): Promise<StorageGuardResult> {
     const about = await drive.about.get({ fields: "storageQuota" });
     const quota = about.data.storageQuota;
 
-    const limit = quota?.limit ? parseInt(quota.limit, 10) : 400 * 1024 * 1024 * 1024;
+    const limit = quota?.limit ? parseInt(quota.limit, 10) : defaultLimit;
     const usage = quota?.usage ? parseInt(quota.usage, 10) : 0;
     const remaining = Math.max(0, limit - usage);
     const percentUsed = limit > 0 ? (usage / limit) * 100 : 0;
@@ -79,6 +84,8 @@ export async function getAdaptiveStorageGuard(): Promise<StorageGuardResult> {
     const result: StorageGuardResult = {
       allowed,
       tier: "high",
+      limitBytes: limit,
+      usageBytes: usage,
       percentUsed,
       remainingBytes: remaining,
       estimatedPhotosRemaining,
@@ -97,8 +104,10 @@ export async function getAdaptiveStorageGuard(): Promise<StorageGuardResult> {
     return {
       allowed: true,
       tier: "high",
+      limitBytes: defaultLimit,
+      usageBytes: 0,
       percentUsed: 0,
-      remainingBytes: 400 * 1024 * 1024 * 1024,
+      remainingBytes: defaultLimit,
       estimatedPhotosRemaining: 80000,
     };
   }
@@ -131,7 +140,7 @@ export async function checkDriveHealth(): Promise<DriveHealthResult> {
     const user = aboutRes.data.user;
     const quota = aboutRes.data.storageQuota;
 
-    const limit = quota?.limit ? parseInt(quota.limit, 10) : 15 * 1024 * 1024 * 1024;
+    const limit = quota?.limit ? parseInt(quota.limit, 10) : 400 * 1024 * 1024 * 1024;
     const usage = quota?.usage ? parseInt(quota.usage, 10) : 0;
     const usageInDrive = quota?.usageInDrive ? parseInt(quota.usageInDrive, 10) : 0;
     const usageTrash = quota?.usageInDriveTrash ? parseInt(quota.usageInDriveTrash, 10) : 0;

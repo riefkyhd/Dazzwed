@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { MAX_TELEMETRY_BODY_BYTES, sanitizeTelemetryMessage } from "@/lib/telemetry/sanitizer";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,24 @@ const telemetrySchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const raw = await req.json().catch(() => null);
+    // 1. Enforce payload body size cap (16 KB max)
+    const contentLength = req.headers.get("content-length");
+    if (contentLength && parseInt(contentLength, 10) > MAX_TELEMETRY_BODY_BYTES) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    }
+
+    const rawText = await req.text();
+    if (rawText.length > MAX_TELEMETRY_BODY_BYTES) {
+      return NextResponse.json({ error: "Payload too large" }, { status: 413 });
+    }
+
+    let raw: unknown = null;
+    try {
+      raw = JSON.parse(rawText);
+    } catch {
+      return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+    }
+
     const parsed = telemetrySchema.safeParse(raw);
     if (!parsed.success) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
@@ -33,6 +51,9 @@ export async function POST(req: Request) {
     }
 
     const { type, message, route, eventSlug, guestId, deviceClass, browser, os, appVersion } = parsed.data;
+
+    // 2. Sanitize PII from message
+    const cleanMessage = sanitizeTelemetryMessage(message);
 
     const sb = supabaseAdmin();
     let eventId: string | null = null;
@@ -50,13 +71,21 @@ export async function POST(req: Request) {
       event_id: eventId,
       guest_id: guestId || null,
       type,
-      message,
+      message: cleanMessage,
       route,
       device_class: deviceClass || "unknown",
       browser: browser || "other",
       os: os || "other",
       app_version: appVersion || "0.1.0",
     });
+
+    // 3. Retention pruning: probabilistically delete events older than 30 days (5% sample chance)
+    if (Math.random() < 0.05) {
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      void Promise.resolve(
+        sb.from("client_events").delete().lt("created_at", thirtyDaysAgo)
+      ).catch(() => {});
+    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

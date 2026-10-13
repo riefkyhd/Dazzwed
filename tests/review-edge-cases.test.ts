@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { t, parseLang } from "@/lib/i18n";
+import { t } from "@/lib/i18n";
 import type { CameraAspect } from "@/lib/imaging/geometry";
 
 describe("Review and Capture Edge-Case Handling & Translations", () => {

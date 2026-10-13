@@ -10,15 +10,15 @@ export const dynamic = "force-dynamic";
  * Lists all available .cube LUT files in public/luts
  */
 const LUT_FRIENDLY_NAMES: Record<string, string> = {
-  "kodak-portra-400.cube": "Kodak Portra 400 (Pastel Warmth & Flattering Skin)",
-  "cinestill-800t.cube": "CineStill 800T (Night Tungsten & Red Halation Glow)",
-  "fuji-eterna-250d.cube": "Fujifilm Eterna 250D (Soft Cinema Tone & Muted Highlights)",
-  "ilford-hp5-plus.cube": "Ilford HP5 Plus (Classic British Monochrome B&W)",
+  "warm-portrait-400.cube": "Warm Portrait 400 (Pastel Warmth & Flattering Skin)",
+  "tungsten-800t.cube": "Tungsten 800T (Night Tungsten & Red Halation Glow)",
+  "cinema-250d.cube": "Cinema 250D (Soft Cinema Tone & Muted Highlights)",
+  "mono-street-400.cube": "Mono Street 400 (High-Contrast Monochrome B&W)",
   "super-8mm-vintage.cube": "Super 8mm Vintage (Retro 1970s Home Movie)",
-  "kodak-ektar-100.cube": "Kodak Ektar 100 (Vivid Landscape & Ultra-Fine Grain)",
-  "dazz-cpm35.cube": "Dazz Cam CPM35 (Classic 35mm Rangefinder Warmth)",
-  "fuji-classic-neg.cube": "Fujifilm Classic Neg (Superia Teal & Crimson)",
-  "kodak-gold-200.cube": "Kodak Gold 200 (Warm Sunny Wedding Nostalgia)",
+  "vivid-100.cube": "Vivid 100 (Vivid Landscape & Ultra-Fine Grain)",
+  "rangefinder-35.cube": "Rangefinder 35 (Classic 35mm Rangefinder Warmth)",
+  "classic-neg-400.cube": "Classic Neg 400 (Deep Teal Foliage & Crimson)",
+  "golden-200.cube": "Golden 200 (Warm Sunny Wedding Nostalgia)",
 };
 
 export async function GET() {

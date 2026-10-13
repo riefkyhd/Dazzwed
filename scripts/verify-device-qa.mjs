@@ -1,5 +1,4 @@
 import { execSync } from "node:child_process";
-import fs from "node:fs";
 
 const ADB = "/Users/administrator/Library/Android/sdk/platform-tools/adb";
 
@@ -126,7 +125,6 @@ async function run() {
 
   // 3. Wait for camera screen to mount and video feed to play
   console.log("\n[3/5] Waiting for Camera Screen and live video...");
-  const t0 = Date.now();
   const cameraLive = await evaluate(`new Promise((resolve) => {
     const start = Date.now();
     const interval = setInterval(() => {
@@ -159,7 +157,6 @@ async function run() {
   // 4. Test Camera Flip (Rear -> Front Selfie)
   console.log("\n[4/5] Testing Camera Flip (Rear -> Front Selfie)...");
   await new Promise(r => setTimeout(r, 1000));
-  const flipT0 = Date.now();
   await evaluate(`(() => {
     const flipBtn = document.querySelector("button[aria-label*='Flip' i]");
     if (flipBtn) flipBtn.click();

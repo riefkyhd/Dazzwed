@@ -334,6 +334,8 @@ class UploadQueue {
             shotId: item.shotId,
             driveFileId,
             sizeBytes: totalBytes,
+            guestId: item.guestId,
+            eventSlug: item.eventSlug,
           }),
         });
 
@@ -505,6 +507,8 @@ class UploadQueue {
             driveFileId,
             sizeBytes: totalBytes,
             isOriginal: true,
+            guestId: item.guestId,
+            eventSlug: item.eventSlug,
           }),
         });
 

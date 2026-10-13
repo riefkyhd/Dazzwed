@@ -116,6 +116,7 @@ export interface DiagnosticsState {
   videoInputs: EnumeratedVideoInput[];
   zoomHistory: ZoomActionLogEntry[];
   lastZoomAction: ZoomActionLogEntry | null;
+  rvfcLatencyMs?: number | null;
 }
 
 type Listener = (state: DiagnosticsState) => void;
@@ -222,7 +223,7 @@ class CameraDiagnosticsTracker {
     return m;
   }
 
-  public recordMark(mark: "t1" | "t2" | "t3" | "t4" | "t5" | "t6" | "t7", id?: string) {
+  public recordMark(mark: "t1" | "t2" | "t3" | "t4" | "t5" | "t6" | "t7") {
     if (!this.currentMeasurement) return;
     const now = performance.now();
     const markName = `shutter_${mark}_${this.currentMeasurement.id}`;
@@ -246,6 +247,12 @@ class CameraDiagnosticsTracker {
       }
     }
     this.notify();
+  }
+
+  private currentRvfcLatencyMs: number | null = null;
+
+  public recordRvfcLatency(durationMs: number) {
+    this.currentRvfcLatencyMs = Math.round(durationMs * 10) / 10;
   }
 
   public recordKeepToLive(durationMs: number) {
@@ -290,6 +297,7 @@ class CameraDiagnosticsTracker {
       videoInputs: [...this.videoInputs],
       zoomHistory: [...this.zoomHistory],
       lastZoomAction: this.lastZoomAction ? { ...this.lastZoomAction } : null,
+      rvfcLatencyMs: this.currentRvfcLatencyMs,
     };
   }
 
@@ -309,6 +317,7 @@ class CameraDiagnosticsTracker {
     this.videoInputs = [];
     this.zoomHistory = [];
     this.lastZoomAction = null;
+    this.currentRvfcLatencyMs = null;
     this.notify();
   }
 

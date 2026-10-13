@@ -48,18 +48,41 @@ If the Supabase project was paused due to inactivity:
 
 ---
 
-## 3. Real-Device Verification Checklist (To Run 2 Hours Before Event)
+## 3. 15-Minute Pre-Wedding Rapid Checklist
+
+Execute this rapid 15-minute checklist right before guests arrive:
+
+- [ ] **1. Drive Connection & Headroom (2 min)**:
+  - Log into `/admin/settings` $\to$ confirm Google Drive status is active with green checkmark.
+  - Verify storage capacity has at least 50 GB free headroom.
+- [ ] **2. Live Test Capture & Keep (3 min)**:
+  - Scan wedding QR code on physical mobile phone $\to$ enter guest name.
+  - Snap 1 photo $\to$ tap **Keep** $\to$ confirm photo arrives in the couple's Drive folder in $< 5\text{ s}$.
+- [ ] **3. Network & Offline Resilience (3 min)**:
+  - Enable Airplane Mode $\to$ snap 1 photo $\to$ confirm "1 pending sync" indicator appears.
+  - Disable Airplane Mode $\to$ confirm photo automatically drains to Drive and badge resets to "Saved".
+- [ ] **4. Camera Flip & Orientation (2 min)**:
+  - Test rear camera and front selfie camera.
+  - Rotate phone between portrait and landscape $\to$ ensure framing remains locked.
+- [ ] **5. In-Place Recovery Test (2 min)**:
+  - Lock phone screen for 5 seconds $\to$ wake and unlock $\to$ verify camera feed recovers live without reloading.
+- [ ] **6. Admin Reset Readiness (3 min)**:
+  - Confirm `/admin/settings` **Reset All Guest Sessions** action is available if rolls need to be renewed for dinner tables.
+
+---
+
+## 4. Full Pre-Event Verification Checklist (To Run 2 Hours Before Event)
 
 - [ ] **Admin Check**: Log into `/admin` and confirm `/admin/health` displays green status across Drive, Database, and Queue.
 - [ ] **Test Photo Flow**:
   - [ ] Scan guest QR code on an iPhone (iOS 16+ Safari).
-  - [ ] Take 1 photo with Disposable 400.
+  - [ ] Take 1 photo with **Disposable 400** (or **Rangefinder 35**) and tap **Keep**.
   - [ ] Confirm photo appears in Google Drive wedding event folder within 5 seconds.
   - [ ] Check counter decrements by 1.
 - [ ] **Android Check**:
   - [ ] Open guest link on Android (Chrome).
-  - [ ] Switch lens (0.5x / 1x / 2x).
-  - [ ] Take 1 photo with CCD Flash (torch enabled).
+  - [ ] Switch zoom (`0.5×` / `1×` / `2×` / `3×`).
+  - [ ] Take 1 photo with **CCD Flash** (torch enabled) and tap **Keep**.
   - [ ] Confirm clean sync.
 - [ ] **Offline Check**:
   - [ ] Turn on Airplane Mode.

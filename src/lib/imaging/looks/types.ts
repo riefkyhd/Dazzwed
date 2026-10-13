@@ -179,7 +179,8 @@ export interface LookRecipe {
   // Runtime Tuning & Native Camera Adaptation
   intensity: number; // 0.0 (original) to 1.0 (full look), 0.7 for native photos
   whiteProtect: boolean;
-  lutUrl?: string; // Optional 3D .cube LUT path (e.g. "/luts/fuji-classic-neg.cube")
+  lutUrl?: string; // Optional 3D .cube LUT path (e.g. "/luts/classic-neg-400.cube")
+  lutStrength?: number; // Blend strength for 3D LUT stage (0.0 to 1.0, default 1.0 for pure LUTs, 0.25 for hybrid recipes)
   reference?: ReferenceMetadata;
 
   // Backward-compatibility properties

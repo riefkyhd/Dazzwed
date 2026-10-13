@@ -37,7 +37,10 @@ export async function resolveDriveTokens(): Promise<{
       .maybeSingle();
 
     if (event) {
-      if (event.google_refresh_token) refreshToken = event.google_refresh_token;
+      if (event.google_refresh_token) {
+        const { decryptToken } = await import("@/lib/security/encryption");
+        refreshToken = decryptToken(event.google_refresh_token);
+      }
       if (event.drive_root_folder_id) rootFolderId = event.drive_root_folder_id;
     }
   } catch (err) {

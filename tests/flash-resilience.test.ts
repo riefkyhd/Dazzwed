@@ -1,11 +1,13 @@
 import { describe, it, expect, vi } from "vitest";
 import { pulseTorch } from "@/lib/camera/caps";
 
+type TorchConstraint = MediaTrackConstraints & { advanced?: Array<{ torch?: boolean }> };
+
 describe("Flash & Torch Pulse Resilience", () => {
   it("guarantees turning torch ON before capture and turning it OFF immediately afterwards", async () => {
-    const appliedConstraints: any[] = [];
+    const appliedConstraints: TorchConstraint[] = [];
     const mockTrack = {
-      applyConstraints: vi.fn(async (c: any) => {
+      applyConstraints: vi.fn(async (c: TorchConstraint) => {
         appliedConstraints.push(c);
       }),
     } as unknown as MediaStreamTrack;
@@ -34,9 +36,9 @@ describe("Flash & Torch Pulse Resilience", () => {
   });
 
   it("strictly turns torch OFF even if captureAction throws an unhandled exception", async () => {
-    const appliedConstraints: any[] = [];
+    const appliedConstraints: TorchConstraint[] = [];
     const mockTrack = {
-      applyConstraints: vi.fn(async (c: any) => {
+      applyConstraints: vi.fn(async (c: TorchConstraint) => {
         appliedConstraints.push(c);
       }),
     } as unknown as MediaStreamTrack;

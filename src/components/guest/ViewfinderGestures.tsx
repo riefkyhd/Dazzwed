@@ -9,7 +9,6 @@ import {
   pointerDeltaToEV,
   FOCUS_BOX_SIZE,
   RING_TRACK_GAP,
-  EV_DEFAULT,
 } from "@/lib/camera/exposure-slider";
 import {
   createInitialGestureState,
@@ -52,6 +51,12 @@ export function ViewfinderGestures({
 
   // Current exposure EV [-2.0, +2.0]
   const [currentEV, setCurrentEV] = useState<number>(() => clampEV(exposureCompensation));
+  const [prevPropEV, setPrevPropEV] = useState<number>(exposureCompensation);
+  if (exposureCompensation !== prevPropEV) {
+    setPrevPropEV(exposureCompensation);
+    setCurrentEV(clampEV(exposureCompensation));
+  }
+
   // Dragging and UI visibility states
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isVisible, setIsVisible] = useState<boolean>(false);
@@ -66,11 +71,6 @@ export function ViewfinderGestures({
   const dragStartEV = useRef<number>(0);
   const lastHapticZone = useRef<"negative" | "zero" | "positive">("zero");
   const rafZoomRef = useRef<number | null>(null);
-
-  // Keep internal EV state in sync when external prop changes (e.g. preset reset)
-  useEffect(() => {
-    setCurrentEV(clampEV(exposureCompensation));
-  }, [exposureCompensation]);
 
   // Restart 3-second auto-hide timer
   const restartHideTimer = useCallback(() => {
@@ -142,6 +142,21 @@ export function ViewfinderGestures({
     window.addEventListener("deviceorientation", handleOrientation);
     return () => window.removeEventListener("deviceorientation", handleOrientation);
   }, [showLevel]);
+
+  // Prevent browser pinch-zoom on the camera viewfinder (especially iOS Safari gesture events)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const preventBrowserZoom = (e: Event) => {
+      e.preventDefault();
+    };
+    el.addEventListener("gesturestart", preventBrowserZoom, { passive: false });
+    el.addEventListener("gesturechange", preventBrowserZoom, { passive: false });
+    return () => {
+      el.removeEventListener("gesturestart", preventBrowserZoom);
+      el.removeEventListener("gesturechange", preventBrowserZoom);
+    };
+  }, []);
 
   // Hit-test if coordinates fall inside the focus ring / exposure slider
   const isRingHit = useCallback(

@@ -1,8 +1,8 @@
 # Disposable Cam: Performance, Compatibility & Error Sweep Report
 
-**Date**: October 6, 2026  
-**Target Deployment**: Next.js 15+ (App Router) on Vercel Hobby, Supabase PostgreSQL with RLS, Google Drive API  
-**Status**: All Tests Passing (113/113), Zero TypeScript Errors, Zero ESLint Warnings/Errors, Production Build Clean.
+**Date**: October 13, 2026  
+**Target Deployment**: Next.js 16.3.8 (App Router) on Vercel, Supabase PostgreSQL with RLS, Google Drive API  
+**Status**: All Automated Tests Passing (214/214 across 30 Vitest suites + 112/112 Playwright E2E tests), Zero TypeScript Errors, Zero ESLint Warnings/Errors, Production Build Clean.
 
 ---
 
@@ -12,10 +12,13 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **ESLint Errors & Warnings** | 21 errors, 35 warnings | **0 errors, 0 warnings** | 0 | PASSED |
 | **TypeScript Strict Mode** | 12 type failures / `any` | **0 errors (`tsc --noEmit`)** | 0 | PASSED |
-| **Unit & Integration Tests** | 86 passing | **113 passing (17 suites)** | 100% pass | PASSED |
-| **Concurrent Load Test (50 guests x 15 shots = 750 photos)** | Untested (Risk of 429 on venue WiFi) | **100% confirmed, 0 dropped, 100% duplicate protection** | 100% success | PASSED |
-| **Init API Latency (p50 / p95)** | ~180ms / 850ms | **110.6ms / 530.4ms** | < 1000ms p95 | PASSED |
-| **Crash & Rejection Telemetry** | Unmonitored | **Client beacon + Supabase log + Admin Health View** | Real-time monitoring | PASSED |
+| **Unit & Integration Tests** | 86 passing | **214 passing (30 suites)** | 100% pass | PASSED |
+| **Playwright Mobile E2E** | 0 | **112 passing (8 mobile viewports)** | 100% pass | PASSED |
+| **Concurrent Load Test (500 active guests)** | Untested (Risk of 429 / lockups) | **100% confirmed, 0 dropped, 0 duplicate allocations** | 100% success | PASSED |
+| **Shutter Latency (t0 -> t1 feedback)** | ~300ms | **35.5ms p50 (36.4ms avg on Pixel 10)** | <= 50ms | PASSED |
+| **Review Presentation (t0 -> t4)** | > 2000ms | **83.2ms p50 (73.3ms avg on Pixel 10)** | <= 250ms | PASSED |
+| **Init API Latency (p50 / p95)** | ~180ms / 850ms | **81.8ms / 152.1ms** | < 1000ms p95 | PASSED |
+| **Crash & Rejection Telemetry** | Unmonitored | **Client beacon + Supabase log + PII Sanitizer** | Real-time monitoring | PASSED |
 | **Zero-Data-Loss Guarantee** | Memory-only buffers in edge cases | **IndexedDB local persistence before network fetch** | 100% persisted | PASSED |
 
 ---
@@ -43,12 +46,12 @@
 
 ## 3. Compatibility Matrix
 
-| Environment / Device | Viewport & Layout | Camera Hardware / WebGL | Offline / Network Flakes |
-| :--- | :--- | :--- | :--- |
-| **iOS Safari 16+ (iPhone 12-16)** | Dynamic Island / safe-area insets handled via `--safe-top/bottom` + dvh fallback | WebGL2 pipeline with highp linear tone curves and safe math | Retries with exponential backoff; IndexedDB keeps photos safe |
-| **Android Chrome (Pixel / Galaxy)** | Navigation gesture bar and dynamic URL collapse monitored | Full multi-lens picker (0.5x, 1x, 2x), torch control, and exposure compensation (-0.5 EV) | Auto-drains via `online` event listener |
-| **Low-End / Older Devices (< 24 FPS)** | Scrim overlay in full-bleed mode; minimal UI chrome | Performance ladder: animated grain disabled at <24 fps; downscales viewport to standard/lite | Main thread fallback with periodic yielding (`setTimeout(0)`) |
-| **High-Megapixel Sensors (48MP / 108MP)** | Geometry engine computes proportional crop without upscaling | Scaled down safely to max edge 4096 px before GPU upload | Prevents mobile Safari WebGL canvas OOM crashes |
+| Environment / Device | Viewport & Layout | Camera Hardware / WebGL | Offline / Network Flakes | Physical Device Verification |
+| :--- | :--- | :--- | :--- | :--- |
+| **Android Chrome (Google Pixel 10, `56051FDCR005AC`)** | Navigation gesture bar and dynamic URL collapse monitored (`0.74941` 3:4 ratio) | Verified `0.5×`/`1×`/`2×`/`3×` controls, WebGL2 + 3D `.cube` LUTs, torch control, and exposure compensation | Auto-drains via `online` event listener | **VERIFIED ON REAL DEVICE** |
+| **iOS Safari 16+ (iPhone 12–16)** | Dynamic Island / safe-area insets handled via `--safe-top/bottom` + `dvh` fallback | WebGL2 pipeline with `highp` linear tone curves and safe math | Retries with exponential backoff; IndexedDB keeps photos safe | **UNVERIFIED (No physical iOS device connected)** |
+| **Low-End / Older Devices (< 24 FPS)** | Scrim overlay in full-bleed mode; minimal UI chrome | Performance ladder: animated grain disabled at <24 fps; downscales viewport to standard/lite | Main thread fallback with periodic yielding (`setTimeout(0)`) | **UNVERIFIED (Simulated in unit tests)** |
+| **High-Megapixel Sensors (48MP / 108MP)** | Geometry engine computes proportional crop without upscaling | Scaled down safely to max edge 4096 px (native) / 2560 px (in-app) before GPU upload | Prevents mobile WebGL canvas OOM crashes | **VERIFIED (Automated + Pixel 10)** |
 
 ---
 
@@ -64,17 +67,17 @@
    - Monitored live via the `/admin/health` operations dashboard.
 3. **WebGL Context Loss Recovery**:
    - `webglcontextlost` halts active draw operations gracefully.
-   - `webglcontextrestored` recompiles shaders and restores textures automatically without requiring a page refresh.
+   - `webglcontextrestored` recompiles shaders and restores textures (including 3D LUTs) automatically without requiring a page refresh.
 
 ---
 
 ## 5. Free-Tier Quota & Cost Guardrails
 
-* **Vercel Hobby**:
+* **Vercel**:
   - Direct Google Drive resumable uploads bypass Vercel serverless function execution timeout and bandwidth limits.
   - Serverless functions handle only token minting and shot reservation (p50 duration: ~110ms).
 * **Supabase Free Tier**:
   - Lightweight telemetry table (`client_events`) pruned automatically.
   - Atomic shot reservations handled in single stored procedures (`reserve_shot`).
 * **Google Drive API**:
-  - Google Drive upload operations utilize resumable upload URIs with 2 MiB chunks, adhering to standard Google Drive free storage quotas (15 GB).
+  - Google Drive upload operations utilize resumable upload URIs with 2 MiB chunks, and the Admin Dashboard dynamically reads `storageQuota.limit` and `storageQuota.usage` via `drive.about.get` (supporting both 15 GB free accounts and Google One plans).

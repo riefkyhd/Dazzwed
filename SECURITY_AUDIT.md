@@ -33,11 +33,14 @@ The audit identified 2 Critical and 4 High severity vulnerabilities:
 | **SEC-02** | **CRITICAL** | Authorization | `/api/admin/drive-health` was completely unauthenticated, allowing any visitor to trigger test uploads and view Drive quota & user email. | Added server-side `await getAdminUser()` session verification (returns 401 Unauthorized if unauthenticated). | **FIXED** |
 | **SEC-03** | **HIGH** | Authorization | `/admin/connect-drive` was a client component without server-side `requireAdmin()`. | Converted page to an async Server Component that invokes `await requireAdmin()`, redirecting unauthenticated users to `/admin/login`. | **FIXED** |
 | **SEC-04** | **HIGH** | SSRF | `/api/photos/chunk` proxied upload chunks to any URI passed in `x-session-uri` header without origin validation. | Added strict SSRF guard requiring `https:` protocol, hostname `www.googleapis.com`, and pathname starting with `/upload/drive/v3/files`. | **FIXED** |
-| **SEC-05** | **HIGH** | Auth / Account Takeover | `/api/auth/setup-admin` allowed public password resetting for existing accounts without an active session. | Added account existence check: if user already exists, rejected with 409 Conflict. Password changes require authentication. | **FIXED** |
+| **SEC-05** | **HIGH** | Auth / Account Takeover | `/api/auth/setup-admin` allowed public password resetting for existing accounts without an active session. | Endpoint permanently decommissioned with HTTP 410 Gone; `setup_admin` SQL function dropped in migration `0007`. | **FIXED** |
 | **SEC-06** | **HIGH** | Info Disclosure | `/debug/camera` diagnostic lab was exposed to guests in production. | Added server-side environment check returning `notFound()` (404) for non-admin users in production. | **FIXED** |
 | **SEC-07** | **HIGH** | Abuse / Rate Limit | `/api/guests` and `/api/auth/login` lacked IP-level rate limiting, allowing guest flooding and password brute-forcing. | Added atomic Postgres sliding-window rate limiting on `/api/guests` (60/min) and `/api/auth/login` (5/min). | **FIXED** |
 | **SEC-08** | **HIGH** | Web Security | Missing Content-Security-Policy (CSP), Strict-Transport-Security (HSTS), X-Frame-Options, and X-Robots-Tag. | Configured strict CSP, HSTS, frame-ancestors, nosniff, permissions-policy, and `X-Robots-Tag: noindex, nofollow` in `next.config.ts`. | **FIXED** |
 | **SEC-09** | **MEDIUM** | Upload Integrity | `/api/photos/confirm` did not check Drive file `mimeType` or upper/lower size bounds before confirmation. | Added Drive metadata inspection enforcing `image/` MIME prefix and `0 < size <= 50MB`. | **FIXED** |
+| **SEC-10** | **CRITICAL** | Secrets / Data Protection | The OAuth refresh token lived in plaintext in Supabase `events` table and was leaked in `/api/admin/settings` payload. | Implemented AES-256-GCM token encryption (`encryptToken`/`decryptToken`); stripped token completely from `/api/admin/settings` output. | **FIXED** |
+| **SEC-11** | **HIGH** | Web Security / XSS | CSP allowed `'unsafe-inline'` and `'unsafe-eval'` in production. | Implemented Next.js 16 `src/proxy.ts` generating per-request 128-bit cryptographic nonces (`x-nonce`); dropped `'unsafe-eval'` in production. | **FIXED** |
+| **SEC-12** | **MEDIUM** | Telemetry / Privacy | `/api/telemetry` accepted unbounded body sizes and lacked PII filtering. | Added 16 KB body-size cap (HTTP 413), PII regex sanitizer (redacting emails, phones, tokens, passwords), and automated 30-day retention pruning. | **FIXED** |
 
 ---
 
@@ -69,7 +72,7 @@ The audit identified 2 Critical and 4 High severity vulnerabilities:
 Inspected live production headers on `https://dazzwed.vercel.app`:
 ```http
 HTTP/2 200
-content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com https://challenges.cloudflare.com; media-src 'self' blob:; connect-src 'self' blob: https://*.supabase.co https://www.googleapis.com https://challenges.cloudflare.com; font-src 'self' data:; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';
+content-security-policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https://*.googleusercontent.com https://challenges.cloudflare.com; media-src 'self' blob:; connect-src 'self' blob: https://*.supabase.co https://www.googleapis.com https://challenges.cloudflare.com; font-src 'self' data:; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';
 x-frame-options: DENY
 x-content-type-options: nosniff
 referrer-policy: strict-origin-when-cross-origin

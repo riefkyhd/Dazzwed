@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { type Lang, t } from "@/lib/i18n";
 import { triggerHaptic } from "@/lib/camera/haptics";
 import type { CameraAspect } from "@/lib/imaging/geometry";
@@ -31,7 +31,7 @@ export function ReviewModal({
 }: ReviewModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const [photoUrl, setPhotoUrl] = useState<string>("");
+  const [fallbackUrl, setFallbackUrl] = useState<string>("");
   const [isDeveloped, setIsDeveloped] = useState(false);
   const [isKeeping, setIsKeeping] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -40,6 +40,15 @@ export function ReviewModal({
   const activeUrlRef = useRef<string | null>(null);
   const photoBlobRef = useRef<Blob | null>(photoBlob ?? null);
   const previewBitmapRef = useRef<ImageBitmap | null>(previewBitmap ?? null);
+
+  const blobUrl = useMemo(() => {
+    if (photoBlob && photoBlob.size > 0) {
+      return URL.createObjectURL(photoBlob);
+    }
+    return "";
+  }, [photoBlob]);
+
+  const photoUrl = fallbackUrl || blobUrl;
 
   // Keep refs synchronized
   useEffect(() => {
@@ -81,13 +90,13 @@ export function ReviewModal({
           URL.revokeObjectURL(activeUrlRef.current);
         }
         activeUrlRef.current = freshUrl;
-        setPhotoUrl(freshUrl);
+        setFallbackUrl(freshUrl);
       } catch {
         // Ultimate fallback: Convert blob to data URL (resilient across OS process backgrounding)
         const reader = new FileReader();
         reader.onload = () => {
           if (typeof reader.result === "string") {
-            setPhotoUrl(reader.result);
+            setFallbackUrl(reader.result);
           }
         };
         reader.readAsDataURL(blob);
@@ -95,26 +104,21 @@ export function ReviewModal({
     }
   }, []);
 
-  // Update photo URL when a valid high-resolution photoBlob arrives
+  // Synchronize activeUrlRef and revoke old blobUrl when replaced
   useEffect(() => {
-    if (photoBlob && photoBlob.size > 0) {
-      const url = URL.createObjectURL(photoBlob);
-      const prevUrl = activeUrlRef.current;
-      activeUrlRef.current = url;
-      setPhotoUrl(url);
-
-      if (prevUrl && prevUrl !== url) {
-        // Small delay before revoking previous URL to allow smooth visual transition
+    activeUrlRef.current = fallbackUrl || blobUrl || null;
+    return () => {
+      if (blobUrl) {
         setTimeout(() => {
           try {
-            URL.revokeObjectURL(prevUrl);
+            URL.revokeObjectURL(blobUrl);
           } catch {
             /* ignore */
           }
         }, 100);
       }
-    }
-  }, [photoBlob]);
+    };
+  }, [blobUrl, fallbackUrl]);
 
   // Initial canvas paint for fast previewBitmap
   useEffect(() => {

@@ -83,4 +83,53 @@ describe("Security Hardening & Access Control Suite", () => {
     expect(authorize("Bearer ")).toBe(false);
     expect(authorize(null)).toBe(false);
   });
+
+  it("verifies AES-256-GCM token encryption, decryption, and plaintext fallback", async () => {
+    const { encryptToken, decryptToken } = await import("@/lib/security/encryption");
+    const rawRefreshToken = "1//04abcDEF123456789_-xyz-long-secret-refresh-token";
+
+    // Encryption roundtrip
+    const encrypted = encryptToken(rawRefreshToken);
+    expect(encrypted).toMatch(/^enc:v1:[0-9a-f]{24}:[0-9a-f]{32}:[0-9a-f]+$/);
+    expect(encrypted).not.toContain(rawRefreshToken);
+
+    const decrypted = decryptToken(encrypted);
+    expect(decrypted).toBe(rawRefreshToken);
+
+    // Idempotency: re-encrypting an already encrypted token is a no-op
+    expect(encryptToken(encrypted)).toBe(encrypted);
+
+    // Backward compatibility: legacy unencrypted tokens return as-is
+    const legacyPlain = "legacy-raw-plain-token";
+    expect(decryptToken(legacyPlain)).toBe(legacyPlain);
+  });
+
+  it("verifies telemetry PII sanitizer redacts sensitive personal data and tokens", async () => {
+    const { sanitizeTelemetryMessage } = await import("@/lib/telemetry/sanitizer");
+
+    const messageWithPii =
+      "Error processing user test.user+wedding@gmail.com with phone +628123456789 and auth Bearer ya29.a0AfH6SM... password=SecretPassword123!";
+
+    const sanitized = sanitizeTelemetryMessage(messageWithPii);
+
+    expect(sanitized).not.toContain("test.user+wedding@gmail.com");
+    expect(sanitized).toContain("[REDACTED_EMAIL]");
+
+    expect(sanitized).not.toContain("+628123456789");
+    expect(sanitized).toContain("[REDACTED_PHONE]");
+
+    expect(sanitized).not.toContain("Bearer ya29.a0AfH6SM");
+    expect(sanitized).toContain("Bearer [REDACTED_TOKEN]");
+
+    expect(sanitized).not.toContain("SecretPassword123!");
+    expect(sanitized).toContain("credentials=[REDACTED]");
+  });
+
+  it("verifies /api/auth/setup-admin route is permanently decommissioned (410 Gone)", async () => {
+    const { POST } = await import("@/app/api/auth/setup-admin/route");
+    const res = await POST();
+    expect(res.status).toBe(410);
+    const data = await res.json();
+    expect(data.error).toMatch(/decommissioned/i);
+  });
 });

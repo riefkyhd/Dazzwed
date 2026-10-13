@@ -22,7 +22,14 @@ export async function GET() {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ event });
+  // Strictly prevent returning sensitive OAuth tokens to the client
+  const { google_refresh_token, ...safeEvent } = event;
+  return NextResponse.json({
+    event: {
+      ...safeEvent,
+      has_google_drive: !!google_refresh_token,
+    },
+  });
 }
 
 export async function PATCH(req: Request) {
