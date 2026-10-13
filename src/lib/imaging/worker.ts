@@ -165,6 +165,17 @@ function getWorker(): Worker | null {
       };
       workerInstance.onerror = (e) => {
         console.error("Image processing worker error:", e);
+        const err = new Error(e.message || "Image processing worker failed");
+        for (const [reqId, handler] of pendingRequests.entries()) {
+          pendingRequests.delete(reqId);
+          handler.reject(err);
+        }
+        try {
+          workerInstance?.terminate();
+        } catch {
+          // ignore
+        }
+        workerInstance = null;
       };
     } catch (e) {
       console.warn("Failed to instantiate image processing worker, using fallback:", e);
@@ -174,8 +185,55 @@ function getWorker(): Worker | null {
   return workerInstance;
 }
 
+async function decodeImageSource(
+  blob: Blob
+): Promise<{ source: ImageBitmap | HTMLImageElement; width: number; height: number; cleanup: () => void }> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bmp = await createImageBitmap(blob, { imageOrientation: "from-image" });
+      return {
+        source: bmp,
+        width: bmp.width,
+        height: bmp.height,
+        cleanup: () => bmp.close(),
+      };
+    } catch {
+      try {
+        const bmp = await createImageBitmap(blob);
+        return {
+          source: bmp,
+          width: bmp.width,
+          height: bmp.height,
+          cleanup: () => bmp.close(),
+        };
+      } catch {
+        // Fall through to HTMLImageElement
+      }
+    }
+  }
+
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      resolve({
+        source: img,
+        width: img.naturalWidth || img.width,
+        height: img.naturalHeight || img.height,
+        cleanup: () => URL.revokeObjectURL(url),
+      });
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Failed to decode image"));
+    };
+    img.src = url;
+  });
+}
+
 /**
- * Processes an image off the main thread if possible, falling back to main thread execution.
+ * Processes an image using the WebGL2 Look Engine pipeline (with background decode/encode)
+ * and safe fallback so native camera photos never hang.
  */
 export async function processImageOffThread(
   blob: Blob,
@@ -187,59 +245,77 @@ export async function processImageOffThread(
     onProgress?: (stage: "decoding" | "filtering" | "encoding") => void;
   } = {}
 ): Promise<{ blob: Blob; width: number; height: number }> {
+  const targetMaxEdge = Math.min(options.maxEdge ?? 2560, 4096);
+  const targetQuality = options.quality ?? 0.90;
+
+  // Primary path: WebGL2 Look Engine pipeline (matches in-app film recipes & date stamp)
+  if (typeof document !== "undefined") {
+    options.onProgress?.("decoding");
+    await new Promise((r) => setTimeout(r, 0)); // yield to paint
+
+    const decoded = await decodeImageSource(blob);
+    try {
+      options.onProgress?.("filtering");
+      await new Promise((r) => setTimeout(r, 0)); // yield to paint
+
+      const longest = Math.max(decoded.width, decoded.height);
+      const scale = longest > targetMaxEdge ? targetMaxEdge / longest : 1;
+      const outW = Math.max(1, Math.round(decoded.width * scale));
+      const outH = Math.max(1, Math.round(decoded.height * scale));
+
+      const outBlob = await renderShot(decoded.source, {
+        maxEdge: targetMaxEdge,
+        quality: targetQuality,
+        applyFilter: options.applyFilter ?? true,
+        sourceType: "native",
+        look: options.look,
+      });
+
+      options.onProgress?.("encoding");
+      return { blob: outBlob, width: outW, height: outH };
+    } finally {
+      decoded.cleanup();
+    }
+  }
+
+  // Secondary fallback: Web Worker with timeout guard
   const worker = getWorker();
   const id = crypto.randomUUID();
 
   if (worker) {
     options.onProgress?.("decoding");
     return new Promise<{ blob: Blob; width: number; height: number }>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        if (pendingRequests.has(id)) {
+          pendingRequests.delete(id);
+          reject(new Error("Worker processing timed out"));
+        }
+      }, 8000);
+
       pendingRequests.set(id, {
         resolve: (res) => {
+          clearTimeout(timeout);
           if (res.blob && res.width && res.height) {
             resolve({ blob: res.blob, width: res.width, height: res.height });
           } else {
             reject(new Error("Invalid worker response payload"));
           }
         },
-        reject,
+        reject: (err) => {
+          clearTimeout(timeout);
+          reject(err);
+        },
       });
 
       worker.postMessage({
         id,
         blob,
-        maxEdge: options.maxEdge ?? 4096,
-        quality: options.quality ?? 0.92,
+        maxEdge: targetMaxEdge,
+        quality: targetQuality,
         applyFilter: options.applyFilter ?? true,
       });
     });
   }
 
-  // Main thread fallback with periodic yielding
-  options.onProgress?.("decoding");
-  await new Promise((r) => setTimeout(r, 0)); // yield to paint
-
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(blob, { imageOrientation: "from-image" });
-  } catch {
-    bitmap = await createImageBitmap(blob);
-  }
-
-  options.onProgress?.("filtering");
-  await new Promise((r) => setTimeout(r, 0)); // yield to paint
-
-  const origW = bitmap.width;
-  const origH = bitmap.height;
-
-  const outBlob = await renderShot(bitmap, {
-    maxEdge: options.maxEdge ?? 8192,
-    quality: options.quality ?? 0.95,
-    applyFilter: options.applyFilter ?? true,
-    sourceType: "native",
-    look: options.look,
-  });
-  bitmap.close();
-
-  options.onProgress?.("encoding");
-  return { blob: outBlob, width: origW, height: origH };
+  throw new Error("No image processing context available");
 }

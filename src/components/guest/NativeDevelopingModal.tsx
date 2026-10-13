@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useRef } from "react";
 import { type Lang, t } from "@/lib/i18n";
 
 export type NativeProcessingState = "developing" | "saving" | "saved" | "error";
@@ -24,17 +24,25 @@ export function NativeDevelopingModal({
   lang,
   onDismiss,
 }: NativeDevelopingModalProps) {
+  const onDismissRef = useRef(onDismiss);
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
+
   useEffect(() => {
     if (state === "saved") {
       const timer = setTimeout(() => {
-        onDismiss?.();
-      }, 1400);
+        onDismissRef.current?.();
+      }, 1200);
       return () => clearTimeout(timer);
     }
-  }, [state, onDismiss]);
+  }, [state]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-6 select-none animate-in fade-in duration-200">
+    <div
+      onClick={state === "saved" ? () => onDismissRef.current?.() : undefined}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-md p-6 select-none animate-in fade-in duration-200"
+    >
       <div className="w-full max-w-xs flex flex-col items-center text-center">
         {/* Retro Polaroid/Print Card Frame */}
         <div className="relative w-52 h-64 bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-2xl p-3 flex flex-col items-center justify-between overflow-hidden">

@@ -24,6 +24,7 @@ import {
 } from "@/lib/queue/store";
 import { useQueue } from "@/lib/queue/useQueue";
 import { processImageOffThread } from "@/lib/imaging/worker";
+import { getLookById, CPM35_LOOK } from "@/lib/imaging/looks/presets";
 import dynamic from "next/dynamic";
 import { NativeDevelopingModal, type NativeProcessingState } from "./NativeDevelopingModal";
 import { LandingScreen } from "./LandingScreen";
@@ -352,7 +353,8 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
       source?: "inapp" | "native";
       tier?: "original" | "high" | "standard" | "lite";
       filtered?: boolean;
-    }
+    },
+    baseRemaining?: number
   ) => {
     const shotId = newShotId();
 
@@ -370,11 +372,14 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     enqueue();
 
     // 3. Decrement available shot counter
-    const nextLeft = Math.max(0, shotsLeft - 1);
+    const currentLeft = baseRemaining !== undefined ? baseRemaining : shotsLeft;
+    const nextLeft = Math.max(0, currentLeft - 1);
     setShotsLeft(nextLeft);
 
     if (nextLeft <= 0) {
       setTimeout(() => setScreen("thankyou"), 500);
+    } else if (screen === "landing") {
+      setScreen("camera");
     }
   };
 
@@ -399,70 +404,84 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     const thumbUrl = quickThumb || URL.createObjectURL(file);
     setNativeThumbnail(thumbUrl);
     setNativeProcessingState("developing");
-    setNativeProgress(10);
+    setNativeProgress(15);
     setNativeError(undefined);
     setNativeModalVisible(true);
 
-    let activeId = guestId;
-    if (!activeId) {
-      const res = await initGuest(explicitName);
-      if (!res || res.remaining <= 0) {
+    try {
+      let activeId = guestId;
+      let currentRemaining = shotsLeft;
+      if (!activeId) {
+        const res = await initGuest(explicitName);
+        if (!res) {
+          throw new Error("Could not start session. Please check your connection and try again.");
+        }
+        if (res.remaining <= 0) {
+          setNativeModalVisible(false);
+          setScreen("thankyou");
+          return;
+        }
+        activeId = res.guestId;
+        currentRemaining = res.remaining;
+      }
+
+      if (currentRemaining <= 0) {
         setNativeModalVisible(false);
         setScreen("thankyou");
         return;
       }
-      activeId = res.guestId;
-    }
 
-    if (shotsLeft <= 0) {
-      setNativeModalVisible(false);
-      setScreen("thankyou");
-      return;
-    }
+      const defaultLookId =
+        event.theme &&
+        typeof event.theme === "object" &&
+        "activeLookId" in event.theme &&
+        typeof (event.theme as Record<string, unknown>).activeLookId === "string"
+          ? ((event.theme as Record<string, unknown>).activeLookId as string)
+          : "cpm-35";
+      const activeLook = getLookById(defaultLookId) ?? CPM35_LOOK;
 
-    // Persist raw uncompressed shot to IndexedDB FIRST so if tab reloads or OS camera kills tab, photo is safe
-    const tempShotId = newShotId();
-    try {
-      await addShot({
-        shotId: tempShotId,
-        eventSlug: event.slug,
-        guestId: activeId,
-        blob: file,
-        thumbnailBlob: file,
-        source: "native",
-        tier: "original",
-      });
-    } catch {
-      // IndexedDB write error, proceed with memory pipeline
-    }
+      let finalBlob: Blob = file;
+      let finalWidth: number | undefined;
+      let finalHeight: number | undefined;
+      let isFiltered = false;
 
-    try {
+      try {
+        const processed = await processImageOffThread(file, {
+          maxEdge: 2560,
+          quality: 0.90,
+          applyFilter: true,
+          look: activeLook,
+          onProgress: (stage) => {
+            if (stage === "decoding") setNativeProgress(35);
+            if (stage === "filtering") setNativeProgress(60);
+            if (stage === "encoding") setNativeProgress(80);
+          },
+        });
+        finalBlob = processed.blob;
+        finalWidth = processed.width;
+        finalHeight = processed.height;
+        isFiltered = true;
+      } catch (filterErr) {
+        console.warn("Filter processing failed for native photo, saving original directly:", filterErr);
+      }
+
       setNativeProcessingState("saving");
-      setNativeProgress(45);
-
-      // Process image off main thread via Web Worker with EXIF correction (keeping full sensor resolution)
-      const processed = await processImageOffThread(file, {
-        maxEdge: 8192, // Keep original sensor resolution for native camera
-        quality: 0.95,
-        applyFilter: true,
-        onProgress: (stage) => {
-          if (stage === "decoding") setNativeProgress(30);
-          if (stage === "filtering") setNativeProgress(60);
-          if (stage === "encoding") setNativeProgress(85);
-        },
-      });
-
-      setNativeProgress(95);
+      setNativeProgress(92);
 
       // Save processed photo to queue with original file attached as clean original
-      await recordShot(processed.blob, activeId, {
-        originalBlob: file, // clean original uploaded to "originals" in background
-        width: processed.width,
-        height: processed.height,
-        source: "native",
-        tier: "original",
-        filtered: true,
-      });
+      await recordShot(
+        finalBlob,
+        activeId,
+        {
+          originalBlob: file, // clean original uploaded to "originals" in background
+          width: finalWidth,
+          height: finalHeight,
+          source: "native",
+          tier: "original",
+          filtered: isFiltered,
+        },
+        currentRemaining
+      );
 
       setNativeProgress(100);
       setNativeProcessingState("saved");
