@@ -89,6 +89,8 @@ export function LensBar({
     <div
       role="group"
       aria-label="Camera Zoom"
+      onPointerDown={(e) => e.stopPropagation()}
+      onTouchStart={(e) => e.stopPropagation()}
       className="flex items-center gap-1 p-1 rounded-full bg-black/45 backdrop-blur-md border border-white/15 shadow-xl shadow-black/40 select-none animate-in fade-in zoom-in-95 duration-200"
     >
       {/* 0.5x Ultra Wide */}
