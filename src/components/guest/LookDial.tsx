@@ -71,7 +71,7 @@ export function LookDial({
         type="button"
         onClick={onOpenLookDrawer}
         aria-label={`Select Film Look. Current: ${activeLook.name}`}
-        className="px-3 py-1.5 rounded-full bg-black/75 border border-white/20 text-white font-mono text-xs font-bold flex items-center gap-1.5 backdrop-blur-md active:scale-95 shadow-md cursor-pointer"
+        className="px-3 py-1.5 rounded-full bg-zinc-950/95 border border-white/20 text-white font-mono text-xs font-bold flex items-center gap-1.5 active:scale-95 shadow-lg cursor-pointer"
       >
         <span className="w-2 h-2 rounded-full bg-amber-400" />
         <span>{getLookChipLabel(activeLook)}</span>
@@ -84,7 +84,7 @@ export function LookDial({
 
   return (
     <div className="relative max-w-full overflow-hidden flex items-center justify-center">
-      <div className="flex items-center gap-1.5 p-1 bg-black/60 backdrop-blur-md rounded-full border border-white/10 shadow-lg select-none overflow-x-auto no-scrollbar scroll-smooth">
+      <div className="flex items-center gap-1.5 p-1 bg-zinc-950/95 rounded-full border border-white/15 shadow-xl select-none overflow-x-auto no-scrollbar scroll-smooth">
         {availableLooks.map((look) => {
           const isSelected = activeLook.id === look.id;
           const chipLabel = getLookChipLabel(look);

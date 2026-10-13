@@ -95,7 +95,7 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
   const [isCheckingRoll, setIsCheckingRoll] = useState(false);
 
   // Background IndexedDB upload queue with real-time pending badge
-  const { pendingCount, enqueue } = useQueue(guestId);
+  const { pendingCount, syncError, enqueue } = useQueue(guestId);
 
   // Global window unhandled error & rejection trap
   useEffect(() => {
@@ -582,6 +582,7 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
           shotsLeft={shotsLeft}
           totalShots={shotsPerGuest}
           pendingCount={pendingCount}
+          syncError={syncError}
           guestId={guestId}
           rollCode={rollCode}
           lang={lang}

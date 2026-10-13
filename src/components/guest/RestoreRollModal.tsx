@@ -23,7 +23,33 @@ export function RestoreRollModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  const [rendered, setRendered] = useState(isOpen);
+  const [visible, setVisible] = useState(false);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      setRendered(true);
+      const timer = requestAnimationFrame(() => {
+        setVisible(true);
+      });
+      return () => cancelAnimationFrame(timer);
+    } else {
+      setVisible(false);
+      const timer = setTimeout(() => {
+        setRendered(false);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  if (!rendered) return null;
+
+  const handleDismiss = () => {
+    setVisible(false);
+    setTimeout(() => {
+      onClose();
+    }, 200);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +91,7 @@ export function RestoreRollModal({
         rollCode: data.rollCode,
         shotsLeft: remaining,
       });
-      onClose();
+      handleDismiss();
     } catch {
       setError(t(lang, "restoreError"));
     } finally {
@@ -74,12 +100,21 @@ export function RestoreRollModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-sm w-full p-6 text-zinc-100 shadow-2xl relative">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 select-none transition-opacity duration-200 ease-out ${
+        visible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+      }`}
+    >
+      <div
+        className={`bg-zinc-900 border border-zinc-800 rounded-2xl max-w-sm w-full p-6 text-zinc-100 shadow-2xl relative transition-all duration-200 ease-out ${
+          visible ? "scale-100 opacity-100" : "scale-95 opacity-0"
+        }`}
+      >
         <button
           type="button"
-          onClick={onClose}
-          className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1"
+          onClick={handleDismiss}
+          aria-label="Close"
+          className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 cursor-pointer"
         >
           ✕
         </button>

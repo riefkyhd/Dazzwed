@@ -68,7 +68,33 @@ export function GuestGalleryModal({
     };
   }, [isOpen, guestId]);
 
-  if (!isOpen) return null;
+  const [rendered, setRendered] = useState(isOpen);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setRendered(true);
+      const timer = requestAnimationFrame(() => {
+        setVisible(true);
+      });
+      return () => cancelAnimationFrame(timer);
+    } else {
+      setVisible(false);
+      const timer = setTimeout(() => {
+        setRendered(false);
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
+  if (!rendered) return null;
+
+  const handleDismiss = () => {
+    setVisible(false);
+    setTimeout(() => {
+      onClose();
+    }, 200);
+  };
 
   const handleCopyRestoreLink = async () => {
     if (typeof window === "undefined") return;
@@ -93,8 +119,16 @@ export function GuestGalleryModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-zinc-950 border border-zinc-800 rounded-3xl max-w-lg w-full h-[85dvh] flex flex-col text-zinc-100 shadow-2xl overflow-hidden relative">
+    <div
+      className={`fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/90 select-none transition-opacity duration-200 ease-out ${
+        visible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+      }`}
+    >
+      <div
+        className={`bg-zinc-950 border border-zinc-800 rounded-3xl max-w-lg w-full h-[85dvh] flex flex-col text-zinc-100 shadow-2xl overflow-hidden relative transition-all duration-200 ease-out ${
+          visible ? "scale-100 opacity-100" : "scale-95 opacity-0"
+        }`}
+      >
         {/* Top Header Bar */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800/80 bg-zinc-900/60">
           <div>
@@ -115,8 +149,9 @@ export function GuestGalleryModal({
 
           <button
             type="button"
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition"
+            onClick={handleDismiss}
+            aria-label="Close"
+            className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition cursor-pointer"
           >
             ✕
           </button>

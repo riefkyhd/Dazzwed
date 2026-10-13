@@ -214,11 +214,29 @@ export async function POST(req: Request) {
     const { getOAuth2Client } = await import("@/lib/drive/client");
     const oauth2Client = getOAuth2Client();
     oauth2Client.setCredentials({ refresh_token: refreshToken });
-    const tokenRes = await oauth2Client.getAccessToken();
-    const accessToken = tokenRes.token;
+    let accessToken: string | null = null;
+    try {
+      const tokenRes = await oauth2Client.getAccessToken();
+      accessToken = tokenRes.token ?? null;
+    } catch (tokenErr) {
+      console.error("Google Drive OAuth token refresh failed (invalid_grant/expired):", tokenErr);
+      return NextResponse.json(
+        {
+          error: "Google Drive authorization expired or revoked. Please reconnect Drive in Admin Settings.",
+          code: "DRIVE_AUTH_EXPIRED",
+        },
+        { status: 503, headers: { "Retry-After": "60" } }
+      );
+    }
 
     if (!accessToken) {
-      throw new Error("Failed to generate Google Drive access token from refresh token");
+      return NextResponse.json(
+        {
+          error: "Could not obtain Google Drive access token. Please verify Drive credentials in Admin Settings.",
+          code: "DRIVE_AUTH_EXPIRED",
+        },
+        { status: 503, headers: { "Retry-After": "60" } }
+      );
     }
 
     // Request resumable upload session from Google Drive using direct fetch

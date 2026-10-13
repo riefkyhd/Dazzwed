@@ -6,6 +6,7 @@ import { getCachedCubeLUT, preloadCubeLUT, resolveLutUrl, type ParsedCubeLUT } f
  */
 const VERTEX_SHADER_SOURCE = `#version 300 es
 precision highp float;
+precision highp int;
 
 in vec2 a_position;
 in vec2 a_texCoord;
@@ -28,6 +29,7 @@ void main() {
  */
 const FRAGMENT_SHADER_SOURCE = `#version 300 es
 precision highp float;
+precision highp int;
 precision highp sampler3D;
 
 in vec2 v_texCoord;
@@ -176,7 +178,7 @@ vec3 sampleEmulsionGrain(vec2 fragCoord, float grainSize, float roughness, float
   float scale = max(1.0, grainSize);
   vec2 cell = fragCoord / scale;
   uvec2 iCell = uvec2(cell);
-  uint uSeed = uint(abs(seedOffset) * 1000.0) + 1337u;
+  uint uSeed = (uint(mod(abs(seedOffset) * 1000.0, 1000000.0)) & 0x7FFFFFFFu) + 1337u;
 
   vec3 micro = triangularGrainNoise(iCell, uSeed);
 
@@ -899,9 +901,9 @@ export class LookEnginePipeline {
       ? options.grainTickHz
       : (options.disableAnimatedGrain ? 0 : 24);
     const tick = grainTickHz > 0 ? Math.floor((timeMs / 1000) * grainTickHz) : 0;
-    gl.uniform1f(this.uTimeLoc, tick / 12.0);
+    gl.uniform1f(this.uTimeLoc, (tick % 100000) / 12.0);
 
-    gl.uniform1f(this.uSeedLoc, (options.seed ?? 42) % 1000);
+    gl.uniform1f(this.uSeedLoc, (options.seed ?? 42) % 100000);
     gl.uniform1i(this.uIsCaptureLoc, options.isCapture ? 1 : 0);
     gl.uniform1f(this.uFrameHeightLoc, options.height);
     gl.uniform1i(this.uIsNativeCamLoc, options.isNativeCamera ? 1 : 0);

@@ -242,7 +242,9 @@ export function ReviewModal({
       {/* Main Print Stage (Hero the photo with authentic physical print aesthetics) */}
       <div className="relative w-full max-w-md flex-1 min-h-0 flex items-center justify-center my-auto py-2">
         <div
-          className={`relative w-full ${aspectClass} rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-white/10 bg-zinc-950 flex items-center justify-center transition-transform duration-300`}
+          className={`relative w-full ${aspectClass} rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-white/10 bg-zinc-950 flex items-center justify-center transition-all duration-300 ${
+            isKeeping ? "scale-[0.96] opacity-90" : "scale-100 opacity-100"
+          }`}
         >
           {/* Developed Photo (High-res photoBlob takes precedence, with fast preview canvas fallback) */}
           {photoUrl ? (

@@ -80,7 +80,6 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
   const lookPipelineRef = useRef<LookEnginePipeline | null>(null);
   const isFrozenRef = useRef(false);
   const lastFpsUpdateRef = useRef<number>(0);
-  const abortControllerRef = useRef<AbortController | null>(null);
   const activeIdRef = useRef<string | undefined>(undefined);
   const zoomRangeRef = useRef<ZoomRange | null>(null);
   const digitalZoomRef = useRef<number>(1);
@@ -886,14 +885,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
   const unfreezeViewfinder = useCallback(() => {
     isFrozenRef.current = false;
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
   }, []);
 
     const capture = useCallback(
-      async (
+      (
         aspectOverride?: CameraAspect,
         shotSeed = Math.floor(Math.random() * 100000),
         mirrorOverride?: boolean,
@@ -902,7 +897,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           onScreenFlash?: (active: boolean) => void;
           onShutterSnap?: () => void;
         }
-      ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
+      ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> & { abort: () => void } => {
         const v = videoRef.current;
         const c = canvasRef.current;
         const track = streamRef.current?.getVideoTracks()[0];
@@ -911,17 +906,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         const targetAspect = aspectOverride || cameraAspect;
         const isMirrored = mirrorOverride !== undefined ? mirrorOverride : (facing === "user" && mirrorFront);
 
-        // Cancel previous pending archival render if still active
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
+        // Independent AbortController for this specific capture
         const abortCtrl = new AbortController();
-        abortControllerRef.current = abortCtrl;
 
-        // Determine whether flash is required
-        const isEnvironment = facing === "environment";
-        const isUser = facing === "user";
-        const hasHardwareTorch = isEnvironment && !!track && hasTorch(track);
+        const runCapture = async (): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
+          // Determine whether flash is required
+          const isEnvironment = facing === "environment";
+          const isUser = facing === "user";
+          const hasHardwareTorch = isEnvironment && !!track && hasTorch(track);
 
         let shouldFireTorch = false;
         let shouldFireScreenFlash = false;
@@ -1088,7 +1080,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             frozenSource.close();
           }
         }
-      },
+      };
+
+      const capturePromise = runCapture() as Promise<{ filteredBlob: Blob; originalBlob: Blob }> & { abort: () => void };
+      capturePromise.abort = () => {
+        abortCtrl.abort();
+      };
+      return capturePromise;
+    },
       [digitalZoom, cameraAspect, activeLook, flashMode, facing, mirrorFront]
     );
 

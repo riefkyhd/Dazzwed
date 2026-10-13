@@ -148,7 +148,7 @@ export function CameraTopBar({
         aria-label={syncError ? "Sync error" : pendingCount > 0 ? `${pendingCount} photos pending` : "All photos synced"}
         className="w-12 h-12 flex items-center justify-center rounded-full active:scale-90 transition-transform cursor-pointer"
       >
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-black/60 border border-white/10 shadow-sm backdrop-blur-md">
+        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-950/95 border border-white/15 shadow-md">
           <span
             className={`w-2 h-2 rounded-full ${
               syncError
@@ -176,7 +176,7 @@ export function CameraTopBar({
         aria-label="Camera Settings & Tools"
         className="w-12 h-12 flex items-center justify-center rounded-full text-white/90 active:scale-90 transition-transform cursor-pointer"
       >
-        <div className="w-9 h-9 flex items-center justify-center rounded-full bg-black/60 border border-white/10 shadow-sm backdrop-blur-md">
+        <div className="w-9 h-9 flex items-center justify-center rounded-full bg-zinc-950/95 border border-white/15 shadow-md">
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
             <path fillRule="evenodd" d="M4.5 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clipRule="evenodd" />
           </svg>

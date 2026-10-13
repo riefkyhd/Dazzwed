@@ -12,6 +12,8 @@ import { CameraTopBar } from "./CameraTopBar";
 import { ViewfinderGestures } from "./ViewfinderGestures";
 import { ViewfinderFrame } from "./ViewfinderFrame";
 import { CameraSettingsSheet } from "./CameraSettingsSheet";
+import { SyncStatusSheet } from "./SyncStatusSheet";
+import { LookDrawerSheet } from "./LookDrawerSheet";
 import { ShutterButton } from "./ShutterButton";
 import { LensBar } from "./LensBar";
 import { CameraRecoveryOverlay } from "./CameraRecoveryOverlay";
@@ -27,6 +29,7 @@ interface CameraScreenProps {
   shotsLeft: number;
   totalShots?: number;
   pendingCount: number;
+  syncError?: boolean;
   guestId?: string | null;
   rollCode?: string | null;
   lang: Lang;
@@ -42,6 +45,7 @@ export function CameraScreen({
   shotsLeft,
   totalShots = 15,
   pendingCount,
+  syncError = false,
   guestId,
   rollCode,
   lang,
@@ -105,6 +109,7 @@ export function CameraScreen({
   interface ReviewSession {
     previewBitmap?: ImageBitmap | null;
     blobsPromise: Promise<{ filteredBlob: Blob; originalBlob: Blob }>;
+    abortCapture?: () => void;
     filteredBlob?: Blob | null;
     originalBlob?: Blob | null;
   }
@@ -232,11 +237,13 @@ export function CameraScreen({
             setActiveReview({
               previewBitmap: fastPreview,
               blobsPromise: capturePromise,
+              abortCapture: capturePromise.abort,
             });
           } else {
             setActiveReview({
               filteredBlob: fastPreview,
               blobsPromise: capturePromise,
+              abortCapture: capturePromise.abort,
             });
           }
         },
@@ -349,6 +356,9 @@ export function CameraScreen({
 
   const handleRetakePhoto = useCallback(() => {
     unfreezeViewfinder();
+    if (activeReview?.abortCapture) {
+      activeReview.abortCapture();
+    }
     if (activeReview?.previewBitmap) {
       try {
         activeReview.previewBitmap.close();
@@ -523,6 +533,7 @@ export function CameraScreen({
               timerSeconds={timerSeconds}
               onChangeTimer={setTimerSeconds}
               pendingCount={pendingCount}
+              syncError={syncError}
               onOpenSyncStatus={() => setSyncStatusOpen(true)}
               onOpenSettings={() => setSettingsOpen(true)}
               onNativeTipClick={() => setShowNativeFlashTip(true)}
@@ -681,6 +692,7 @@ export function CameraScreen({
                 timerSeconds={timerSeconds}
                 onChangeTimer={setTimerSeconds}
                 pendingCount={pendingCount}
+                syncError={syncError}
                 onOpenSyncStatus={() => setSyncStatusOpen(true)}
                 onOpenSettings={() => setSettingsOpen(true)}
                 onNativeTipClick={() => setShowNativeFlashTip(true)}
@@ -749,94 +761,24 @@ export function CameraScreen({
         qualityTier={qualityTier}
       />
 
-      {/* Sync Status Sheet */}
-      {syncStatusOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-xs select-none">
-          <div className="flex-1" onClick={() => setSyncStatusOpen(false)} />
-          <div className="w-full max-w-md mx-auto bg-zinc-900 border-t border-zinc-700 rounded-t-3xl p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                {lang === "id" ? "Status Sinkronisasi" : "Upload & Sync Status"}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setSyncStatusOpen(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-white"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-                </svg>
-              </button>
-            </div>
-            <div className="py-2 text-center space-y-3">
-              <div className="w-12 h-12 rounded-full mx-auto flex items-center justify-center bg-zinc-800">
-                <span
-                  className={`w-4 h-4 rounded-full ${
-                    pendingCount > 0 ? "bg-amber-400 animate-pulse" : "bg-emerald-400"
-                  }`}
-                />
-              </div>
-              <p className="text-sm text-zinc-200 font-medium">
-                {pendingCount > 0
-                  ? t(lang, "pending", { n: pendingCount })
-                  : t(lang, "synced")}
-              </p>
-              <p className="text-xs text-zinc-400 leading-relaxed">
-                {pendingCount > 0
-                  ? lang === "id"
-                    ? "Foto sedang diunggah secara aman di latar belakang. Jangan tutup tab."
-                    : "Photos are being safely uploaded in the background. Keep this tab open."
-                  : lang === "id"
-                    ? "Semua foto telah tersimpan dengan aman."
-                    : "All captured photos are safely synced."}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSyncStatusOpen(false)}
-              className="w-full py-2.5 rounded-xl bg-zinc-800 text-white font-medium text-xs hover:bg-zinc-700 active:scale-95 transition-all"
-            >
-              {t(lang, "close")}
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Sync Status Sheet with natural slide up/down animation */}
+      <SyncStatusSheet
+        open={syncStatusOpen}
+        onClose={() => setSyncStatusOpen(false)}
+        syncError={syncError}
+        pendingCount={pendingCount}
+        lang={lang}
+      />
 
-      {/* L2 Density: Film Look Bottom Drawer */}
-      {lookDrawerOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60 backdrop-blur-xs select-none">
-          <div className="flex-1" onClick={() => setLookDrawerOpen(false)} />
-          <div className="w-full max-w-md mx-auto bg-zinc-900 border-t border-zinc-700 rounded-t-3xl p-6 space-y-4 shadow-2xl animate-in slide-in-from-bottom duration-200">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
-              <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                {lang === "id" ? "Pilih Filter Film" : "Select Film Look"}
-              </h2>
-              <button
-                type="button"
-                onClick={() => setLookDrawerOpen(false)}
-                className="p-1 rounded-full text-zinc-400 hover:text-white"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                  <path d="M6.28 5.22a.75.75 0 0 0-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 1 0 1.06 1.06L10 11.06l3.72 3.72a.75.75 0 1 0 1.06-1.06L11.06 10l3.72-3.72a.75.75 0 0 0-1.06-1.06L10 8.94 6.28 5.22Z" />
-                </svg>
-              </button>
-            </div>
-            <div className="py-2">
-              <div className="w-full">
-                <LookDial
-                  activeLook={activeLook}
-                  onSelectLook={(l) => {
-                    handleSelectLook(l);
-                    setLookDrawerOpen(false);
-                  }}
-                  allowedLookIds={allowedLookIds}
-                  isCollapsed={false}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* L2 Density: Film Look Bottom Drawer with natural slide up/down animation */}
+      <LookDrawerSheet
+        open={lookDrawerOpen}
+        onClose={() => setLookDrawerOpen(false)}
+        activeLook={activeLook}
+        onSelectLook={handleSelectLook}
+        allowedLookIds={allowedLookIds}
+        lang={lang}
+      />
 
       {/* Retro Review & Print Develop Modal (Keep vs Retake) */}
       {activeReview && (
@@ -855,8 +797,8 @@ export function CameraScreen({
 
       {/* Hardware Flash Unsupported Tip Modal */}
       {showNativeFlashTip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs">
-          <div className="w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-2xl p-5 text-center shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 animate-in fade-in duration-150">
+          <div className="w-full max-w-xs bg-zinc-900 border border-zinc-700 rounded-2xl p-5 text-center shadow-2xl animate-in zoom-in-95 duration-150">
             <div className="w-10 h-10 rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center mx-auto mb-3">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
                 <path fillRule="evenodd" d="M14.615 1.595a.75.75 0 0 1 .359.852L12.982 9.75h7.268a.75.75 0 0 1 .548 1.262l-10.5 11.25a.75.75 0 0 1-1.272-.71l1.992-7.302H3.75a.75.75 0 0 1-.548-1.262l10.5-11.25a.75.75 0 0 1 .913-.143Z" clipRule="evenodd" />

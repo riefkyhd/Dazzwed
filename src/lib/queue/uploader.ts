@@ -18,6 +18,8 @@ class UploadQueue {
   private inFlight = new Set<string>();
   private timer: ReturnType<typeof setTimeout> | null = null;
   private listeners = new Set<Listener>();
+  private driveStatusListeners = new Set<(disconnected: boolean) => void>();
+  private isDriveDisconnected = false;
   private isRunning = false;
   private initialized = false;
 
@@ -47,6 +49,25 @@ class UploadQueue {
   public subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  public subscribeDriveStatus(listener: (disconnected: boolean) => void): () => void {
+    this.driveStatusListeners.add(listener);
+    listener(this.isDriveDisconnected);
+    return () => this.driveStatusListeners.delete(listener);
+  }
+
+  public setDriveDisconnected(val: boolean) {
+    if (this.isDriveDisconnected !== val) {
+      this.isDriveDisconnected = val;
+      for (const l of this.driveStatusListeners) {
+        try {
+          l(val);
+        } catch (e) {
+          console.error("Drive status listener error:", e);
+        }
+      }
+    }
   }
 
   private notify(pendingCount: number) {
@@ -225,8 +246,19 @@ class UploadQueue {
           return;
         }
 
+        const errJson = (await initRes.json().catch(() => null)) as { code?: string } | null;
         const retryAfter = initRes.headers.get("Retry-After");
-        const delay = this.calculateBackoff(item.attempts, retryAfter);
+
+        if (errJson?.code === "DRIVE_AUTH_EXPIRED" || initRes.status === 503) {
+          this.setDriveDisconnected(true);
+        } else {
+          this.setDriveDisconnected(false);
+        }
+
+        const delay = errJson?.code === "DRIVE_AUTH_EXPIRED"
+          ? 60_000
+          : this.calculateBackoff(item.attempts, retryAfter);
+
         await updateShot(item.shotId, {
           status: "queued",
           attempts: item.attempts + 1,
@@ -234,6 +266,8 @@ class UploadQueue {
         });
         return;
       }
+
+      this.setDriveDisconnected(false);
 
       const initData = await initRes.json();
       if (initData.duplicate && initData.driveFileId) {
@@ -345,11 +379,6 @@ class UploadQueue {
           await updateShot(item.shotId, { status: "synced", blob: null });
           const remaining = await getPendingShots();
           this.notify(remaining.length);
-
-          // If there is a clean original blob waiting, initiate original upload asynchronously
-          if (item.originalBlob && item.originalStatus !== "synced") {
-            void this.uploadOriginalItem(item);
-          }
           return;
         }
       }
@@ -410,7 +439,15 @@ class UploadQueue {
           return;
         }
 
-        const delay = this.calculateBackoff(item.originalAttempts || 0);
+        const errJson = (await initRes.json().catch(() => null)) as { code?: string } | null;
+        if (errJson?.code === "DRIVE_AUTH_EXPIRED" || initRes.status === 503) {
+          this.setDriveDisconnected(true);
+        }
+
+        const delay = errJson?.code === "DRIVE_AUTH_EXPIRED"
+          ? 60_000
+          : this.calculateBackoff(item.originalAttempts || 0);
+
         await updateShot(item.shotId, {
           originalStatus: "queued",
           originalAttempts: (item.originalAttempts || 0) + 1,
