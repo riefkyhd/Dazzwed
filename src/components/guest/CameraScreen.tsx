@@ -204,6 +204,8 @@ export function CameraScreen({
   const [captureToast, setCaptureToast] = useState<string | null>(null);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isExecutingCaptureRef = useRef(false);
+  const captureSessionCounterRef = useRef<number>(0);
+  const activeSessionIdRef = useRef<number | null>(null);
 
   const showToast = useCallback((msg: string, duration = 3000) => {
     setCaptureToast(msg);
@@ -217,6 +219,8 @@ export function CameraScreen({
   const executeCapture = useCallback(async () => {
     if (shotsLeft <= 0 || isProcessing || !live || isExecutingCaptureRef.current) return;
     isExecutingCaptureRef.current = true;
+    const sessionId = ++captureSessionCounterRef.current;
+    activeSessionIdRef.current = sessionId;
 
     // Start high-precision shutter timing t0
     diagnostics.startShutterMark();
@@ -233,6 +237,12 @@ export function CameraScreen({
         undefined,
         isMirrored,
         (fastPreview) => {
+          if (activeSessionIdRef.current !== sessionId) {
+            if (fastPreview instanceof ImageBitmap) {
+              try { fastPreview.close(); } catch {}
+            }
+            return;
+          }
           if (fastPreview instanceof ImageBitmap) {
             setActiveReview({
               previewBitmap: fastPreview,
@@ -263,15 +273,14 @@ export function CameraScreen({
       // Background listener for archival resolution completion
       capturePromise
         .then(({ filteredBlob, originalBlob }) => {
+          if (activeSessionIdRef.current !== sessionId) {
+            // Dismissed by user clicking Retake
+            return;
+          }
           if (filteredBlob && filteredBlob.size > 0) {
             setActiveReview((prev) => {
-              if (!prev) {
-                return {
-                  previewBitmap: null,
-                  blobsPromise: capturePromise,
-                  filteredBlob,
-                  originalBlob,
-                };
+              if (!prev || activeSessionIdRef.current !== sessionId) {
+                return null;
               }
               return {
                 ...prev,
@@ -355,6 +364,7 @@ export function CameraScreen({
   }, [activeReview, unfreezeViewfinder, onShotCaptured, showToast, lang]);
 
   const handleRetakePhoto = useCallback(() => {
+    activeSessionIdRef.current = null;
     unfreezeViewfinder();
     if (activeReview?.abortCapture) {
       activeReview.abortCapture();
@@ -482,22 +492,6 @@ export function CameraScreen({
         {/* Retro 4 Corner Brackets (always inside viewfinder, hidden in full-bleed 16:9) */}
         <ViewfinderFrame visible={mode === "banded"} />
 
-        {/* Floating Lens Zoom Toggle inside Live Camera View (Smartphone Camera style) */}
-        {facing === "environment" && (
-          <div className="absolute bottom-4 sm:bottom-5 left-1/2 -translate-x-1/2 z-20 pointer-events-auto">
-            <LensBar
-              lenses={lenses}
-              activeId={activeId}
-              zoomRange={zoomRange}
-              currentZoom={zoom}
-              digitalZoom={digitalZoom}
-              onSelectLens={chooseLens}
-              onSetZoom={setZoom}
-              onSetDigitalZoom={setDigitalZoom}
-            />
-          </div>
-        )}
-
         {/* Starting Spinner (initial entry only, silent seamless switch on flip) */}
         {!hasInitialized && starting && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs text-white">
@@ -508,6 +502,29 @@ export function CameraScreen({
           </div>
         )}
       </div>
+
+      {/* Floating Lens Zoom Toggle anchored consistently above bottom control bar across all aspect ratios */}
+      {facing === "environment" && (
+        <div
+          style={{
+            bottom: isLandscape ? "16px" : `calc(${layout.bottomBarHeight}px + 14px)`,
+            left: isLandscape ? `calc((100% - ${layout.bottomBarHeight}px) / 2)` : "50%",
+            transform: "translateX(-50%)",
+          }}
+          className="absolute z-20 pointer-events-auto transition-[bottom,left] duration-250 ease-out"
+        >
+          <LensBar
+            lenses={lenses}
+            activeId={activeId}
+            zoomRange={zoomRange}
+            currentZoom={zoom}
+            digitalZoom={digitalZoom}
+            onSelectLens={chooseLens}
+            onSetZoom={setZoom}
+            onSetDigitalZoom={setDigitalZoom}
+          />
+        </div>
+      )}
 
       {/* PORTRAIT LAYOUT */}
       {!isLandscape && (

@@ -350,18 +350,15 @@ export function ViewfinderGestures({
       onLostPointerCapture={handlePointerEnd}
       className="absolute inset-0 z-10 touch-none pointer-events-auto select-none"
     >
-      {/* Rule of Thirds Grid Overlay */}
+      {/* Rule of Thirds Grid Overlay - Strict internal lines only (no perimeter bleed) */}
       {showGrid && (
-        <div className="absolute inset-0 pointer-events-none grid grid-cols-3 grid-rows-3 opacity-25">
-          <div className="border-r border-b border-white" />
-          <div className="border-r border-b border-white" />
-          <div className="border-b border-white" />
-          <div className="border-r border-b border-white" />
-          <div className="border-r border-b border-white" />
-          <div className="border-b border-white" />
-          <div className="border-r border-b border-white" />
-          <div className="border-r border-b border-white" />
-          <div />
+        <div className="absolute inset-0 pointer-events-none opacity-25">
+          {/* Vertical dividers */}
+          <div className="absolute top-0 bottom-0 left-1/3 w-[1px] bg-white" />
+          <div className="absolute top-0 bottom-0 left-2/3 w-[1px] bg-white" />
+          {/* Horizontal dividers */}
+          <div className="absolute left-0 right-0 top-1/3 h-[1px] bg-white" />
+          <div className="absolute left-0 right-0 top-2/3 h-[1px] bg-white" />
         </div>
       )}
 

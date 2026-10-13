@@ -938,32 +938,32 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           // 1. Freeze viewfinder immediately
           isFrozenRef.current = true;
 
-          // 2. Instant preview bitmap directly from the live WebGL canvas (< 1ms on mobile)
-          if (c && onPreviewReady) {
-            try {
-              const previewBmp = await createImageBitmap(c);
-              diagnostics.recordMark("t3");
-              onPreviewReady(previewBmp);
-            } catch (e) {
-              console.warn("Instant preview bitmap grab failed:", e);
-            }
+          // 2. Dual snapshot at exact same instant t=0 (instant preview bitmap and archival frame source)
+          let previewBmp: ImageBitmap | null = null;
+          try {
+            const [bmpC, bmpV] = await Promise.all([
+              c ? createImageBitmap(c).catch(() => null) : Promise.resolve(null),
+              typeof createImageBitmap === "function" ? createImageBitmap(v).catch(() => null) : Promise.resolve(null),
+            ]);
+            previewBmp = bmpC;
+            if (bmpV) frozenSource = bmpV;
+          } catch (e) {
+            console.warn("Dual capture snapshot failed:", e);
           }
+
+          if (previewBmp && onPreviewReady) {
+            diagnostics.recordMark("t3");
+            onPreviewReady(previewBmp);
+          }
+
+          diagnostics.recordMark("t2");
 
           // 3. Yield to main thread so ReviewModal mounts, paints, and records t4 (< 100ms budget)
-          await new Promise((r) => setTimeout(r, 80));
+          await new Promise((r) => setTimeout(r, 60));
           if (abortCtrl.signal.aborted) {
+            if (frozenSource instanceof ImageBitmap) frozenSource.close();
             throw new DOMException("Capture aborted", "AbortError");
           }
-
-          // 4. Raw frame snapshot from running stream for background 2560px archival rendering
-          try {
-            if (typeof createImageBitmap === "function") {
-              frozenSource = await createImageBitmap(v);
-            }
-          } catch {
-            frozenSource = v;
-          }
-          diagnostics.recordMark("t2");
         } else {
           // --- Flash Illuminated Capture Pipeline (~260ms exposure adaptation) ---
           let previewBmp: ImageBitmap | null = null;
@@ -974,19 +974,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               track,
               async () => {
                 try {
-                  if (typeof createImageBitmap === "function") {
-                    frozenSource = await createImageBitmap(v);
-                  }
+                  const [bmpC, bmpV] = await Promise.all([
+                    c ? createImageBitmap(c).catch(() => null) : Promise.resolve(null),
+                    typeof createImageBitmap === "function" ? createImageBitmap(v).catch(() => null) : Promise.resolve(null),
+                  ]);
+                  previewBmp = bmpC;
+                  if (bmpV) frozenSource = bmpV;
                 } catch {
                   frozenSource = v;
-                }
-
-                if (c) {
-                  try {
-                    previewBmp = await createImageBitmap(c);
-                  } catch (e) {
-                    console.warn("Illuminated canvas preview grab failed:", e);
-                  }
                 }
               },
               { maxStabilizeMs: 260 }
@@ -996,21 +991,15 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             callbacks?.onScreenFlash?.(true);
             try {
               await new Promise((r) => setTimeout(r, 260));
-
               try {
-                if (typeof createImageBitmap === "function") {
-                  frozenSource = await createImageBitmap(v);
-                }
+                const [bmpC, bmpV] = await Promise.all([
+                  c ? createImageBitmap(c).catch(() => null) : Promise.resolve(null),
+                  typeof createImageBitmap === "function" ? createImageBitmap(v).catch(() => null) : Promise.resolve(null),
+                ]);
+                previewBmp = bmpC;
+                if (bmpV) frozenSource = bmpV;
               } catch {
                 frozenSource = v;
-              }
-
-              if (c) {
-                try {
-                  previewBmp = await createImageBitmap(c);
-                } catch (e) {
-                  console.warn("Screen flash canvas preview grab failed:", e);
-                }
               }
             } finally {
               callbacks?.onScreenFlash?.(false);
