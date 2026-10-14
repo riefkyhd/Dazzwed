@@ -195,6 +195,14 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     if (status !== "open" || typeof window === "undefined") return;
 
     const resolveSession = async () => {
+      // 0. Check if URL has ?reset=1 to clear session and show landing
+      if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("reset")) {
+        await clearSessionTriple(event.slug);
+        setGuestId(null);
+        setScreen("landing");
+        return;
+      }
+
       // 1. Check if URL has ?restore=CODE
       if (initialRestoreCode) {
         const norm = normalizeRollCode(initialRestoreCode);
