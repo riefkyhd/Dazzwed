@@ -57,8 +57,8 @@ export function calculateLayout(
     targetRatio = isLandscape ? 4 / 3 : 3 / 4;
   }
 
-  // Slim unified top bar height (52px)
-  const topBarH = 52 + safeArea.top;
+  // Slim unified top bar height with comfortable breathing room (68px + safeArea.top)
+  const topBarH = 68 + safeArea.top;
 
   if (isLandscape) {
     // Landscape Mode: Side rail layout (rail on the right, 96px width)
@@ -93,19 +93,47 @@ export function calculateLayout(
   }
 
   // Portrait Mode:
-  const isFullBleed = aspect === "16:9";
+  // 1. Calculate the master 3:4 baseline frame first.
+  // All button positions (Top Bar, Zoom Toggle, LookDial, Shutter) remain strictly locked to this 3:4 baseline.
+  const minBottomReserved = 120 + safeArea.bottom;
+  const maxAllowed34H = Math.max(200, vh - topBarH - minBottomReserved);
 
-  if (isFullBleed) {
-    // Full-bleed mode: viewfinder fills portrait width (9:16)
-    let vfW = availW;
-    let vfH = Math.round(vfW / targetRatio);
+  let baselineVfW = availW;
+  let baselineVfH = Math.round(baselineVfW / (3 / 4));
+
+  if (baselineVfH > maxAllowed34H) {
+    baselineVfH = maxAllowed34H;
+    baselineVfW = Math.round(baselineVfH * (3 / 4));
+  }
+
+  const top34 = topBarH;
+  const bottomBarH = Math.max(0, vh - (top34 + baselineVfH));
+  const centerY = top34 + baselineVfH / 2;
+  const centerX = safeArea.left + availW / 2;
+
+  // Density ladder based on baseline bottom space
+  let density: DensityLevel = "L0";
+  if (bottomBarH < 130) {
+    density = "L2";
+  } else if (bottomBarH < 180) {
+    density = "L1";
+  }
+
+  // 2. Aspect Ratio Geometry centered around (centerX, centerY)
+  if (aspect === "16:9") {
+    // 16:9 full-bleed mode: scales vertically centered around centerY
+    let vfW = baselineVfW;
+    let vfH = Math.round(vfW / (9 / 16));
 
     if (vfH > vh) {
       vfH = vh;
-      vfW = Math.round(vfH * targetRatio);
+      vfW = Math.round(vfH * (9 / 16));
     }
 
-    const top = Math.round((vh - vfH) / 2);
+    let top = Math.round(centerY - vfH / 2);
+    if (top < 0) top = 0;
+    if (top + vfH > vh) top = vh - vfH;
+
     const left = safeArea.left + Math.round((availW - vfW) / 2);
 
     return {
@@ -114,48 +142,70 @@ export function calculateLayout(
       isLandscape: false,
       safeArea,
       mode: "full-bleed",
-      density: "L1",
+      density,
       viewfinderRect: {
         width: vfW,
         height: vfH,
-        top: Math.max(0, top),
+        top,
         left: Math.max(0, left),
       },
       topBarHeight: topBarH,
-      bottomBarHeight: Math.max(140, vh - (top + vfH)),
+      bottomBarHeight: bottomBarH,
     };
   }
 
-  // Banded mode: Top and bottom solid black bars framing the central viewfinder.
-  // Viewfinder placed directly below the 52px top bar.
-  // Reserve minimum bottom bar space (100px) so viewfinder does not exceed viewport height on tablets
-  const minBottomReserved = 100 + safeArea.bottom;
-  const maxAllowedH = availH - 52 - minBottomReserved;
+  if (aspect === "1:1") {
+    // 1:1 mode: square centered symmetrically around centerY (not pulled to the top)
+    const vfW = baselineVfW;
+    const vfH = vfW;
+    const top = Math.round(centerY - vfH / 2);
+    const left = safeArea.left + Math.round((availW - vfW) / 2);
 
-  let vfW = availW;
-  let vfH = Math.round(vfW / targetRatio);
-
-  if (vfH > maxAllowedH) {
-    vfH = maxAllowedH;
-    vfW = Math.round(vfH * targetRatio);
+    return {
+      width: vw,
+      height: vh,
+      isLandscape: false,
+      safeArea,
+      mode: "banded",
+      density,
+      viewfinderRect: {
+        width: vfW,
+        height: vfH,
+        top,
+        left: Math.max(0, left),
+      },
+      topBarHeight: topBarH,
+      bottomBarHeight: bottomBarH,
+    };
   }
 
-  // Check remaining bottom space for density ladder
-  // L0: >= 180px bottom space (all controls in bottom band)
-  // L1: 130px - 179px bottom space (lens chips float over lower ~8% of viewfinder)
-  // L2: < 130px bottom space (look selector collapses into drawer button)
-  const availableBottomH = vh - topBarH - vfH;
+  if (aspect === "3:2") {
+    // 3:2 mode: centered around centerY
+    const vfW = baselineVfW;
+    const vfH = Math.round(vfW / (2 / 3));
+    const top = Math.round(centerY - vfH / 2);
+    const left = safeArea.left + Math.round((availW - vfW) / 2);
 
-  let density: DensityLevel = "L0";
-  if (availableBottomH < 130) {
-    density = "L2";
-  } else if (availableBottomH < 180) {
-    density = "L1";
+    return {
+      width: vw,
+      height: vh,
+      isLandscape: false,
+      safeArea,
+      mode: "banded",
+      density,
+      viewfinderRect: {
+        width: vfW,
+        height: vfH,
+        top,
+        left: Math.max(0, left),
+      },
+      topBarHeight: topBarH,
+      bottomBarHeight: bottomBarH,
+    };
   }
 
-  const top = topBarH;
-  const left = safeArea.left + Math.round((availW - vfW) / 2);
-  const bottomBarH = Math.max(0, vh - (top + vfH));
+  // 3:4 default baseline
+  const left = safeArea.left + Math.round((availW - baselineVfW) / 2);
 
   return {
     width: vw,
@@ -165,9 +215,9 @@ export function calculateLayout(
     mode: "banded",
     density,
     viewfinderRect: {
-      width: vfW,
-      height: vfH,
-      top,
+      width: baselineVfW,
+      height: baselineVfH,
+      top: top34,
       left: Math.max(0, left),
     },
     topBarHeight: topBarH,

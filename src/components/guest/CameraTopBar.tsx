@@ -64,7 +64,7 @@ export function CameraTopBar({
   };
 
   return (
-    <div className="w-full h-13 min-h-[52px] max-h-[52px] flex items-center justify-between px-3 select-none touch-manipulation z-30 pointer-events-auto">
+    <div className="w-full h-full min-h-[52px] flex items-center justify-between px-3 select-none touch-manipulation z-30 pointer-events-auto">
       {/* 1. Flash Mode Button (Icon + small badge, >= 48x48 hit target) */}
       <button
         type="button"

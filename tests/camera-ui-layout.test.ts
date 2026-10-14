@@ -97,4 +97,41 @@ describe("Camera Viewport Layout Engine", () => {
     const layout = calculateLayout(390, 844, "3:4", { top: 47, bottom: 34, left: 0, right: 0 });
     expect(layout.mode).toBe("banded");
   });
+
+  it("locks topBarHeight and bottomBarHeight to 3:4 baseline across 1:1 and 16:9", () => {
+    for (const vp of viewports.filter((v) => v.w < v.h)) {
+      const l34 = calculateLayout(vp.w, vp.h, "3:4", vp.safe);
+      const l11 = calculateLayout(vp.w, vp.h, "1:1", vp.safe);
+      const l169 = calculateLayout(vp.w, vp.h, "16:9", vp.safe);
+
+      // Top bar height must be identical across all aspect ratios
+      expect(l11.topBarHeight).toBe(l34.topBarHeight);
+      expect(l169.topBarHeight).toBe(l34.topBarHeight);
+
+      // Bottom bar height must be identical across all aspect ratios
+      expect(l11.bottomBarHeight).toBe(l34.bottomBarHeight);
+      expect(l169.bottomBarHeight).toBe(l34.bottomBarHeight);
+    }
+  });
+
+  it("aligns aspect ratios around the shared optical center (1:1 is centered, not pinned to top)", () => {
+    for (const vp of viewports.filter((v) => v.w < v.h)) {
+      const l34 = calculateLayout(vp.w, vp.h, "3:4", vp.safe);
+      const l11 = calculateLayout(vp.w, vp.h, "1:1", vp.safe);
+
+      const center34 = l34.viewfinderRect.top + l34.viewfinderRect.height / 2;
+      const center11 = l11.viewfinderRect.top + l11.viewfinderRect.height / 2;
+
+      // Vertical center must match within 1px rounding
+      expect(Math.abs(center11 - center34)).toBeLessThanOrEqual(1);
+
+      // 1:1 top must be strictly below 3:4 top (meaning it is pushed down toward the center)
+      expect(l11.viewfinderRect.top).toBeGreaterThan(l34.viewfinderRect.top);
+    }
+  });
+
+  it("provides generous breathing room in top bar (>= 68px)", () => {
+    const layout = calculateLayout(390, 844, "3:4", { top: 47, bottom: 34, left: 0, right: 0 });
+    expect(layout.topBarHeight).toBeGreaterThanOrEqual(68 + 47);
+  });
 });
