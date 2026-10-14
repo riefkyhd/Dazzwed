@@ -694,10 +694,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             const longEdge = config ? config.previewLongEdge : 1280;
             const vw = v.videoWidth;
             const vh = v.videoHeight;
-            const targetAspect = cameraAspectRef.current || "3:4";
+            // Native sensor baseline: 3:4 in portrait or 4:3 in landscape
+            const isLandscape = vw > vh;
+            const previewBaselineAspect: CameraAspect = isLandscape ? "4:3" : "3:4";
             const effectiveDigitalZoom = Math.max(1, digitalZoomRef.current);
 
-            const targetCrop = cropForAspectAndZoom(vw, vh, targetAspect, effectiveDigitalZoom);
+            const targetCrop = cropForAspectAndZoom(vw, vh, previewBaselineAspect, effectiveDigitalZoom);
             const out = fitLongestEdge(targetCrop.sw, targetCrop.sh, longEdge);
 
             // Keep canvas backing buffer smooth; only change if long edge tier changed

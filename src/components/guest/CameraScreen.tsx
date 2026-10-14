@@ -481,14 +481,22 @@ export function CameraScreen({
           left: `${viewfinderRect.left}px`,
           width: `${viewfinderRect.width}px`,
           height: `${viewfinderRect.height}px`,
+          transition: "width 380ms cubic-bezier(0.32, 0.72, 0, 1), height 380ms cubic-bezier(0.32, 0.72, 0, 1), top 380ms cubic-bezier(0.32, 0.72, 0, 1), left 380ms cubic-bezier(0.32, 0.72, 0, 1)",
+          willChange: "width, height, top, left",
         }}
-        className="overflow-hidden bg-black flex items-center justify-center rounded-sm shadow-2xl transition-[width,height,top,left] duration-250 ease-out z-0"
+        className="overflow-hidden bg-black flex items-center justify-center rounded-sm shadow-2xl z-0"
       >
-        {/* WebGL Canvas */}
+        {/* WebGL Canvas with persistent baseline dimensions and Apple spring scale */}
         <canvas
           ref={canvasRef}
-          style={{ transform: "translateZ(0)", willChange: "transform" }}
-          className={`w-full h-full object-cover pointer-events-none transform-gpu ${
+          style={{
+            width: `${layout.baselineRect.width}px`,
+            height: `${layout.baselineRect.height}px`,
+            transform: `scale(${cameraAspect === "16:9" ? 1.3333 : 1.0}) translateZ(0)`,
+            transition: "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)",
+            willChange: "transform",
+          }}
+          className={`pointer-events-none transform-gpu flex-shrink-0 ${
             error || isYieldedToOtherTab ? "filter blur-md opacity-40 transition-all duration-300" : ""
           }`}
         />

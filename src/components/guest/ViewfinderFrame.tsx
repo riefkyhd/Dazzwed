@@ -13,11 +13,11 @@ interface ViewfinderFrameProps {
  * Hidden in full-bleed 16:9 mode and during aspect animation.
  */
 export function ViewfinderFrame({ visible = true }: ViewfinderFrameProps) {
-  if (!visible) return null;
-
   return (
     <div
-      className="absolute inset-0 pointer-events-none select-none z-10"
+      className={`absolute inset-0 pointer-events-none select-none z-10 transition-opacity duration-300 ease-out ${
+        visible ? "opacity-100" : "opacity-0"
+      }`}
       aria-hidden="true"
     >
       {/* Top-Left Corner Bracket */}

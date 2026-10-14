@@ -24,6 +24,12 @@ export interface ViewportLayout {
     top: number;
     left: number;
   };
+  baselineRect: {
+    width: number;
+    height: number;
+    top: number;
+    left: number;
+  };
   topBarHeight: number;
   bottomBarHeight: number;
 }
@@ -74,6 +80,13 @@ export function calculateLayout(
     const top = safeArea.top + Math.round((availH - vfH) / 2);
     const left = safeArea.left + Math.round((maxVfW - vfW) / 2);
 
+    const baselineRect = {
+      width: vfW,
+      height: vfH,
+      top: Math.max(0, top),
+      left: Math.max(0, left),
+    };
+
     return {
       width: vw,
       height: vh,
@@ -87,6 +100,7 @@ export function calculateLayout(
         top: Math.max(0, top),
         left: Math.max(0, left),
       },
+      baselineRect,
       topBarHeight: 0,
       bottomBarHeight: railWidth,
     };
@@ -110,6 +124,14 @@ export function calculateLayout(
   const bottomBarH = Math.max(0, vh - (top34 + baselineVfH));
   const centerY = top34 + baselineVfH / 2;
   const centerX = safeArea.left + availW / 2;
+
+  const baselineLeft = safeArea.left + Math.round((availW - baselineVfW) / 2);
+  const baselineRect = {
+    width: baselineVfW,
+    height: baselineVfH,
+    top: top34,
+    left: Math.max(0, baselineLeft),
+  };
 
   // Density ladder based on baseline bottom space
   let density: DensityLevel = "L0";
@@ -149,6 +171,7 @@ export function calculateLayout(
         top,
         left: Math.max(0, left),
       },
+      baselineRect,
       topBarHeight: topBarH,
       bottomBarHeight: bottomBarH,
     };
@@ -174,6 +197,7 @@ export function calculateLayout(
         top,
         left: Math.max(0, left),
       },
+      baselineRect,
       topBarHeight: topBarH,
       bottomBarHeight: bottomBarH,
     };
@@ -199,6 +223,7 @@ export function calculateLayout(
         top,
         left: Math.max(0, left),
       },
+      baselineRect,
       topBarHeight: topBarH,
       bottomBarHeight: bottomBarH,
     };
@@ -220,6 +245,7 @@ export function calculateLayout(
       top: top34,
       left: Math.max(0, left),
     },
+    baselineRect,
     topBarHeight: topBarH,
     bottomBarHeight: bottomBarH,
   };
