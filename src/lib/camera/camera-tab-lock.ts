@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Inter-tab Camera Lease Coordinator for Dazzwed.
+ * Inter-tab Camera Lease Coordinator for Unveiled.
  *
  * Coordinates physical camera sensor access across multiple browser tabs to prevent
  * hardware contention errors (NotReadableError / TrackStartError) on Android (Camera2)

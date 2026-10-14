@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Dazzwed",
-    short_name: "Dazzwed",
-    description: "Capture authentic wedding moments with analog film simulation.",
+    name: "Unveiled",
+    short_name: "Unveiled",
+    description: "Celebrate the couple, capture the vibe, unveil the memories.",
     start_url: "/",
     display: "standalone",
     background_color: "#0b0a09",

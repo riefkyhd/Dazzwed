@@ -1,7 +1,7 @@
 export type Lang = "en" | "id";
 
 const en = {
-  appName: "Dazzwed",
+  appName: "Unveiled",
   welcomeTo: "Welcome to the wedding of",
   howItWorks: "How it works",
   step1: "You get {n} shots. Make them count.",
@@ -78,7 +78,7 @@ export type Key = keyof typeof en;
 export type Dict = Record<Key, string>;
 
 const id: Dict = {
-  appName: "Dazzwed",
+  appName: "Unveiled",
   welcomeTo: "Selamat datang di pernikahan",
   howItWorks: "Cara kerjanya",
   step1: "Kamu punya {n} jepretan. Gunakan sebaik mungkin.",

@@ -29,10 +29,10 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link href="/admin" className="flex items-center gap-2.5 group">
             <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-lg overflow-hidden border border-amber-500/30 group-hover:scale-105 transition-transform shrink-0 bg-[#F9F6EE]">
-              <Image src="/icon-192.png" alt="Dazzwed" fill sizes="32px" className="object-contain p-0.5" />
+              <Image src="/icon-192.png" alt="Unveiled" fill sizes="32px" className="object-contain p-0.5" />
             </div>
             <span className="font-serif font-bold text-sm sm:text-base text-white tracking-tight">
-              Dazzwed
+              Unveiled
             </span>
           </Link>
           <span className="hidden sm:inline-block text-[10px] font-mono uppercase tracking-widest text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">

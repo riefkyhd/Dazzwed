@@ -7,8 +7,8 @@ const serif = Playfair_Display({ variable: "--font-serif-head", subsets: ["latin
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://dazzwed.vercel.app"),
-  title: "Dazzwed — Disposable Wedding Camera",
-  description: "Capture authentic wedding moments with analog film simulation.",
+  title: "Unveiled — Disposable Wedding Camera",
+  description: "Celebrate the couple, capture the vibe, unveil the memories.",
   robots: { index: false, follow: false },
   icons: {
     icon: [
@@ -22,9 +22,9 @@ export const metadata: Metadata = {
   },
   manifest: "/manifest.webmanifest",
   openGraph: {
-    title: "Dazzwed — Disposable Wedding Camera",
-    description: "Capture authentic wedding moments with analog film simulation.",
-    images: [{ url: "/logo.png", width: 1024, height: 1024, alt: "Dazzwed" }],
+    title: "Unveiled — Disposable Wedding Camera",
+    description: "Celebrate the couple, capture the vibe, unveil the memories.",
+    images: [{ url: "/logo.png", width: 1024, height: 1024, alt: "Unveiled" }],
   },
 };
 

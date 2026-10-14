@@ -44,9 +44,9 @@ export default function AdminLoginPage() {
         {/* Header */}
         <div className="text-center mb-8">
           <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-amber-500/30 mb-4 bg-[#F9F6EE] shadow-lg">
-            <Image src="/icon-192.png" alt="Dazzwed Logo" fill priority sizes="64px" className="object-contain p-1" />
+            <Image src="/icon-192.png" alt="Unveiled Logo" fill priority sizes="64px" className="object-contain p-1" />
           </div>
-          <h1 className="text-2xl font-serif font-bold text-white tracking-tight">Dazzwed</h1>
+          <h1 className="text-2xl font-serif font-bold text-white tracking-tight">Unveiled</h1>
           <p className="text-xs uppercase tracking-widest text-amber-400 font-mono mt-1">Admin Sign In</p>
         </div>
 
