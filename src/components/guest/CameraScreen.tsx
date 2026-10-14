@@ -150,6 +150,36 @@ export function CameraScreen({
     };
   }, []);
 
+  // Ensure scroll is at 0, 0 and suppress iOS Safari page zoom gestures while camera is active
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if ("scrollRestoration" in window.history) {
+        try {
+          window.history.scrollRestoration = "manual";
+        } catch {
+          /* ignore */
+        }
+      }
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+
+    const preventPageZoom = (e: Event) => {
+      e.preventDefault();
+    };
+
+    document.addEventListener("gesturestart", preventPageZoom, { passive: false });
+    document.addEventListener("gesturechange", preventPageZoom, { passive: false });
+    document.addEventListener("gestureend", preventPageZoom, { passive: false });
+
+    return () => {
+      document.removeEventListener("gesturestart", preventPageZoom);
+      document.removeEventListener("gesturechange", preventPageZoom);
+      document.removeEventListener("gestureend", preventPageZoom);
+    };
+  }, []);
+
   // Transient look selection with caption toast
   const handleSelectLook = useCallback(
     (look: Parameters<typeof setActiveLook>[0]) => {
@@ -406,7 +436,7 @@ export function CameraScreen({
   const { isLandscape, mode, viewfinderRect } = layout;
 
   return (
-    <div className="relative w-full h-dvh bg-black overflow-hidden select-none touch-manipulation flex flex-col justify-between">
+    <div className="fixed inset-0 w-full h-dvh bg-black overflow-hidden select-none touch-manipulation flex flex-col justify-between">
       {/* Warm-white front camera screen flash overlay */}
       <div
         className={`fixed inset-0 z-45 pointer-events-none transition-opacity duration-150 bg-[#fff9ea] ${

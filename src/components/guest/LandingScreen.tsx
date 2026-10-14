@@ -153,7 +153,7 @@ export function LandingScreen({
                 nameError
                   ? "border-rose-500 ring-1 ring-rose-500/40 focus:border-rose-400"
                   : "border-zinc-700/80 focus:border-accent"
-              } text-white placeholder-zinc-500 focus:outline-none text-sm transition-colors`}
+              } text-white placeholder-zinc-500 focus:outline-none text-base transition-colors`}
             />
           </div>
 

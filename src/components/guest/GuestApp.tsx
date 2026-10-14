@@ -300,6 +300,15 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     }
   }, [status, guestId, initGuest, screen]);
 
+  // Reset document scroll on screen change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }
+  }, [screen]);
+
   // Listen to visibility change (e.g. phone unlocked or browser tab brought to foreground)
   useEffect(() => {
     const onVisibilityChange = () => {
