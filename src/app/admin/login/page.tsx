@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 
 export default function AdminLoginPage() {
@@ -42,13 +43,10 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md bg-zinc-950/80 border border-zinc-800 rounded-3xl p-8 shadow-2xl backdrop-blur-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-              <path d="M12 9a3.75 3.75 0 1 0 0 7.5A3.75 3.75 0 0 0 12 9Z" />
-              <path fillRule="evenodd" d="M9.344 3.071a49.52 49.52 0 0 1 5.312 0c.967.052 1.83.585 2.332 1.413l.84 1.399a2.25 2.25 0 0 0 1.927 1.096c.725 0 1.433.072 2.115.213A2.25 2.25 0 0 1 24 9.378V18.75A2.25 2.25 0 0 1 21.75 21H2.25A2.25 2.25 0 0 1 0 18.75V9.378a2.25 2.25 0 0 1 2.126-2.19c.682-.14 1.39-.213 2.115-.213a2.25 2.25 0 0 0 1.927-1.096l.84-1.399A2.75 2.75 0 0 1 9.344 3.07ZM12 7.5a5.25 5.25 0 1 0 0 10.5 5.25 5.25 0 0 0 0-10.5Z" clipRule="evenodd" />
-            </svg>
+          <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-amber-500/30 mb-4 bg-[#F9F6EE] shadow-lg">
+            <Image src="/icon-192.png" alt="Dazzwed Logo" fill priority sizes="64px" className="object-contain p-1" />
           </div>
-          <h1 className="text-2xl font-serif font-bold text-white tracking-tight">Disposable Cam</h1>
+          <h1 className="text-2xl font-serif font-bold text-white tracking-tight">Dazzwed</h1>
           <p className="text-xs uppercase tracking-widest text-amber-400 font-mono mt-1">Admin Sign In</p>
         </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Image from "next/image";
 import { type Lang, t } from "@/lib/i18n";
 import { NativeCameraInput } from "./NativeCameraInput";
 import { RestoreRollModal } from "./RestoreRollModal";
@@ -79,8 +80,13 @@ export function LandingScreen({
 
       {/* Main Content */}
       <div className="flex flex-col items-center text-center my-auto py-6">
-        <div className="inline-block px-3 py-1 mb-4 rounded-full bg-accent/10 border border-accent/20 text-accent text-xs font-mono tracking-widest uppercase">
-          {t(lang, "appName")}
+        <div className="flex items-center gap-2 px-3.5 py-1.5 mb-4 rounded-full bg-surface border border-accent/25 shadow-sm">
+          <div className="relative w-4 h-4 rounded-full overflow-hidden bg-[#F9F6EE] border border-amber-500/30">
+            <Image src="/icon-192.png" alt="Dazzwed" fill sizes="16px" className="object-contain" />
+          </div>
+          <span className="text-accent text-xs font-serif font-bold tracking-wider uppercase">
+            {t(lang, "appName")}
+          </span>
         </div>
 
         <p className="text-sm font-sans tracking-wide text-zinc-400 uppercase mb-2">
