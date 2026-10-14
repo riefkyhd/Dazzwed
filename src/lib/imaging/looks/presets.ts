@@ -220,7 +220,7 @@ export const DISPOSABLE_400_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: true,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ff7700",
     glow: true,
     size: 0.028,
@@ -303,7 +303,7 @@ export const CCD_FLASH_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: true,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ffaa00",
     glow: false,
     size: 0.026,
@@ -621,7 +621,7 @@ export const CPM35_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: true,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ff8800",
     glow: true,
     size: 0.028,
@@ -721,7 +721,7 @@ export const TRI_X_400_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: true,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ff8800",
     glow: true,
     size: 0.028,
@@ -808,7 +808,7 @@ export const PORTRA_400_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: true,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ff8800",
     glow: true,
     size: 0.028,
@@ -892,7 +892,7 @@ export const CINESTILL_800T_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: true,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ff3311",
     glow: true,
     size: 0.028,
@@ -976,7 +976,7 @@ export const FUJI_ETERNA_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: false,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ffaa00",
     glow: true,
     size: 0.028,
@@ -1064,7 +1064,7 @@ export const ILFORD_HP5_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: true,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ffffff",
     glow: true,
     size: 0.028,
@@ -1148,7 +1148,7 @@ export const SUPER_8_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: true,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ff7700",
     glow: true,
     size: 0.030,
@@ -1232,7 +1232,7 @@ export const KODAK_EKTAR_LOOK: LookRecipe = {
   },
   dateStamp: {
     enabled: true,
-    format: "'YY MM DD",
+    format: "DD MM 'YY",
     color: "#ff9900",
     glow: true,
     size: 0.028,

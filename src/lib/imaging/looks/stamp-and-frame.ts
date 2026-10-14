@@ -98,7 +98,8 @@ export function drawDateStamp(
 
   let stampText = `${dd} ${mm} '${yy}`;
   if (look.dateStamp.format) {
-    stampText = look.dateStamp.format
+    const activeFormat = look.dateStamp.format === "'YY MM DD" ? "DD MM 'YY" : look.dateStamp.format;
+    stampText = activeFormat
       .replace(/'YY/g, `'${yy}`)
       .replace(/YYYY/g, String(date.getFullYear()))
       .replace(/YY/g, yy)

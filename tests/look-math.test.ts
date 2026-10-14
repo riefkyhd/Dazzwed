@@ -75,5 +75,14 @@ describe("Look Engine Math & Pure Functions", () => {
     const testDate = new Date(2026, 9, 14); // Oct 14, 2026
     drawDateStamp(mockCtx, 1000, 1000, look, testDate);
     expect(capturedText).toBe("14 10 '26");
+
+    // Also test legacy format mapping
+    const legacyLook = {
+      ...NEUTRAL_LOOK,
+      dateStamp: { enabled: true, format: "'YY MM DD", color: "#ff7700", glow: true },
+    };
+    drawDateStamp(mockCtx, 1000, 1000, legacyLook, testDate);
+    expect(capturedText).toBe("14 10 '26");
   });
 });
+
