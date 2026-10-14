@@ -80,13 +80,13 @@ export function LandingScreen({
 
       {/* Main Content */}
       <div className="flex flex-col items-center text-center my-auto py-6">
-        <div className="relative w-16 h-16 sm:w-20 sm:h-20 mb-3 drop-shadow-md">
+        <div className="relative w-24 h-24 sm:w-28 sm:h-28 mb-3 drop-shadow-md">
           <Image
-            src="/unveiled-emblem.png"
+            src="/unveiled-transparent.png"
             alt="Unveiled"
             fill
             priority
-            sizes="(max-width: 640px) 64px, 80px"
+            sizes="(max-width: 640px) 96px, 112px"
             className="object-contain"
           />
         </div>
