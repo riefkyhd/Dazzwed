@@ -23,6 +23,7 @@ import type { LookRecipe } from "@/lib/imaging/looks/types";
 import { CPM35_LOOK, getLookById } from "@/lib/imaging/looks/presets";
 import type { LookEnginePipeline } from "@/lib/imaging/looks/pipeline";
 import { diagnostics, redactDeviceId, type EnumeratedVideoInput } from "./diagnostics";
+import { getCameraCoordinator } from "./camera-tab-lock";
 import {
   AdaptivePerformanceController,
   resolveInitialPerfMode,
@@ -92,6 +93,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [reportedTrackSettings, setReportedTrackSettings] = useState<MediaTrackSettings | null>(null);
   const [error, setError] = useState<CameraErrorKind | null>(null);
+  const [isYieldedToOtherTab, setIsYieldedToOtherTab] = useState(false);
+  const isYieldedToOtherTabRef = useRef(false);
   const [starting, setStarting] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [measuredFps, setMeasuredFps] = useState<number>(30);
@@ -167,6 +170,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
   useEffect(() => {
     if (!enabled) return;
+    const coordinator = getCameraCoordinator();
     let cancelled = false;
     let muteTimer: ReturnType<typeof setTimeout> | undefined;
     let restartTimer: ReturnType<typeof setTimeout> | undefined;
@@ -206,6 +210,11 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         // Hardware daemon cooldown (AVFoundation / Camera2) to release camera sensor lock
         await new Promise((r) => setTimeout(r, 200));
       }
+
+      // Coordinate with any other tabs to claim camera exclusive lease
+      const coordinator = getCameraCoordinator();
+      await coordinator.claimCamera(180);
+      if (cancelled) return;
 
       try {
         // Enumerate devices if not yet known so we can directly pick the best lens
@@ -442,6 +451,9 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
         first = false;
         setError(null);
+        isYieldedToOtherTabRef.current = false;
+        setIsYieldedToOtherTab(false);
+        coordinator.notifyActive();
         diagnostics.logEvent("TRACK_ACQUIRED", `${settingsAfter.width}x${settingsAfter.height}`);
       } catch (e) {
         if (cancelled) return;
@@ -463,6 +475,21 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       }
     }
     runRef.current = () => run(true);
+
+    const unsubscribeCoordinator = coordinator.subscribe({
+      onClaim: (requesterTabId: string) => {
+        if (streamRef.current) {
+          diagnostics.logEvent("CROSS_TAB_YIELD", `Yielding camera sensor to tab ${requesterTabId}`);
+          stopStream(streamRef.current);
+          streamRef.current = null;
+          setStream(null);
+          isYieldedToOtherTabRef.current = true;
+          setIsYieldedToOtherTab(true);
+          coordinator.notifyYielded(requesterTabId);
+        }
+      },
+    });
+
     void run(!first);
 
     let suspendTimer: ReturnType<typeof setTimeout> | null = null;
@@ -472,13 +499,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       if (document.visibilityState === "hidden") {
         diagnostics.logEvent("VISIBILITY_CHANGE", "hidden");
         if (suspendTimer) clearTimeout(suspendTimer);
-        // Stop tracks after 45s hidden to preserve battery and privacy
+        // Fast background suspend (2.5 seconds) so other tabs or apps aren't blocked
         suspendTimer = setTimeout(() => {
-          diagnostics.logEvent("TRACKS_SUSPENDED", "45s background timeout");
+          diagnostics.logEvent("TRACKS_SUSPENDED", "2.5s background timeout");
           stopStream(streamRef.current);
           streamRef.current = null;
           setStream(null);
-        }, 45000);
+          coordinator.notifyReleased();
+        }, 2500);
       } else if (document.visibilityState === "visible") {
         diagnostics.logEvent("VISIBILITY_CHANGE", "visible");
         if (suspendTimer) {
@@ -486,8 +514,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           suspendTimer = null;
         }
         const t = streamRef.current?.getVideoTracks()[0];
-        if (!t || t.readyState !== "live" || t.muted) {
-          diagnostics.logEvent("REACQUIRE_STREAM", "silent resume");
+        if (!t || t.readyState !== "live" || t.muted || isYieldedToOtherTabRef.current) {
+          diagnostics.logEvent("REACQUIRE_STREAM", "silent resume / reclaim lease");
+          isYieldedToOtherTabRef.current = false;
+          setIsYieldedToOtherTab(false);
           scheduleRestart(0);
         }
       }
@@ -497,7 +527,9 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       if (cancelled) return;
       diagnostics.logEvent("RESUME_EVENT", evt.type);
       const t = streamRef.current?.getVideoTracks()[0];
-      if (!t || t.readyState !== "live" || t.muted) {
+      if (!t || t.readyState !== "live" || t.muted || isYieldedToOtherTabRef.current) {
+        isYieldedToOtherTabRef.current = false;
+        setIsYieldedToOtherTab(false);
         scheduleRestart(0);
       }
     };
@@ -524,6 +556,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
     return () => {
       cancelled = true;
+      unsubscribeCoordinator();
+      coordinator.notifyReleased();
       if (suspendTimer) clearTimeout(suspendTimer);
       clearTimeout(muteTimer);
       clearTimeout(restartTimer);
@@ -1092,13 +1126,24 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       [digitalZoom, cameraAspect, activeLook, flashMode, facing, mirrorFront]
     );
 
+  const takeOverCamera = useCallback(async () => {
+    setError(null);
+    isYieldedToOtherTabRef.current = false;
+    setIsYieldedToOtherTab(false);
+    const coordinator = getCameraCoordinator();
+    await coordinator.claimCamera(250);
+    await runRef.current();
+  }, []);
+
   return {
     videoRef,
     canvasRef,
-    live: !!stream && !error,
+    live: !!stream && !error && !isYieldedToOtherTab,
     stream,
     trackSettings: reportedTrackSettings ?? stream?.getVideoTracks()[0]?.getSettings() ?? null,
     error,
+    isYieldedToOtherTab,
+    takeOverCamera,
     starting,
     restarting,
     measuredFps,

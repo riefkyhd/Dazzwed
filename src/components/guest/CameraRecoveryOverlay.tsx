@@ -10,6 +10,7 @@ interface CameraRecoveryOverlayProps {
   eventSlug: string;
   lang: Lang;
   onRetry: () => void;
+  onTakeOverCamera?: () => void;
   onNativePhoto: (file: File, quickThumb?: string) => void;
 }
 
@@ -18,6 +19,7 @@ export function CameraRecoveryOverlay({
   eventSlug,
   lang,
   onRetry,
+  onTakeOverCamera,
   onNativePhoto,
 }: CameraRecoveryOverlayProps) {
   const isIos = useMemo(() => {
@@ -112,7 +114,7 @@ export function CameraRecoveryOverlay({
           </>
         )}
 
-        {/* In-Use (Another camera app holding the hardware) */}
+        {/* In-Use (Another camera app or tab holding the hardware) */}
         {error === "in-use" && (
           <>
             <div className="w-14 h-14 rounded-2xl bg-amber-950/40 border border-amber-800/60 text-amber-400 flex items-center justify-center">
@@ -121,25 +123,44 @@ export function CameraRecoveryOverlay({
               </svg>
             </div>
             <div>
-              <h3 className="font-serif text-base text-zinc-200 font-semibold">Camera is Busy</h3>
+              <h3 className="font-serif text-base text-zinc-200 font-semibold">{t(lang, "errInUseTitle")}</h3>
               <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                Another app may be using the camera. Please switch back from other camera apps and retry.
+                {t(lang, "errInUseBody")}
               </p>
             </div>
             <div className="w-full space-y-2">
-              <button
-                type="button"
-                onClick={onRetry}
-                className="w-full py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold active:scale-95 cursor-pointer"
-              >
-                {t(lang, "retry")}
-              </button>
+              {onTakeOverCamera ? (
+                <button
+                  type="button"
+                  onClick={onTakeOverCamera}
+                  className="w-full py-3 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-black text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-md"
+                >
+                  {t(lang, "takeOverCamera")}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="w-full py-3 px-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold active:scale-95 cursor-pointer"
+                >
+                  {t(lang, "retry")}
+                </button>
+              )}
               <NativeCameraInput
                 eventSlug={eventSlug}
                 onFileSelected={onNativePhoto}
                 lang={lang}
                 variant="button"
               />
+              {onTakeOverCamera && (
+                <button
+                  type="button"
+                  onClick={onRetry}
+                  className="w-full py-1.5 px-3 text-[11px] text-zinc-400 hover:text-zinc-200 transition-colors"
+                >
+                  {t(lang, "retry")}
+                </button>
+              )}
             </div>
           </>
         )}

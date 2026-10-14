@@ -67,6 +67,8 @@ export function CameraScreen({
     trackSettings,
     measuredFps,
     error,
+    isYieldedToOtherTab,
+    takeOverCamera,
     starting,
     restarting,
     facing,
@@ -487,7 +489,7 @@ export function CameraScreen({
           ref={canvasRef}
           style={{ transform: "translateZ(0)", willChange: "transform" }}
           className={`w-full h-full object-cover pointer-events-none transform-gpu ${
-            error ? "filter blur-md opacity-40 transition-all duration-300" : ""
+            error || isYieldedToOtherTab ? "filter blur-md opacity-40 transition-all duration-300" : ""
           }`}
         />
 
@@ -498,8 +500,38 @@ export function CameraScreen({
             eventSlug={eventSlug}
             lang={lang}
             onRetry={retry}
+            onTakeOverCamera={takeOverCamera}
             onNativePhoto={onNativePhoto}
           />
+        )}
+
+        {/* Multi-Tab Inactive / Yielded State (calm, non-error status) */}
+        {isYieldedToOtherTab && !error && (
+          <div
+            role="status"
+            className="absolute inset-0 z-30 flex flex-col items-center justify-center p-6 text-center bg-black/80 backdrop-blur-md animate-in fade-in"
+          >
+            <div className="w-full max-w-xs flex flex-col items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center shadow-lg">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 0 1-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 0 1 1.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 0 0-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 0 1-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 0 0-3.375-3.375h-1.5a1.125 1.125 0 0 1-1.125-1.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H9.75" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-serif text-base text-zinc-200 font-semibold">{t(lang, "cameraInOtherTabTitle")}</h3>
+                <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
+                  {t(lang, "cameraInOtherTabBody")}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={takeOverCamera}
+                className="w-full py-3 px-4 rounded-xl bg-amber-400 hover:bg-amber-300 active:bg-amber-500 text-black text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-md"
+              >
+                {t(lang, "useCameraHere")}
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Viewfinder Gestures & Overlays (Focus Ring, Grid, Level, Exposure, Pinch-Zoom) */}
