@@ -3,15 +3,19 @@ import { z } from "zod";
 import { getEventBySlug } from "@/lib/event-server";
 import { eventStatus } from "@/lib/event";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, hashClientIp } from "@/lib/rate-limit";
 import { computeRollCodeFromGuestId } from "@/lib/guest/session";
+import { CONSENT_VERSION } from "@/constants/consentCopy";
 
 export const dynamic = "force-dynamic";
 
 const body = z.object({
   eventSlug: z.string().min(2).max(63),
-  name: z.string().max(200).nullish(),
+  name: z.string().max(60).nullish(),
   guestId: z.uuid().nullish(),
+  consentVersion: z.string(),
+  consentAlbum: z.boolean(),
+  consentTelemetry: z.boolean().optional().default(false),
 });
 
 const cookieName = (slug: string) => `dc_g_${slug}`;
@@ -21,13 +25,14 @@ const clean = (s?: string | null) => {
 };
 
 /**
- * Create or resume an anonymous guest. The guest id is also kept in an httpOnly cookie, so
- * clearing localStorage alone resumes the same guest (and the same shot quota) rather than a fresh one.
+ * Create or resume an anonymous guest with explicit Indonesia UU PDP consent.
+ * Guest name is optional. Consent is strictly enforced.
  */
 export async function POST(req: Request) {
   const ip = getClientIp(req);
+  const hashedIp = hashClientIp(ip);
   // IP rate limit on guest creation (generous for shared wedding venue Wi-Fi: 60/min)
-  const ipLimit = await checkRateLimit(`guest_ip:${ip}`, 60, 60);
+  const ipLimit = await checkRateLimit(`guest_ip:${hashedIp}`, 60, 60);
   if (!ipLimit.allowed) {
     return NextResponse.json(
       { error: "Too many guest creation attempts, please wait" },
@@ -37,7 +42,16 @@ export async function POST(req: Request) {
 
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad_request" }, { status: 400 });
-  const { eventSlug, guestId: bodyGuestId } = parsed.data;
+  const { eventSlug, guestId: bodyGuestId, consentVersion, consentAlbum, consentTelemetry } = parsed.data;
+
+  // Strict consent check: must match current CONSENT_VERSION and consentAlbum must be true
+  if (consentVersion !== CONSENT_VERSION || !consentAlbum) {
+    return NextResponse.json(
+      { error: "Consent required to use camera and save photos", code: "CONSENT_REQUIRED" },
+      { status: 400 }
+    );
+  }
+
   const name = clean(parsed.data.name);
 
   const ev = await getEventBySlug(eventSlug);
@@ -57,7 +71,15 @@ export async function POST(req: Request) {
     ? (ev.theme as { sessionResetAt?: string | null }).sessionResetAt
     : null;
 
-  let guest: { id: string; display_name: string | null; created_at?: string } | null = null;
+  let guest: {
+    id: string;
+    display_name: string | null;
+    created_at?: string;
+    consent_version?: string;
+    consent_at?: string;
+    consent_telemetry?: boolean;
+  } | null = null;
+
   if (candidate) {
     const { data } = await sb
       .from("guests")
@@ -65,28 +87,67 @@ export async function POST(req: Request) {
       .eq("id", candidate)
       .eq("event_id", ev.id)
       .maybeSingle();
+
     const isExpired = !!(data && sessionResetAt && new Date(data.created_at) < new Date(sessionResetAt));
     if (data && !isExpired) {
       guest = data;
-      const patch: { last_seen_at: string; display_name?: string } = { last_seen_at: new Date().toISOString() };
-      if (name && (!data.display_name || data.display_name !== name)) {
-        patch.display_name = name;
+      const nowIso = new Date().toISOString();
+      const patchWithConsent: Record<string, unknown> = {
+        last_seen_at: nowIso,
+        consent_version: consentVersion,
+        consent_at: nowIso,
+        consent_telemetry: consentTelemetry,
+      };
+
+      if (name !== undefined) {
+        patchWithConsent.display_name = name;
         guest.display_name = name;
       }
-      await sb.from("guests").update(patch).eq("id", data.id);
+      guest.consent_version = consentVersion;
+      guest.consent_at = nowIso;
+      guest.consent_telemetry = consentTelemetry;
+
+      const updateRes = await sb.from("guests").update(patchWithConsent).eq("id", data.id);
+      if (updateRes.error && updateRes.error.message?.includes("schema cache")) {
+        const fallbackPatch: Record<string, unknown> = { last_seen_at: nowIso };
+        if (name !== undefined) fallbackPatch.display_name = name;
+        await sb.from("guests").update(fallbackPatch).eq("id", data.id);
+      }
     }
   }
+
   if (!guest) {
-    if (!name || name.trim().length === 0) {
-      return NextResponse.json({ error: "name_required" }, { status: 400 });
-    }
-    const { data, error } = await sb
+    const nowIso = new Date().toISOString();
+    const insertWithConsent: Record<string, unknown> = {
+      event_id: ev.id,
+      display_name: name || null,
+      consent_version: consentVersion,
+      consent_at: nowIso,
+      consent_telemetry: consentTelemetry,
+    };
+
+    let insertRes = await sb
       .from("guests")
-      .insert({ event_id: ev.id, display_name: name })
+      .insert(insertWithConsent)
       .select("id,display_name,created_at")
       .single();
-    if (error || !data) return NextResponse.json({ error: "server_error" }, { status: 500 });
-    guest = data;
+
+    if (insertRes.error && insertRes.error.message?.includes("schema cache")) {
+      insertRes = await sb
+        .from("guests")
+        .insert({
+          event_id: ev.id,
+          display_name: name || null,
+        })
+        .select("id,display_name,created_at")
+        .single();
+    }
+
+    if (insertRes.error || !insertRes.data) {
+      console.error("Insert guest error:", insertRes.error);
+      return NextResponse.json({ error: "server_error" }, { status: 500 });
+    }
+    guest = insertRes.data;
   }
 
   const { count } = await sb
@@ -104,7 +165,9 @@ export async function POST(req: Request) {
     shotsPerGuest: ev.shots_per_guest,
     shotsUsed: count ?? 0,
     sessionResetAt,
+    consentTelemetry: guest.consent_telemetry ?? false,
   });
+
   res.cookies.set(cookieName(eventSlug), guest.id, {
     httpOnly: true,
     sameSite: "lax",
@@ -112,5 +175,6 @@ export async function POST(req: Request) {
     maxAge: 60 * 60 * 24 * 90,
     path: "/",
   });
+
   return res;
 }

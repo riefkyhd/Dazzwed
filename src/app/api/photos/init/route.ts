@@ -6,10 +6,11 @@ import { generatePhotoFilename } from "@/lib/drive/upload";
 import { getEventBySlug } from "@/lib/event-server";
 import { eventStatus } from "@/lib/event";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp, verifyTurnstileToken } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, hashClientIp, verifyTurnstileToken } from "@/lib/rate-limit";
 import { getAdaptiveStorageGuard } from "@/lib/drive/health";
 import { computeRollCodeFromGuestId } from "@/lib/guest/session";
 import { verifyGuestSession } from "@/lib/api/verify-session";
+import { CONSENT_VERSION } from "@/constants/consentCopy";
 
 export const dynamic = "force-dynamic";
 
@@ -96,7 +97,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const ipLimit = await checkRateLimit(`ip:${ip}`, 300, 60);
+    const hashedIp = hashClientIp(ip);
+    const ipLimit = await checkRateLimit(`ip:${hashedIp}`, 300, 60);
     if (!ipLimit.allowed) {
       return NextResponse.json(
         { error: "Venue network upload limit reached. Retrying soon." },
@@ -126,14 +128,35 @@ export async function POST(req: Request) {
     }
 
     const sb = supabaseAdmin();
-    const { data: guest } = await sb
+    let guestQuery = await sb
       .from("guests")
-      .select("id, display_name")
+      .select("id, display_name, consent_version, consent_at")
       .eq("id", guestIdParsed.data)
       .eq("event_id", event.id)
       .maybeSingle();
 
+    if (guestQuery.error && guestQuery.error.message?.includes("schema cache")) {
+      guestQuery = await sb
+        .from("guests")
+        .select("id, display_name")
+        .eq("id", guestIdParsed.data)
+        .eq("event_id", event.id)
+        .maybeSingle();
+    }
+
+    const guest = guestQuery.data;
     if (!guest) return NextResponse.json({ error: "Guest not found" }, { status: 404 });
+
+    // Strict consent enforcement: reject if consent missing or outdated
+    const guestAny = guest as Record<string, unknown>;
+    if ("consent_version" in guestAny && guestAny.consent_version !== undefined) {
+      if (!guestAny.consent_at || guestAny.consent_version !== CONSENT_VERSION) {
+        return NextResponse.json(
+          { error: "Consent required or outdated", code: "CONSENT_REQUIRED" },
+          { status: 403 }
+        );
+      }
+    }
 
     // Initiate Google Drive Resumable Upload Session
     const { refreshToken } = await resolveDriveTokens();
@@ -203,8 +226,7 @@ export async function POST(req: Request) {
     }
 
     const rollCode = computeRollCodeFromGuestId(guest.id);
-    const guestLabel = guest.display_name?.trim() ? `${rollCode}_${guest.display_name.trim()}` : rollCode;
-    const baseFilename = generatePhotoFilename(guestLabel, shotsUsed);
+    const baseFilename = generatePhotoFilename(rollCode, shotsUsed);
     const filename = isOriginal ? baseFilename.replace(/\.jpg$/, "_original.jpg") : baseFilename;
 
     // Get origin for CORS

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getDriveClient, resolveDriveTokens } from "@/lib/drive/client";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { verifyGuestSession } from "@/lib/api/verify-session";
+import { checkRateLimit, getClientIp, hashClientIp } from "@/lib/rate-limit";
+import { CONSENT_VERSION } from "@/constants/consentCopy";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +31,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid shotId or driveFileId" }, { status: 400 });
     }
 
+    const ip = getClientIp(req);
+    const hashedIp = hashClientIp(ip);
+    const ipLimit = await checkRateLimit(`ip:${hashedIp}`, 120, 60);
+    if (!ipLimit.allowed) {
+      return NextResponse.json(
+        { error: "Too many confirm requests from this network" },
+        { status: 429, headers: { "Retry-After": String(ipLimit.retryAfter) } },
+      );
+    }
+
     let verifiedGuestId: string | null = null;
     if (guestId && eventSlug) {
       const guestIdParsed = z.uuid().safeParse(guestId);
@@ -42,6 +54,25 @@ export async function POST(req: Request) {
     }
 
     const sb = supabaseAdmin();
+
+    // Verify photo record and consent
+    const { data: photoRecord } = await sb
+      .from("photos")
+      .select("id, guest_id, guests(consent_version, consent_at)")
+      .eq("shot_id", shotIdParsed.data)
+      .maybeSingle();
+
+    if (!photoRecord) {
+      return NextResponse.json({ error: "Photo record not found" }, { status: 404 });
+    }
+
+    const guestConsent = Array.isArray(photoRecord.guests) ? photoRecord.guests[0] : photoRecord.guests;
+    if (!guestConsent?.consent_at || guestConsent.consent_version !== CONSENT_VERSION) {
+      return NextResponse.json(
+        { error: "Consent required or outdated", code: "CONSENT_REQUIRED" },
+        { status: 403 }
+      );
+    }
 
     // Verify file exists in Google Drive
     const { refreshToken } = await resolveDriveTokens();

@@ -23,6 +23,8 @@ interface CameraSettingsSheetProps {
   performanceMode?: PerformanceMode;
   onSelectPerformanceMode?: (mode: PerformanceMode) => void;
   qualityTier?: QualityTier;
+  onClearLocalData?: () => void;
+  onDeleteRoll?: () => Promise<void>;
 }
 
 export function CameraSettingsSheet({
@@ -42,8 +44,11 @@ export function CameraSettingsSheet({
   performanceMode = "auto",
   onSelectPerformanceMode,
   qualityTier = "A",
+  onClearLocalData,
+  onDeleteRoll,
 }: CameraSettingsSheetProps) {
   const [copied, setCopied] = useState(false);
+  const [deletingRoll, setDeletingRoll] = useState(false);
   const [rendered, setRendered] = useState(open);
   const [visible, setVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -175,6 +180,37 @@ export function CameraSettingsSheet({
       setTimeout(() => setCopied(false), 2500);
     } catch {
       /* ignore */
+    }
+  };
+
+  const handleClearLocal = () => {
+    triggerHaptic([20]);
+    const confirmMsg =
+      lang === "id"
+        ? "Apakah kamu yakin ingin menghapus data dan keluar di HP ini? Roll foto kamu tetap tersimpan di album kedua mempelai."
+        : "Are you sure you want to clear data on this phone? Your roll remains safely preserved in the album.";
+    if (window.confirm(confirmMsg)) {
+      handleDismiss();
+      onClearLocalData?.();
+    }
+  };
+
+  const handleDeleteRoll = async () => {
+    triggerHaptic([30, 50]);
+    const confirmMsg =
+      lang === "id"
+        ? "PERINGATAN: Tindakan ini akan menghapus PERMANEN seluruh foto kamu dari Google Drive dan album kedua mempelai. Tindakan ini tidak dapat dibatalkan.\n\nLanjutkan penghapusan permanen?"
+        : "WARNING: This will PERMANENTLY erase all your photos from Google Drive and the wedding album. This cannot be undone.\n\nProceed with permanent erasure?";
+    if (!window.confirm(confirmMsg)) return;
+
+    setDeletingRoll(true);
+    try {
+      if (onDeleteRoll) {
+        await onDeleteRoll();
+      }
+    } finally {
+      setDeletingRoll(false);
+      handleDismiss();
     }
   };
 
@@ -366,6 +402,52 @@ export function CameraSettingsSheet({
               </div>
             </div>
           )}
+
+          {/* Privacy & Data Management (Indonesia UU PDP) */}
+          <div className="pt-3 border-t border-zinc-800 space-y-2">
+            <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+              {lang === "id" ? "Privasi & Data (UU PDP)" : "Privacy & Data (UU PDP)"}
+            </div>
+
+            <div className="grid grid-cols-1 gap-2">
+              <button
+                type="button"
+                onClick={handleClearLocal}
+                className="w-full py-2.5 px-3 rounded-xl border border-zinc-800 bg-zinc-950/40 hover:bg-zinc-800/80 text-zinc-300 text-xs font-medium text-left flex items-center justify-between transition active:scale-[0.99] cursor-pointer"
+              >
+                <div>
+                  <div className="text-zinc-200 font-semibold">
+                    {lang === "id" ? "Hapus Data di HP Ini Saja" : "Clear Data on This Phone Only"}
+                  </div>
+                  <div className="text-[10px] text-zinc-500">
+                    {lang === "id"
+                      ? "Menghapus sesi & cache lokal di HP ini tanpa menghapus foto di album."
+                      : "Removes local session on this phone without deleting photos from the album."}
+                  </div>
+                </div>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleDeleteRoll}
+                disabled={deletingRoll}
+                className="w-full py-2.5 px-3 rounded-xl border border-rose-900/50 bg-rose-950/20 hover:bg-rose-900/40 text-rose-300 text-xs font-medium text-left flex items-center justify-between transition active:scale-[0.99] cursor-pointer disabled:opacity-50"
+              >
+                <div>
+                  <div className="text-rose-300 font-semibold">
+                    {deletingRoll
+                      ? (lang === "id" ? "Menghapus roll..." : "Deleting roll...")
+                      : (lang === "id" ? "Hapus Roll Saya (Cloud & HP)" : "Delete My Roll (Cloud & Phone)")}
+                  </div>
+                  <div className="text-[10px] text-rose-400/80">
+                    {lang === "id"
+                      ? "Hapus permanen seluruh foto kamu dari Google Drive, server, dan HP ini."
+                      : "Permanently erases all your photos from Google Drive, server, and this phone."}
+                  </div>
+                </div>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

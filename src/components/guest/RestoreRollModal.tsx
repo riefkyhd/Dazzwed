@@ -3,11 +3,15 @@
 import React, { useState } from "react";
 import { type Lang, t } from "@/lib/i18n";
 import { normalizeRollCode } from "@/lib/guest/session";
+import { saveLocalConsent } from "@/lib/guest/consent";
+import { CONSENT_COPY, CONSENT_VERSION } from "@/constants/consentCopy";
 
 interface RestoreRollModalProps {
   isOpen: boolean;
   eventSlug: string;
   lang: Lang;
+  initialConsentAlbum?: boolean;
+  initialConsentTelemetry?: boolean;
   onClose: () => void;
   onSuccess: (data: { guestId: string; name: string | null; rollCode: string; shotsLeft: number }) => void;
 }
@@ -16,15 +20,22 @@ export function RestoreRollModal({
   isOpen,
   eventSlug,
   lang,
+  initialConsentAlbum = false,
+  initialConsentTelemetry = false,
   onClose,
   onSuccess,
 }: RestoreRollModalProps) {
   const [code, setCode] = useState("");
+  const [consentAlbum, setConsentAlbum] = useState(initialConsentAlbum);
+  const [consentTelemetry, setConsentTelemetry] = useState(initialConsentTelemetry);
+  const [consentError, setConsentError] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [rendered, setRendered] = useState(isOpen);
   const [visible, setVisible] = useState(false);
+
+  const copy = CONSENT_COPY[lang];
 
   React.useEffect(() => {
     if (isOpen) {
@@ -59,14 +70,26 @@ export function RestoreRollModal({
       return;
     }
 
+    if (!consentAlbum) {
+      setConsentError(true);
+      return;
+    }
+
     setLoading(true);
     setError(null);
+    setConsentError(false);
 
     try {
       const res = await fetch("/api/guests/restore", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventSlug, rollCode: cleanCode }),
+        body: JSON.stringify({
+          eventSlug,
+          rollCode: cleanCode,
+          consentVersion: CONSENT_VERSION,
+          consentAlbum: true,
+          consentTelemetry,
+        }),
       });
 
       if (!res.ok) {
@@ -83,6 +106,9 @@ export function RestoreRollModal({
         shotsPerGuest: number;
         shotsUsed: number;
       };
+
+      // Record explicit consent locally on this device
+      saveLocalConsent({ album: true, telemetry: consentTelemetry });
 
       const remaining = Math.max(0, data.shotsPerGuest - data.shotsUsed);
       onSuccess({
@@ -143,6 +169,57 @@ export function RestoreRollModal({
             />
           </div>
 
+          {/* Consent Checkboxes */}
+          <div className="space-y-2.5 pt-1 text-left">
+            <label
+              htmlFor="restore-consent-album"
+              className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition-colors cursor-pointer select-none ${
+                consentError
+                  ? "border-rose-500/80 bg-rose-950/20"
+                  : consentAlbum
+                  ? "border-accent/40 bg-accent/5"
+                  : "border-zinc-800 bg-zinc-950/40"
+              }`}
+            >
+              <input
+                id="restore-consent-album"
+                type="checkbox"
+                required
+                aria-required="true"
+                checked={consentAlbum}
+                onChange={(e) => {
+                  setConsentAlbum(e.target.checked);
+                  if (e.target.checked) setConsentError(false);
+                }}
+                className="mt-0.5 w-4 h-4 rounded border-zinc-700 text-amber-500 focus:ring-amber-400 bg-zinc-800 cursor-pointer"
+              />
+              <span className="text-[11px] text-zinc-200 leading-tight">
+                <span className="text-amber-400 font-bold mr-1">*</span>
+                {copy.checkboxAlbum}
+              </span>
+            </label>
+
+            <label
+              htmlFor="restore-consent-telemetry"
+              className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition-colors cursor-pointer select-none ${
+                consentTelemetry
+                  ? "border-accent/40 bg-accent/5"
+                  : "border-zinc-800 bg-zinc-950/40"
+              }`}
+            >
+              <input
+                id="restore-consent-telemetry"
+                type="checkbox"
+                checked={consentTelemetry}
+                onChange={(e) => setConsentTelemetry(e.target.checked)}
+                className="mt-0.5 w-4 h-4 rounded border-zinc-700 text-amber-500 focus:ring-amber-400 bg-zinc-800 cursor-pointer"
+              />
+              <span className="text-[11px] text-zinc-400 leading-tight">
+                {copy.checkboxTelemetry}
+              </span>
+            </label>
+          </div>
+
           {error && (
             <p className="text-xs text-rose-400 text-center font-medium">
               {error}
@@ -152,15 +229,15 @@ export function RestoreRollModal({
           <div className="flex gap-2 pt-2">
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleDismiss}
               className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 font-medium text-xs hover:bg-zinc-800 transition"
             >
               {t(lang, "close")}
             </button>
             <button
               type="submit"
-              disabled={loading || code.length < 6}
-              className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-50 text-zinc-950 font-bold text-xs transition"
+              disabled={loading || code.length < 6 || !consentAlbum}
+              className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-bold text-xs transition cursor-pointer"
             >
               {loading ? "…" : t(lang, "restoreBtn")}
             </button>

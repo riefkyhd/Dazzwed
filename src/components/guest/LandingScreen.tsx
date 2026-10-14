@@ -3,8 +3,15 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { type Lang, t } from "@/lib/i18n";
+import { CONSENT_COPY, CONSENT_VERSION } from "@/constants/consentCopy";
 import { NativeCameraInput } from "./NativeCameraInput";
 import { RestoreRollModal } from "./RestoreRollModal";
+
+export interface ConsentSubmission {
+  album: boolean;
+  telemetry: boolean;
+  version: string;
+}
 
 interface LandingScreenProps {
   coupleNames: string;
@@ -12,8 +19,8 @@ interface LandingScreenProps {
   eventSlug: string;
   lang: Lang;
   onLanguageChange: (lang: Lang) => void;
-  onStartCamera: (name: string) => void;
-  onNativePhoto: (file: File, name: string | null, quickThumb?: string) => void;
+  onStartCamera: (name: string, consent: ConsentSubmission) => void;
+  onNativePhoto: (file: File, name: string | null, quickThumb?: string, consent?: ConsentSubmission) => void;
   onRestoreSuccess?: (data: { guestId: string; name: string | null; rollCode: string; shotsLeft: number }) => void;
 }
 
@@ -28,24 +35,25 @@ export function LandingScreen({
   onRestoreSuccess,
 }: LandingScreenProps) {
   const [name, setName] = useState("");
-  const [nameError, setNameError] = useState(false);
+  const [consentAlbum, setConsentAlbum] = useState(false);
+  const [consentTelemetry, setConsentTelemetry] = useState(false);
+  const [consentError, setConsentError] = useState(false);
   const [showRestoreModal, setShowRestoreModal] = useState(false);
-  const nameInputRef = React.useRef<HTMLInputElement>(null);
 
-  const validateName = (): boolean => {
-    if (!name.trim()) {
-      setNameError(true);
-      nameInputRef.current?.focus();
-      return false;
-    }
-    setNameError(false);
-    return true;
-  };
+  const copy = CONSENT_COPY[lang];
 
   const handleStart = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateName()) return;
-    onStartCamera(name.trim());
+    if (!consentAlbum) {
+      setConsentError(true);
+      return;
+    }
+    setConsentError(false);
+    onStartCamera(name.trim(), {
+      album: consentAlbum,
+      telemetry: consentTelemetry,
+      version: CONSENT_VERSION,
+    });
   };
 
   return (
@@ -95,80 +103,136 @@ export function LandingScreen({
           {t(lang, "welcomeTo")}
         </p>
 
-        <h1 className="font-serif text-4xl sm:text-5xl text-accent font-normal leading-tight mb-8">
+        <h1 className="font-serif text-4xl sm:text-5xl text-accent font-normal leading-tight mb-6">
           {coupleNames}
         </h1>
 
-        {/* Disposable Cam Instructions */}
-        <div className="w-full bg-surface/70 border border-zinc-800/80 rounded-2xl p-5 mb-8 text-left space-y-3.5 backdrop-blur-sm shadow-xl">
-          <h2 className="text-xs font-mono uppercase tracking-widest text-zinc-400 mb-1">
-            {t(lang, "howItWorks")}
-          </h2>
-
-          <div className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 text-accent font-mono text-xs flex items-center justify-center font-bold">
-              1
-            </span>
-            <p className="text-sm text-zinc-200 pt-0.5">
-              {t(lang, "step1", { n: shotsPerGuest })}
-            </p>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 text-accent font-mono text-xs flex items-center justify-center font-bold">
-              2
-            </span>
-            <p className="text-sm text-zinc-200 pt-0.5">{t(lang, "step2")}</p>
-          </div>
-
-          <div className="flex items-start gap-3">
-            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-zinc-800 border border-zinc-700 text-accent font-mono text-xs flex items-center justify-center font-bold">
-              3
-            </span>
-            <p className="text-sm text-zinc-200 pt-0.5">{t(lang, "step3")}</p>
-          </div>
+        {/* Privacy Notice Summary Card */}
+        <div className="w-full bg-surface/70 border border-zinc-800/80 rounded-2xl p-4 mb-6 text-left backdrop-blur-sm shadow-xl">
+          <p className="text-xs text-zinc-300 leading-relaxed">
+            {copy.summary}
+          </p>
         </div>
 
-        {/* Form: Optional Name */}
-        <form onSubmit={handleStart} className="w-full space-y-4">
-          <div className="text-left">
+        {/* Form: Optional Name + Explicit Consent */}
+        <form onSubmit={handleStart} className="w-full space-y-4 text-left">
+          {/* Optional Guest Name */}
+          <div>
             <div className="flex items-center justify-between mb-1.5 ml-1">
               <label
                 htmlFor="guest-name"
                 className="block text-xs font-medium text-zinc-400"
               >
-                {t(lang, "yourName")}
+                {t(lang, "yourName")} <span className="text-zinc-500 font-normal">({lang === "id" ? "opsional" : "optional"})</span>
               </label>
-              {nameError && (
-                <span className="text-xs text-rose-400 font-sans font-medium">
-                  {t(lang, "yourNameRequired")}
-                </span>
-              )}
             </div>
             <input
-              ref={nameInputRef}
               id="guest-name"
               type="text"
-              required
               value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                if (nameError && e.target.value.trim()) setNameError(false);
-              }}
+              onChange={(e) => setName(e.target.value)}
               placeholder={t(lang, "yourNamePlaceholder")}
               maxLength={60}
-              className={`w-full px-4 py-3.5 rounded-xl bg-zinc-900 border ${
-                nameError
-                  ? "border-rose-500 ring-1 ring-rose-500/40 focus:border-rose-400"
-                  : "border-zinc-700/80 focus:border-accent"
-              } text-white placeholder-zinc-500 focus:outline-none text-base transition-colors`}
+              className="w-full px-4 py-3.5 rounded-xl bg-zinc-900 border border-zinc-700/80 focus:border-accent text-white placeholder-zinc-500 focus:outline-none text-base transition-colors"
             />
           </div>
 
+          {/* Consent Checkboxes */}
+          <div className="space-y-3 pt-2 border-t border-zinc-800/80">
+            {/* 1. Required Album Consent */}
+            <label
+              htmlFor="consent-album"
+              className={`flex items-start gap-3 p-3 rounded-xl border transition-colors cursor-pointer select-none ${
+                consentError
+                  ? "border-rose-500/80 bg-rose-950/20"
+                  : consentAlbum
+                  ? "border-accent/40 bg-accent/5"
+                  : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700"
+              }`}
+            >
+              <input
+                id="consent-album"
+                type="checkbox"
+                required
+                aria-required="true"
+                checked={consentAlbum}
+                onChange={(e) => {
+                  setConsentAlbum(e.target.checked);
+                  if (e.target.checked) setConsentError(false);
+                }}
+                className="mt-1 w-4 h-4 rounded border-zinc-700 text-amber-500 focus:ring-amber-400 focus:ring-offset-zinc-900 bg-zinc-800 cursor-pointer"
+              />
+              <span className="text-xs text-zinc-200 leading-relaxed font-sans">
+                <span className="text-amber-400 font-bold mr-1">*</span>
+                {copy.checkboxAlbum}
+              </span>
+            </label>
+
+            {/* 2. Optional Telemetry Consent */}
+            <label
+              htmlFor="consent-telemetry"
+              className={`flex items-start gap-3 p-3 rounded-xl border transition-colors cursor-pointer select-none ${
+                consentTelemetry
+                  ? "border-accent/40 bg-accent/5"
+                  : "border-zinc-800 bg-zinc-900/40 hover:border-zinc-700"
+              }`}
+            >
+              <input
+                id="consent-telemetry"
+                type="checkbox"
+                checked={consentTelemetry}
+                onChange={(e) => setConsentTelemetry(e.target.checked)}
+                className="mt-1 w-4 h-4 rounded border-zinc-700 text-amber-500 focus:ring-amber-400 focus:ring-offset-zinc-900 bg-zinc-800 cursor-pointer"
+              />
+              <span className="text-xs text-zinc-400 leading-relaxed font-sans">
+                {copy.checkboxTelemetry}
+              </span>
+            </label>
+          </div>
+
+          {/* Expandable Indonesia UU PDP Full Notice */}
+          <details className="w-full text-left text-xs bg-zinc-900/60 border border-zinc-800 rounded-xl p-3 text-zinc-400 group">
+            <summary className="font-semibold text-zinc-300 cursor-pointer select-none flex items-center justify-between">
+              <span>{copy.detailsTitle}</span>
+              <span className="text-zinc-500 group-open:rotate-180 transition-transform">▼</span>
+            </summary>
+            <div className="mt-3 space-y-2.5 pt-2 border-t border-zinc-800/80 leading-relaxed text-zinc-300">
+              <p className="text-zinc-400 italic">{copy.detailsIntro}</p>
+              <div>
+                <h4 className="font-bold text-zinc-200">{copy.controllerTitle}</h4>
+                <p>{copy.controllerBody}</p>
+              </div>
+              <div>
+                <h4 className="font-bold text-zinc-200">{copy.purposeTitle}</h4>
+                <p>{copy.purposeBody}</p>
+              </div>
+              <div>
+                <h4 className="font-bold text-zinc-200">{copy.typesTitle}</h4>
+                <p className="whitespace-pre-line">{copy.typesBody}</p>
+              </div>
+              <div>
+                <h4 className="font-bold text-zinc-200">{copy.retentionTitle}</h4>
+                <p>{copy.retentionBody}</p>
+              </div>
+              <div>
+                <h4 className="font-bold text-zinc-200">{copy.rightsTitle}</h4>
+                <p>{copy.rightsBody}</p>
+              </div>
+            </div>
+          </details>
+
+          {consentError && (
+            <p className="text-xs text-rose-400 text-center font-medium">
+              {lang === "id"
+                ? "Harap setujui persetujuan album untuk melanjutkan."
+                : "Please agree to the album consent to start."}
+            </p>
+          )}
+
           <button
             type="submit"
-            disabled={!name.trim()}
-            className="w-full py-4 px-6 rounded-xl bg-accent text-accent-fg font-bold text-base shadow-lg shadow-amber-950/40 hover:brightness-110 active:scale-[0.99] transition-all touch-manipulation cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={!consentAlbum}
+            className="w-full py-4 px-6 rounded-xl bg-accent text-accent-fg font-bold text-base shadow-lg shadow-amber-950/40 hover:brightness-110 active:scale-[0.99] transition-all touch-manipulation cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {t(lang, "startCamera")}
           </button>
@@ -178,12 +242,19 @@ export function LandingScreen({
           <NativeCameraInput
             eventSlug={eventSlug}
             beforeClick={() => {
-              if (!validateName()) return false;
+              if (!consentAlbum) {
+                setConsentError(true);
+                return false;
+              }
               return true;
             }}
             onFileSelected={(file, quickThumb) => {
-              if (!validateName()) return;
-              onNativePhoto(file, name.trim(), quickThumb);
+              if (!consentAlbum) return;
+              onNativePhoto(file, name.trim() || null, quickThumb, {
+                album: consentAlbum,
+                telemetry: consentTelemetry,
+                version: CONSENT_VERSION,
+              });
             }}
             lang={lang}
             variant="secondary"
@@ -226,6 +297,8 @@ export function LandingScreen({
           isOpen={showRestoreModal}
           eventSlug={eventSlug}
           lang={lang}
+          initialConsentAlbum={consentAlbum}
+          initialConsentTelemetry={consentTelemetry}
           onClose={() => setShowRestoreModal(false)}
           onSuccess={(data) => {
             setShowRestoreModal(false);

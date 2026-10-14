@@ -6,8 +6,10 @@ import { uploadPhotoToDrive } from "@/lib/drive/upload";
 import { getEventBySlug } from "@/lib/event-server";
 import { eventStatus } from "@/lib/event";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp, verifyTurnstileToken } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, hashClientIp, verifyTurnstileToken } from "@/lib/rate-limit";
 import { verifyGuestSession } from "@/lib/api/verify-session";
+import { computeRollCodeFromGuestId } from "@/lib/guest/session";
+import { CONSENT_VERSION } from "@/constants/consentCopy";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -68,7 +70,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Human verification failed" }, { status: 403 });
     }
 
-    const ipLimit = await checkRateLimit(`ip:${ip}`, 60, 60);
+    const hashedIp = hashClientIp(ip);
+    const ipLimit = await checkRateLimit(`ip:${hashedIp}`, 60, 60);
     if (!ipLimit.allowed) {
       return NextResponse.json(
         { error: "Too many upload requests from this network" },
@@ -115,15 +118,36 @@ export async function POST(req: Request) {
     const sb = supabaseAdmin();
 
     // 4. Verify guest belongs to this event
-    const { data: guest, error: guestErr } = await sb
+    let guestQuery = await sb
       .from("guests")
-      .select("id, display_name, drive_folder_id")
+      .select("id, display_name, drive_folder_id, consent_version, consent_at")
       .eq("id", guestId)
       .eq("event_id", event.id)
       .maybeSingle();
 
-    if (guestErr || !guest) {
+    if (guestQuery.error && guestQuery.error.message?.includes("schema cache")) {
+      guestQuery = await sb
+        .from("guests")
+        .select("id, display_name, drive_folder_id")
+        .eq("id", guestId)
+        .eq("event_id", event.id)
+        .maybeSingle();
+    }
+
+    const guest = guestQuery.data;
+    if (!guest) {
       return NextResponse.json({ error: "Guest not found for this event" }, { status: 404 });
+    }
+
+    // Strict consent enforcement: reject if consent missing or outdated
+    const guestAny = guest as Record<string, unknown>;
+    if ("consent_version" in guestAny && guestAny.consent_version !== undefined) {
+      if (!guestAny.consent_at || guestAny.consent_version !== CONSENT_VERSION) {
+        return NextResponse.json(
+          { error: "Consent required or outdated", code: "CONSENT_REQUIRED" },
+          { status: 403 }
+        );
+      }
     }
 
     // 5. Server-side atomic shot reservation
@@ -188,12 +212,12 @@ export async function POST(req: Request) {
         guest.display_name,
       );
 
-      const guestNameOrId = guest.display_name?.trim() || guest.id.slice(0, 8);
+      const rollCode = computeRollCodeFromGuestId(guest.id);
       const uploadRes = await uploadPhotoToDrive({
         drive,
         folderId: guestFolderId,
         fileBuffer,
-        guestNameOrShortId: guestNameOrId,
+        guestNameOrShortId: rollCode,
         shotNumber: reservation.shots_used,
       });
 

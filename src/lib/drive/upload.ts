@@ -17,20 +17,21 @@ export interface UploadPhotoResult {
 }
 
 export function generatePhotoFilename(
-  guestNameOrShortId: string,
+  rollCodeOrShortId: string,
   shotNumber: number,
   timestamp: Date = new Date(),
 ): string {
-  // Format: 2026-10-05T09-30-00_guestName_1.jpg
+  // Format: 2026-10-05T09-30-00_7K9X2B_1.jpg
+  // Strictly rollCode, no PII (guest display name) in Drive filenames
   const iso = timestamp.toISOString().replace(/:/g, "-").split(".")[0];
-  const cleanName =
-    guestNameOrShortId
+  const cleanCode =
+    rollCodeOrShortId
       .replace(/[^a-zA-Z0-9_-]/g, "_")
       .replace(/_+/g, "_")
       .replace(/^_|_$/g, "")
-      .slice(0, 30) || "guest";
+      .slice(0, 30) || "roll";
 
-  return `${iso}_${cleanName}_${shotNumber}.jpg`;
+  return `${iso}_${cleanCode}_${shotNumber}.jpg`;
 }
 
 /**

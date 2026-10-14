@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { checkRateLimit, getClientIp } from "@/lib/rate-limit";
+import { checkRateLimit, getClientIp, hashClientIp } from "@/lib/rate-limit";
 import { MAX_TELEMETRY_BODY_BYTES, sanitizeTelemetryMessage } from "@/lib/telemetry/sanitizer";
 
 export const dynamic = "force-dynamic";
@@ -43,21 +43,38 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
     }
 
+    const { type, message, route, eventSlug, guestId, deviceClass, browser, os, appVersion } = parsed.data;
+
+    // Strict privacy gate: guestId is required and must have opted into telemetry (consent_telemetry === true)
+    if (!guestId) {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
+
     const ip = getClientIp(req);
-    // Rate limit per IP to prevent spam (max 30 telemetry events per min per IP)
-    const limit = await checkRateLimit(`telemetry:${ip}`, 30, 60);
+    const hashedIp = hashClientIp(ip);
+    // Rate limit per IP to prevent spam (max 30 telemetry events per min per hashed IP)
+    const limit = await checkRateLimit(`telemetry:${hashedIp}`, 30, 60);
     if (!limit.allowed) {
       return NextResponse.json({ ok: false, rateLimited: true }, { status: 429 });
     }
 
-    const { type, message, route, eventSlug, guestId, deviceClass, browser, os, appVersion } = parsed.data;
+    const sb = supabaseAdmin();
 
-    // 2. Sanitize PII from message
+    // Verify guest exists and has explicitly opted into telemetry
+    const { data: guest } = await sb
+      .from("guests")
+      .select("id, consent_telemetry")
+      .eq("id", guestId)
+      .maybeSingle();
+
+    if (!guest || !guest.consent_telemetry) {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
+
+    // Sanitize PII from message
     const cleanMessage = sanitizeTelemetryMessage(message);
 
-    const sb = supabaseAdmin();
     let eventId: string | null = null;
-
     if (eventSlug) {
       const { data: event } = await sb
         .from("events")
@@ -69,7 +86,7 @@ export async function POST(req: Request) {
 
     await sb.from("client_events").insert({
       event_id: eventId,
-      guest_id: guestId || null,
+      guest_id: guestId,
       type,
       message: cleanMessage,
       route,
@@ -78,14 +95,6 @@ export async function POST(req: Request) {
       os: os || "other",
       app_version: appVersion || "0.1.0",
     });
-
-    // 3. Retention pruning: probabilistically delete events older than 30 days (5% sample chance)
-    if (Math.random() < 0.05) {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      void Promise.resolve(
-        sb.from("client_events").delete().lt("created_at", thirtyDaysAgo)
-      ).catch(() => {});
-    }
 
     return NextResponse.json({ ok: true });
   } catch (err) {

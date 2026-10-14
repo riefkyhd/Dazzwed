@@ -19,18 +19,18 @@ vi.mock("@/lib/supabase/admin", () => ({
 }));
 
 describe("Google Drive Photo Uploads", () => {
-  it("formats photo filenames cleanly with ISO timestamp, sanitized guest name, and shot count", () => {
+  it("formats photo filenames cleanly with ISO timestamp, sanitized roll code, and shot count without PII", () => {
     const fixedDate = new Date("2026-10-05T12:34:56.789Z");
-    const filename = generatePhotoFilename("Tante Rina / Jakarta!", 3, fixedDate);
+    const filename = generatePhotoFilename("7K9X2B", 3, fixedDate);
 
-    expect(filename).toBe("2026-10-05T12-34-56_Tante_Rina_Jakarta_3.jpg");
+    expect(filename).toBe("2026-10-05T12-34-56_7K9X2B_3.jpg");
   });
 
-  it("handles empty or special character guest names gracefully by falling back to guest", () => {
+  it("handles empty or special character roll codes gracefully by falling back to roll", () => {
     const fixedDate = new Date("2026-10-05T12:00:00.000Z");
     const filename = generatePhotoFilename("!!!", 1, fixedDate);
 
-    expect(filename).toBe("2026-10-05T12-00-00_guest_1.jpg");
+    expect(filename).toBe("2026-10-05T12-00-00_roll_1.jpg");
   });
 
   it("uploads photo buffer to Google Drive using streams", async () => {
@@ -114,7 +114,7 @@ describe("Google Drive Photo Uploads", () => {
     const folder2 = await ensureGuestFolder(mockDrive, "root-100", guest2Id, sameName);
 
     expect(folder1).not.toBe(folder2);
-    expect(createdFolders.some(f => f.name === `Riefky (${code1})`)).toBe(true);
-    expect(createdFolders.some(f => f.name === `Riefky (${code2})`)).toBe(true);
+    expect(createdFolders.some(f => f.name === `Roll ${code1}`)).toBe(true);
+    expect(createdFolders.some(f => f.name === `Roll ${code2}`)).toBe(true);
   });
 });

@@ -26,11 +26,13 @@ import { processImageOffThread } from "@/lib/imaging/worker";
 import { getLookById, CPM35_LOOK } from "@/lib/imaging/looks/presets";
 import dynamic from "next/dynamic";
 import { NativeDevelopingModal, type NativeProcessingState } from "./NativeDevelopingModal";
-import { LandingScreen } from "./LandingScreen";
+import { LandingScreen, type ConsentSubmission } from "./LandingScreen";
 import { ThankYouScreen } from "./ThankYouScreen";
 import { ClosedScreen } from "./ClosedScreen";
 import { GuestErrorBoundary } from "./GuestErrorBoundary";
 import { initGlobalTelemetry } from "@/lib/telemetry";
+import { hasValidConsent, getLocalConsent, saveLocalConsent, clearLocalConsent } from "@/lib/guest/consent";
+import { CONSENT_VERSION } from "@/constants/consentCopy";
 
 // Code-split CameraScreen & WebGL Look Engine out of initial landing page bundle
 const CameraScreen = dynamic(
@@ -81,6 +83,8 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
   const [overrideStatus, setOverrideStatus] = useState<EventStatus | null>(null);
   const status = overrideStatus ?? initialStatus;
 
+  const [consentGranted, setConsentGranted] = useState(() => hasValidConsent());
+
   const [screen, setScreen] = useState<Screen>(() =>
     initialStatus !== "open" ? "closed" : "landing",
   );
@@ -95,13 +99,17 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
   const [isCheckingRoll, setIsCheckingRoll] = useState(false);
 
   // Background IndexedDB upload queue with real-time pending badge
-  const { pendingCount, syncError, enqueue } = useQueue(guestId);
+  // Strictly gated on consentGranted so IndexedDB is never opened before consent
+  const { pendingCount, syncError, enqueue } = useQueue(guestId, consentGranted);
 
-  // Global window unhandled error & rejection trap
+  // Global window unhandled error & rejection trap (strictly opt-in and post-consent)
   useEffect(() => {
+    if (!consentGranted) return;
+    const localConsent = getLocalConsent();
+    if (!localConsent?.telemetry) return;
     const cleanup = initGlobalTelemetry(event.slug, guestId || undefined);
     return cleanup;
-  }, [event.slug, guestId]);
+  }, [event.slug, guestId, consentGranted]);
 
   // Warn user if closing tab while photos are still syncing
   useEffect(() => {
@@ -115,9 +123,9 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [pendingCount]);
 
-  // Track active session for unclean exit detection
+  // Track active session for unclean exit detection (strictly after consent)
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (!consentGranted || typeof window === "undefined") return;
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (wasUncleanExit(event.slug)) {
       setWelcomeToast(true);
@@ -128,7 +136,7 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
       if (timer) clearTimeout(timer);
       clearSessionActive(event.slug);
     };
-  }, [event.slug]);
+  }, [event.slug, consentGranted]);
 
   const guestIdRef = useRef(guestId);
   guestIdRef.current = guestId;
@@ -136,8 +144,13 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
 
   // Sync / refresh guest data with server
   const initGuest = useCallback(
-    async (guestName: string | null, targetGuestId?: string | null) => {
+    async (
+      guestName: string | null,
+      targetGuestId?: string | null,
+      consentParams?: { consentAlbum: boolean; consentTelemetry: boolean }
+    ) => {
       try {
+        const local = getLocalConsent();
         const res = await fetch("/api/guests", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -145,6 +158,9 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
             eventSlug: event.slug,
             name: guestName,
             guestId: targetGuestId || guestIdRef.current || undefined,
+            consentVersion: CONSENT_VERSION,
+            consentAlbum: consentParams?.consentAlbum ?? local?.album ?? true,
+            consentTelemetry: consentParams?.consentTelemetry ?? local?.telemetry ?? false,
           }),
         });
 
@@ -194,9 +210,9 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     [event.slug, lang],
   );
 
-  // Triple-Healed Multi-Session Identity & ?restore= handling on mount
+  // Triple-Healed Multi-Session Identity & ?restore= handling on mount (strictly after consent)
   useEffect(() => {
-    if (status !== "open" || typeof window === "undefined") return;
+    if (!consentGranted || status !== "open" || typeof window === "undefined") return;
     if (sessionResolvedRef.current) return;
     sessionResolvedRef.current = true;
 
@@ -345,13 +361,19 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [checkRollSync]);
 
-  const handleStartCamera = async (name: string | null) => {
+  const handleStartCamera = async (name: string, consent: ConsentSubmission) => {
     // Best-effort fullscreen request on user gesture (Android Chrome, ignores on iOS)
     if (typeof document !== "undefined" && document.documentElement?.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
 
-    const res = await initGuest(name);
+    saveLocalConsent({ album: consent.album, telemetry: consent.telemetry });
+    setConsentGranted(true);
+
+    const res = await initGuest(name || null, null, {
+      consentAlbum: consent.album,
+      consentTelemetry: consent.telemetry,
+    });
     if (!res) return;
 
     if (res.remaining <= 0) {
@@ -363,14 +385,17 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
 
   const handleLanguageChange = (newLang: Lang) => {
     setLang(newLang);
-    void loadSessionTriple(event.slug).then((saved) => {
-      if (saved) {
-        void saveSessionTriple(event.slug, { ...saved, lang: newLang });
-      }
-    });
+    if (consentGranted) {
+      void loadSessionTriple(event.slug).then((saved) => {
+        if (saved) {
+          void saveSessionTriple(event.slug, { ...saved, lang: newLang });
+        }
+      });
+    }
   };
 
   const handleRestoreSuccess = (data: { guestId: string; name: string | null; rollCode: string; shotsLeft: number }) => {
+    setConsentGranted(true);
     setGuestId(data.guestId);
     setRollCode(data.rollCode);
     setShotsLeft(data.shotsLeft);
@@ -389,6 +414,43 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     }
   };
 
+  const handleClearLocalData = async () => {
+    clearLocalConsent();
+    await clearSessionTriple(event.slug);
+    setConsentGranted(false);
+    setGuestId(null);
+    setRollCode(null);
+    setScreen("landing");
+  };
+
+  const handleDeleteRoll = async () => {
+    if (!guestId) return;
+    try {
+      const res = await fetch("/api/guests/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventSlug: event.slug,
+          guestId,
+          rollCode: rollCode || undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(err.error || "Failed to delete roll. Please try again.");
+        return;
+      }
+    } catch (e) {
+      console.error("Delete roll error:", e);
+    }
+    clearLocalConsent();
+    await clearSessionTriple(event.slug);
+    setConsentGranted(false);
+    setGuestId(null);
+    setRollCode(null);
+    setScreen("landing");
+  };
+
   // Native developing modal state
   const [nativeModalVisible, setNativeModalVisible] = useState(false);
   const [nativeProcessingState, setNativeProcessingState] = useState<NativeProcessingState>("developing");
@@ -396,10 +458,12 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
   const [nativeProgress, setNativeProgress] = useState(0);
   const [nativeError, setNativeError] = useState<string | undefined>();
 
-  // Request persistent storage on mount
+  // Request persistent storage (strictly after consent)
   useEffect(() => {
-    void requestPersistentStorage();
-  }, []);
+    if (consentGranted) {
+      void requestPersistentStorage();
+    }
+  }, [consentGranted]);
 
   const recordShot = async (
     blob: Blob,
@@ -454,8 +518,13 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
   const handleNativePhoto = async (
     file: File,
     explicitName: string | null = null,
-    quickThumb?: string
+    quickThumb?: string,
+    consent?: ConsentSubmission
   ) => {
+    if (consent) {
+      saveLocalConsent({ album: consent.album, telemetry: consent.telemetry });
+      setConsentGranted(true);
+    }
     clearNativePending(event.slug);
 
     // Instant UI feedback (<150ms): show developing modal immediately
@@ -470,7 +539,11 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
       let activeId = guestId;
       let currentRemaining = shotsLeft;
       if (!activeId) {
-        const res = await initGuest(explicitName);
+        const res = await initGuest(
+          explicitName,
+          null,
+          consent ? { consentAlbum: consent.album, consentTelemetry: consent.telemetry } : undefined
+        );
         if (!res) {
           throw new Error("Could not start session. Please check your connection and try again.");
         }
@@ -624,6 +697,8 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
           onNativePhoto={handleNativePhoto}
           allowedLookIds={resolveThemeLooks(event.theme).allowedLookIds}
           defaultLookId={resolveThemeLooks(event.theme).defaultLookId}
+          onClearLocalData={handleClearLocalData}
+          onDeleteRoll={handleDeleteRoll}
         />
       )}
 

@@ -4,11 +4,13 @@ import { useEffect, useState, useCallback } from "react";
 import { uploadQueue } from "./uploader";
 import { getPendingShots } from "./store";
 
-export function useQueue(guestId?: string | null) {
+export function useQueue(guestId?: string | null, enabled: boolean = true) {
   const [pending, setPending] = useState(0);
   const [syncError, setSyncError] = useState(false);
 
   useEffect(() => {
+    if (!enabled) return;
+
     // Initial fetch of pending items
     void getPendingShots(guestId || undefined).then((items) => {
       setPending(items.length);
@@ -31,7 +33,7 @@ export function useQueue(guestId?: string | null) {
       unsubscribe();
       unsubDrive();
     };
-  }, [guestId]);
+  }, [guestId, enabled]);
 
   const enqueue = useCallback(() => {
     uploadQueue.drain();

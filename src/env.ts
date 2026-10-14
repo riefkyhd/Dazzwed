@@ -28,6 +28,7 @@ const serverSchema = publicSchema
       )
       .pipe(z.array(z.email()).min(1)),
     CRON_SECRET: z.string().min(16, "CRON_SECRET must be at least 16 characters"),
+    RATE_LIMIT_HMAC_SECRET: z.string().min(16).optional(),
     TURNSTILE_ENABLED: bool.optional().default(false),
     NEXT_PUBLIC_TURNSTILE_SITE_KEY: z.string().min(1).optional(),
     TURNSTILE_SECRET_KEY: z.string().min(1).optional(),

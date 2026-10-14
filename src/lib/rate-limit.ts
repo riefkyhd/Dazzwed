@@ -1,4 +1,5 @@
 import "server-only";
+import { createHmac } from "node:crypto";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { serverEnv } from "@/env";
 
@@ -6,6 +7,21 @@ export interface RateLimitResult {
   allowed: boolean;
   currentCount: number;
   retryAfter: number;
+}
+
+/**
+ * Computes a keyed HMAC-SHA256 digest of client IP to prevent storing raw IPs in rate_limits.
+ * Secret resolves to RATE_LIMIT_HMAC_SECRET or derives from SUPABASE_SERVICE_ROLE_KEY.
+ */
+export function hashClientIp(ip: string): string {
+  let secret = "dazzwed-hmac-ip-salt-default";
+  try {
+    const env = serverEnv();
+    secret = env.RATE_LIMIT_HMAC_SECRET || env.SUPABASE_SERVICE_ROLE_KEY || secret;
+  } catch {
+    // In test environment or before env hydration
+  }
+  return createHmac("sha256", secret).update(ip.trim()).digest("hex").slice(0, 32);
 }
 
 /**

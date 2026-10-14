@@ -37,6 +37,8 @@ interface CameraScreenProps {
   onNativePhoto: (file: File, quickThumb?: string) => void;
   allowedLookIds?: string[];
   defaultLookId?: string;
+  onClearLocalData?: () => void;
+  onDeleteRoll?: () => Promise<void>;
 }
 
 export function CameraScreen({
@@ -53,6 +55,8 @@ export function CameraScreen({
   onNativePhoto,
   allowedLookIds,
   defaultLookId,
+  onClearLocalData,
+  onDeleteRoll,
 }: CameraScreenProps) {
   const searchParams = useSearchParams();
   const isDebug = searchParams?.get("debug") === "1";
@@ -828,6 +832,8 @@ export function CameraScreen({
         performanceMode={performanceMode}
         onSelectPerformanceMode={setPerformanceMode}
         qualityTier={qualityTier}
+        onClearLocalData={onClearLocalData}
+        onDeleteRoll={onDeleteRoll}
       />
 
       {/* Sync Status Sheet with natural slide up/down animation */}
