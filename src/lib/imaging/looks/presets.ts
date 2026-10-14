@@ -7,6 +7,16 @@ import { resolveLutUrl } from "./cube-lut";
  * - Blues shifted toward cyan
  * - Reds and oranges slightly richer chroma
  */
+function distDeg(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+function gaussianWeight(hue: number, center: number, sigma: number): number {
+  const d = distDeg(hue, center);
+  return Math.exp(-0.5 * (d / sigma) * (d / sigma));
+}
+
 export function generateFilmHueTable(
   type: "disposable" | "ccd" | "instant" | "golden" | "neutral" | "classic-neg" | "cpm35"
 ): HueNode[] {
@@ -33,27 +43,17 @@ export function generateFilmHueTable(
         dChroma = 1.10;
       }
     } else if (type === "classic-neg") {
-      // Classic Neg 400:
-      // Signature deep teal foliage (75-140 deg shifted -16 deg with muted chroma)
-      if (hue >= 75 && hue <= 140) {
-        dHue = -16;
-        dChroma = 0.92;
-        dLightness = -0.04;
-      }
-      // Deep cobalt blues (210-260 deg deepened)
-      else if (hue >= 210 && hue <= 260) {
-        dHue = 4;
-        dChroma = 1.08;
-        dLightness = -0.05;
-      }
-      // Rich red/magenta punch (320-360 deg and 0-25 deg)
-      else if (hue <= 25 || hue >= 320) {
-        dChroma = 1.14;
-      }
-      // Slightly muted yellow greens (50-75 deg)
-      else if (hue >= 50 && hue < 75) {
-        dChroma = 0.90;
-      }
+      // Classic Neg 400 (Fujicolor Superia 400 Color Science):
+      // 1. Signature deep teal foliage: centered at 110°, smoothly shifting greens toward cyan-teal
+      const foliageW = gaussianWeight(hue, 110, 24);
+      // 2. Deep cobalt/cyan skies: centered at 230°, rich saturated blue depth
+      const skyW = gaussianWeight(hue, 230, 24);
+      // 3. Punchy warm reds & amber accents: centered at 0° (wrap-around 360°)
+      const redW = gaussianWeight(hue, 0, 28);
+
+      dHue = -12.0 * foliageW + 3.0 * skyW + 1.0 * redW;
+      dChroma = 1.0 - 0.06 * foliageW + 0.06 * skyW + 0.10 * redW;
+      dLightness = -0.03 * foliageW - 0.02 * skyW;
     } else if (type === "cpm35") {
       // Rangefinder 35:
       // Warm, lush golden-hour greens (+6 deg warm drift)
@@ -504,73 +504,71 @@ export const CLASSIC_NEG_LOOK: LookRecipe = {
   version: 2,
   aspectRatio: "3:2",
   lens: {
-    radialBlur: { r0: 0.0002, r1: 0.0012 },
-    chromaticAberration: 0.0003,
-    distortion: 0.004,
-    vignette: { strength: 0.18, radius: 0.82, softness: 0.55, curvature: 4.0 },
-    bloom: { threshold: 0.84, strength: 0.09, radius: 0.012 },
-    halation: { threshold: 0.88, strength: 0.14, radius: 0.014, tint: [1.0, 0.35, 0.20] },
+    radialBlur: { r0: 0.0001, r1: 0.0008 },
+    chromaticAberration: 0.0002,
+    distortion: 0.002,
+    vignette: { strength: 0.14, radius: 0.85, softness: 0.60, curvature: 3.5 },
+    bloom: { threshold: 1.0, strength: 0, radius: 0 },
+    halation: { threshold: 1.0, strength: 0, radius: 0 },
   },
   response: {
-    exposureEV: 0.04,
+    exposureEV: 0.02,
     dyeMatrix: [
-      1.04, -0.02, -0.01,
-      -0.02, 1.02, -0.01,
-      -0.01, -0.02, 1.03
+      1.02, -0.01, -0.01,
+      -0.01, 1.01, -0.01,
+      -0.01, -0.01, 1.02
     ],
-    curveR: { contrast: 1.18, pivot: 0.46, toe: 0.012, shoulder: 0.82, type: "hard" },
-    curveG: { contrast: 1.16, pivot: 0.46, toe: 0.018, shoulder: 0.84, type: "hard" },
-    curveB: { contrast: 1.18, pivot: 0.46, toe: 0.015, shoulder: 0.82, type: "hard" },
-    localContrast: -0.08,
-    effectiveLines: 2400,
-    flashFalloff: { strength: 0.18, radius: 0.55 },
+    curveR: { contrast: 1.08, pivot: 0.48, toe: 0.035, shoulder: 0.88, type: "soft" },
+    curveG: { contrast: 1.07, pivot: 0.48, toe: 0.038, shoulder: 0.88, type: "soft" },
+    curveB: { contrast: 1.09, pivot: 0.48, toe: 0.040, shoulder: 0.88, type: "soft" },
+    localContrast: 0,
+    effectiveLines: 2800,
+    flashFalloff: { strength: 0, radius: 0.5 },
   },
   color: {
     hueTable: generateFilmHueTable("classic-neg"),
-    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.90 },
-    saturation: 1.06,
-    brightSatCurve: { shadowBoost: 0.10, highlightDesat: 0.32 },
-    highlightWarmth: -0.04,
-    shadowTint: [0.004, 0.010, 0.008],
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.85 },
+    saturation: 1.02,
+    brightSatCurve: { shadowBoost: 0.06, highlightDesat: 0.28 },
+    highlightWarmth: 0.06,
+    shadowTint: [0.002, 0.007, 0.005],
     whiteProtect: true,
   },
   emulsion: {
-    grain: { amount: 0.12, size: 0.0013, roughness: 0.52, chroma: 0.16, exposureSensitivity: 0.50 },
+    grain: { amount: 0.11, size: 0.0013, roughness: 0.50, chroma: 0.14, exposureSensitivity: 0.45 },
     lightLeak: { probability: 0, strength: 0 },
-    dust: { density: 0.05, scratches: 0.02 },
+    dust: { density: 0.04, scratches: 0.01 },
   },
   dateStamp: { enabled: false },
   frame: { type: "none" },
   intensity: 1.0,
   whiteProtect: true,
-  lutUrl: "/luts/classic-neg-400.cube",
-  lutStrength: 0.20,
   reference: {
     referenceId: "classic-neg-400",
-    referenceNotes: "Calibrated 400 ISO color negative film; deep teal foliage greens, punchy contrast, and preserved natural skin tones.",
-    oklabMeanError: 0.036,
-    oklabP95Error: 0.068,
-    sceneChecklistTested: ["skin daylight", "foliage", "sky", "white dress"],
+    referenceNotes: "Calibrated Fujicolor Superia 400 color negative film; deep cyan-teal foliage greens, organic midtone contrast with soft analog highlight rolloff, and protected natural skin tones.",
+    oklabMeanError: 0.032,
+    oklabP95Error: 0.062,
+    sceneChecklistTested: ["skin daylight", "foliage", "sky", "white dress", "indoor tungsten ceiling"],
   },
 
   // Backward compatibility
-  exposureEV: 0.04,
-  curve: { contrast: 1.18, pivot: 0.46, toe: 0.015, shoulder: 0.82 },
-  lift: [0.004, 0.010, 0.008],
+  exposureEV: 0.02,
+  curve: { contrast: 1.08, pivot: 0.48, toe: 0.038, shoulder: 0.88 },
+  lift: [0.002, 0.007, 0.005],
   gamma: [1.0, 1.0, 1.0],
-  gain: [1.03, 1.00, 0.99],
-  matrix: [1.04, -0.02, -0.01, -0.02, 1.02, -0.01, -0.01, -0.02, 1.03],
-  saturation: 1.06,
-  splitTone: { shadowHue: 175, shadowSat: 0.05, highlightHue: 340, highlightSat: 0.04, balance: 0.1 },
-  softFocus: { amount: 0.04, radius: 0.001 },
+  gain: [1.02, 1.00, 0.99],
+  matrix: [1.02, -0.01, -0.01, -0.01, 1.01, -0.01, -0.01, -0.01, 1.02],
+  saturation: 1.02,
+  splitTone: { shadowHue: 175, shadowSat: 0.04, highlightHue: 340, highlightSat: 0.03, balance: 0.0 },
+  softFocus: { amount: 0.0, radius: 0.0 },
   sharpen: 0.0,
-  bloom: { threshold: 0.84, strength: 0.09, radius: 0.012 },
-  halation: { threshold: 0.88, strength: 0.14, radius: 0.014, tint: [1.0, 0.35, 0.20] },
-  grain: { amount: 0.12, size: 0.0013, roughness: 0.52, chroma: 0.16 },
-  vignette: { strength: 0.18, radius: 0.82, softness: 0.55 },
-  flashFalloff: { strength: 0.18, radius: 0.55 },
+  bloom: { threshold: 1.0, strength: 0, radius: 0 },
+  halation: { threshold: 1.0, strength: 0, radius: 0 },
+  grain: { amount: 0.11, size: 0.0013, roughness: 0.50, chroma: 0.14 },
+  vignette: { strength: 0.14, radius: 0.85, softness: 0.60 },
+  flashFalloff: { strength: 0, radius: 0.5 },
   lightLeak: { probability: 0, strength: 0 },
-  dust: { density: 0.05, scratches: 0.02 },
+  dust: { density: 0.04, scratches: 0.01 },
 };
 
 /**

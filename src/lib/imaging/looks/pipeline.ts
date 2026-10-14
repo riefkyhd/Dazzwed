@@ -215,8 +215,10 @@ float evalChannelCurve(float x, vec4 curve, int shoulderType) {
       // Hard shoulder for CCD sensor clipping
       val = shoulder + (1.0 - shoulder) * min(1.0, over * 0.6);
     } else {
-      // Soft asymptotic shoulder for film
-      val = shoulder + (1.0 - shoulder) * (1.0 - exp(-over * 1.5));
+      // Continuous C1 cubic film shoulder: matches incoming slope at t=0,
+      // rolls off tangentially to 1.0 at t=1.0 with zero clipping kink
+      float t = clamp(over, 0.0, 1.0);
+      val = shoulder + (1.0 - shoulder) * (t * (1.0 + t - t * t));
     }
   }
   return clamp(val, 0.0, 1.0);
@@ -317,7 +319,9 @@ void main() {
     vec2 fDiff = (distUv - fCenter);
     float fDist = length(fDiff);
     float fRad = max(0.1, u_flashFalloff.y);
-    float fAtt = max(0.0, 1.0 - fDist / fRad);
+    float normDist = clamp(fDist / fRad, 0.0, 1.0);
+    // Smooth Hermite cubic falloff with C1 continuity at the boundary (no circular seam)
+    float fAtt = 1.0 - normDist * normDist * (3.0 - 2.0 * normDist);
     float fMultiplier = max(0.2, 1.0 + u_flashFalloff.x * (fAtt * fAtt - 0.3));
     linRgb *= fMultiplier;
   }
@@ -343,7 +347,7 @@ void main() {
       texture(u_image, mapCropUv(distUv + vec2(lcStep.x, -lcStep.y))).rgb +
       texture(u_image, mapCropUv(distUv + vec2(-lcStep.x, lcStep.y))).rgb
     ) * 0.25;
-    vec3 detail = rgb - lcBlur;
+    vec3 detail = origRgb - lcBlur;
     rgb = clamp(rgb + detail * u_localContrast, 0.0, 1.0);
   }
 

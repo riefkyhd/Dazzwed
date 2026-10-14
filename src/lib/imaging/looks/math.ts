@@ -214,9 +214,10 @@ export function evaluateToneCurve(x: number, curve: ToneCurve): number {
         // Sharp knee for CCD sensor clipping
         val = s + (1 - s) * Math.min(1, (val - s) / Math.max(1e-4, 1 - s) * 0.6);
       } else {
-        // Smooth asymptotic shoulder for film
-        const over = (val - s) / Math.max(1e-4, 1 - s);
-        val = s + (1 - s) * (1 - Math.exp(-over * 1.5));
+        // Continuous C1 cubic film shoulder: matches incoming slope at t=0,
+        // rolls off tangentially to 1.0 at t=1.0 with zero clipping kink
+        const t = Math.max(0, Math.min(1, (val - s) / Math.max(1e-4, 1 - s)));
+        val = s + (1 - s) * (t * (1 + t - t * t));
       }
     }
   }

@@ -8,6 +8,7 @@ import {
   PORTRA_400_LOOK,
   GOLDEN_200_LOOK,
   ILFORD_HP5_LOOK,
+  CLASSIC_NEG_LOOK,
 } from "../src/lib/imaging/looks/presets";
 import {
   evaluateLookColorTransform,
@@ -40,7 +41,7 @@ describe("CPU Fallback & Color Science Parity (B1)", () => {
   ];
 
   it("buildBakedRecipeLUT matches analytical evaluateLookColorTransform within OKLab ΔE < 0.03", () => {
-    const looks = [CPM35_LOOK, PORTRA_400_LOOK, GOLDEN_200_LOOK, ILFORD_HP5_LOOK];
+    const looks = [CPM35_LOOK, PORTRA_400_LOOK, GOLDEN_200_LOOK, ILFORD_HP5_LOOK, CLASSIC_NEG_LOOK];
 
     for (const look of looks) {
       const bakedLut = buildBakedRecipeLUT(look, false);
