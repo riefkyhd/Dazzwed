@@ -501,6 +501,12 @@ async function main() {
   const pageTarget = targets.find(
     (t) =>
       t.type === "page" &&
+      (t.url.includes("localhost:3000") || t.url.includes("dazzwed.vercel.app")) &&
+      t.url.includes("/e/") &&
+      !t.title.includes("404")
+  ) || targets.find(
+    (t) =>
+      t.type === "page" &&
       (t.url.includes("localhost:3000") || t.url.includes("dazzwed.vercel.app"))
   );
 
