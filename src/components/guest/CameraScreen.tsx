@@ -381,9 +381,7 @@ export function CameraScreen({
 
   // Viewfinder gestures & exposure
   const handleExposureChange = (deltaEV: number) => {
-    if (exposureCompSupported) {
-      void setExposureCompensation(deltaEV);
-    }
+    void setExposureCompensation(deltaEV);
   };
 
   const handleResetZoom = () => {

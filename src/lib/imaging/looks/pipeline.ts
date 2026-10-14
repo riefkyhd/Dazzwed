@@ -588,6 +588,7 @@ export interface LookEngineRenderOptions {
   sceneExposure?: number; // mean log-luminance (default 0.5)
   cropRect?: { x: number; y: number; width: number; height: number }; // normalized [0, 1] texture coordinates
   mirror?: boolean;
+  exposureCompensation?: number; // User EV bias (-2.0 to +2.0)
   lut?: ParsedCubeLUT;
   lutStrength?: number;
 }
@@ -934,7 +935,8 @@ export class LookEnginePipeline {
 
     // 2. Film Response
     const resp = look.response;
-    gl.uniform1f(this.uExpLoc, resp?.exposureEV ?? look.exposureEV);
+    const userEV = options.exposureCompensation ?? 0;
+    gl.uniform1f(this.uExpLoc, (resp?.exposureEV ?? look.exposureEV) + userEV);
     const matrix: Matrix3x3 = resp?.dyeMatrix ?? look.matrix ?? [1, 0, 0, 0, 1, 0, 0, 0, 1];
     this.cachedDyeMatrix.set(matrix);
     gl.uniformMatrix3fv(this.uDyeMatrixLoc, false, this.cachedDyeMatrix);

@@ -46,6 +46,83 @@ export function CameraSettingsSheet({
   const [copied, setCopied] = useState(false);
   const [rendered, setRendered] = useState(open);
   const [visible, setVisible] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isStandalonePwa, setIsStandalonePwa] = useState(false);
+  const [showIosFullscreenTip, setShowIosFullscreenTip] = useState(false);
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isStandalone =
+      (window.navigator as unknown as { standalone?: boolean }).standalone === true ||
+      window.matchMedia("(display-mode: standalone)").matches;
+    setIsStandalonePwa(isStandalone);
+
+    const doc = document as unknown as {
+      fullscreenElement?: Element;
+      webkitFullscreenElement?: Element;
+    };
+
+    const updateFsState = () => {
+      const fs = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement || isStandalone);
+      setIsFullscreen(fs);
+    };
+
+    updateFsState();
+    document.addEventListener("fullscreenchange", updateFsState);
+    document.addEventListener("webkitfullscreenchange", updateFsState);
+    return () => {
+      document.removeEventListener("fullscreenchange", updateFsState);
+      document.removeEventListener("webkitfullscreenchange", updateFsState);
+    };
+  }, []);
+
+  const handleToggleFullscreen = async () => {
+    triggerHaptic([20]);
+    if (isStandalonePwa) return;
+
+    const doc = document as unknown as {
+      fullscreenElement?: Element;
+      webkitFullscreenElement?: Element;
+      exitFullscreen?: () => Promise<void>;
+      webkitExitFullscreen?: () => Promise<void>;
+    };
+    const docEl = document.documentElement as unknown as {
+      requestFullscreen?: () => Promise<void>;
+      webkitRequestFullscreen?: () => Promise<void>;
+    };
+
+    if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+      try {
+        if (doc.exitFullscreen) await doc.exitFullscreen();
+        else if (doc.webkitExitFullscreen) await doc.webkitExitFullscreen();
+        setIsFullscreen(false);
+        setShowIosFullscreenTip(false);
+      } catch {
+        /* ignore */
+      }
+    } else {
+      let entered = false;
+      try {
+        if (docEl.requestFullscreen) {
+          await docEl.requestFullscreen();
+          entered = true;
+        } else if (docEl.webkitRequestFullscreen) {
+          await docEl.webkitRequestFullscreen();
+          entered = true;
+        }
+      } catch {
+        entered = false;
+      }
+
+      if (entered) {
+        setIsFullscreen(true);
+        setShowIosFullscreenTip(false);
+      } else {
+        // iOS Safari on iPhone doesn't permit DOM requestFullscreen: reveal Add-to-Home-Screen guidance
+        setShowIosFullscreenTip((prev) => !prev);
+      }
+    }
+  };
 
   React.useEffect(() => {
     if (open) {
@@ -169,6 +246,39 @@ export function CameraSettingsSheet({
             >
               <div className="w-5 h-5 rounded-full bg-black shadow" />
             </button>
+          </div>
+
+          {/* Fullscreen Mode */}
+          <div className="py-1">
+            <div className="flex items-center justify-between">
+              <div>
+                <span className="text-zinc-200">
+                  {lang === "id" ? "Mode Layar Penuh" : "Fullscreen Mode"}
+                </span>
+                {isStandalonePwa && (
+                  <span className="ml-2 text-[10px] font-mono uppercase text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded">
+                    PWA
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleFullscreen}
+                aria-label={lang === "id" ? "Alihkan Mode Layar Penuh" : "Toggle Fullscreen Mode"}
+                className={`w-12 h-7 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
+                  isFullscreen || isStandalonePwa ? "bg-amber-400 justify-end" : "bg-zinc-700 justify-start"
+                }`}
+              >
+                <div className="w-5 h-5 rounded-full bg-black shadow" />
+              </button>
+            </div>
+            {showIosFullscreenTip && (
+              <div className="mt-2 p-2.5 rounded-xl bg-amber-400/10 border border-amber-400/30 text-xs text-amber-200 leading-relaxed">
+                {lang === "id"
+                  ? "Di iPhone: Ketuk tombol Bagikan (Share) di Safari lalu pilih 'Tambah ke Layar Utama' (Add to Home Screen) untuk pengalaman kamera layar penuh tanpa batas bilah browser."
+                  : "On iPhone: Tap the Share button in Safari, then select 'Add to Home Screen' for borderless fullscreen camera without browser bars."}
+              </div>
+            )}
           </div>
 
           {/* Shutter Sound */}

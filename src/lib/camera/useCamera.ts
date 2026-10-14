@@ -163,6 +163,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
   const [exposureCompRange, setExposureCompRange] = useState<ExposureCompRange | null>(null);
   const [exposureCompValue, setExposureCompValue] = useState<number>(0);
+  const exposureCompValueRef = useRef<number>(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -428,12 +429,15 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             const targetEV = Math.max(ec.min, Math.min(ec.max, -0.5));
             void applyExposureCompensation(track, targetEV).catch(() => {});
             setExposureCompValue(targetEV);
+            exposureCompValueRef.current = targetEV;
           } else {
             setExposureCompValue(0);
+            exposureCompValueRef.current = 0;
           }
         } catch {
           setExposureCompRange(null);
           setExposureCompValue(0);
+          exposureCompValueRef.current = 0;
         }
 
         first = false;
@@ -677,6 +681,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             const currentLook = activeLookRef.current;
 
             try {
+              const swEV = exposureCompRange ? 0 : exposureCompValueRef.current;
               lookPipelineRef.current.render(v, currentLook, {
                 width: out.width,
                 height: out.height,
@@ -685,6 +690,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
                 grainTickHz: config ? config.grainTickHz : 24,
                 cropRect: normTargetCropRect,
                 mirror: isMirrored,
+                exposureCompensation: swEV,
               });
             } finally {
               inFlight = false;
@@ -875,10 +881,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     async (ev: number) => {
       markGesturing();
       const t = streamRef.current?.getVideoTracks()[0];
-      if (!t || !exposureCompRange) return;
-      const clamped = Math.max(exposureCompRange.min, Math.min(exposureCompRange.max, ev));
+      const min = exposureCompRange?.min ?? -2.0;
+      const max = exposureCompRange?.max ?? 2.0;
+      const clamped = Math.max(min, Math.min(max, ev));
+      exposureCompValueRef.current = clamped;
       setExposureCompValue(clamped);
-      await applyExposureCompensation(t, clamped);
+      if (t && exposureCompRange) {
+        await applyExposureCompensation(t, clamped);
+      }
     },
     [exposureCompRange, markGesturing]
   );
@@ -1039,6 +1049,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
           // Background archival photos rendered at tier high resolution (max 4096px, q0.92)
           const effectiveDigitalZoom = Math.max(1, digitalZoom);
+          const swEV = exposureCompRange ? 0 : exposureCompValueRef.current;
           const filteredBlob = await renderShot(frozenSource, {
             zoom: effectiveDigitalZoom,
             aspect: targetAspect,
@@ -1048,6 +1059,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             mirror: isMirrored,
             maxEdge: 4096,
             quality: 0.92,
+            exposureCompensation: swEV,
           });
 
           await new Promise((r) => setTimeout(r, 20));
@@ -1099,7 +1111,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     setCameraAspect,
     activeLook,
     setActiveLook,
-    exposureCompSupported: !!exposureCompRange,
+    exposureCompSupported: true,
     exposureCompValue,
     exposureCompRange,
     setExposureCompensation,

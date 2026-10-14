@@ -43,6 +43,8 @@ export interface RenderOptions {
   intensity?: number;
   /** Horizontally mirror the captured image (e.g. front camera matching preview) */
   mirror?: boolean;
+  /** Optional manual exposure compensation (EV bias, e.g. -2.0 to +2.0) */
+  exposureCompensation?: number;
 }
 
 let sharedCapturePipeline: LookEnginePipeline | null = null;
@@ -89,6 +91,7 @@ export async function renderShot(
     sourceType = "in-app",
     intensity,
     mirror = false,
+    exposureCompensation,
   }: RenderOptions & { maxEdge?: number; quality?: number; applyFilter?: boolean } = {}
 ): Promise<Blob> {
   const { w, h } = sourceSize(src);
@@ -167,6 +170,7 @@ export async function renderShot(
       isNativeCamera: sourceType === "native",
       intensity: targetIntensity,
       lut: loadedLut,
+      exposureCompensation,
     });
     if (rendered) processedCanvas = glCanvas;
   } catch (err) {
