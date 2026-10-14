@@ -95,7 +95,15 @@ export function constraintLadder({ deviceId, facing }: OpenOptions): MediaStream
     pushResolutionRungs({ deviceId: { exact: deviceId } });
     ladder.push({
       audio: false,
-      video: { deviceId: { exact: deviceId } },
+      video: { deviceId: { exact: deviceId }, width: { ideal: 4032, min: 1280 } },
+    });
+    ladder.push({
+      audio: false,
+      video: { deviceId: { exact: deviceId }, width: { ideal: 1920 } },
+    });
+    ladder.push({
+      audio: false,
+      video: { facingMode: { ideal: facing }, width: { ideal: 4032 }, aspectRatio: { ideal: 4 / 3 } },
     });
     ladder.push({
       audio: false,
@@ -144,7 +152,8 @@ export function constraintLadder({ deviceId, facing }: OpenOptions): MediaStream
     });
   }
 
-  // Bare video fallback only for environment or specific device
+  // Bare video fallback only for environment or specific device (prefer HD ideal before lowest rung)
+  ladder.push({ audio: false, video: { width: { ideal: 1920 }, height: { ideal: 1440 } } });
   ladder.push({ audio: false, video: true });
   return ladder;
 }
