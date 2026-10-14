@@ -485,7 +485,8 @@ export function CameraScreen({
         {/* WebGL Canvas */}
         <canvas
           ref={canvasRef}
-          className={`w-full h-full object-cover pointer-events-none ${
+          style={{ transform: "translateZ(0)", willChange: "transform" }}
+          className={`w-full h-full object-cover pointer-events-none transform-gpu ${
             error ? "filter blur-md opacity-40 transition-all duration-300" : ""
           }`}
         />

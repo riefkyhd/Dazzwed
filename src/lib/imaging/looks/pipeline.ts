@@ -686,7 +686,7 @@ export class LookEnginePipeline {
       stencil: false,
       preserveDrawingBuffer: false,
       powerPreference: "high-performance",
-      desynchronized: true,
+      desynchronized: false,
     };
     let gl = this.canvas.getContext("webgl2", attribs) as WebGL2RenderingContext | null;
     if (!gl) {
