@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import type { EventRow } from "@/lib/event-server";
 import { type EventStatus, eventStatus } from "@/lib/event";
 import { type Lang, t } from "@/lib/i18n";
@@ -130,6 +130,10 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     };
   }, [event.slug]);
 
+  const guestIdRef = useRef(guestId);
+  guestIdRef.current = guestId;
+  const sessionResolvedRef = useRef(false);
+
   // Sync / refresh guest data with server
   const initGuest = useCallback(
     async (guestName: string | null, targetGuestId?: string | null) => {
@@ -140,7 +144,7 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
           body: JSON.stringify({
             eventSlug: event.slug,
             name: guestName,
-            guestId: targetGuestId || guestId || undefined,
+            guestId: targetGuestId || guestIdRef.current || undefined,
           }),
         });
 
@@ -187,16 +191,23 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
         return null;
       }
     },
-    [event.slug, guestId, lang],
+    [event.slug, lang],
   );
 
   // Triple-Healed Multi-Session Identity & ?restore= handling on mount
   useEffect(() => {
     if (status !== "open" || typeof window === "undefined") return;
+    if (sessionResolvedRef.current) return;
+    sessionResolvedRef.current = true;
 
     const resolveSession = async () => {
       // 0. Check if URL has ?reset=1 to clear session and show landing
       if (typeof window !== "undefined" && new URLSearchParams(window.location.search).has("reset")) {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("reset");
+          window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
+        } catch {}
         await clearSessionTriple(event.slug);
         setGuestId(null);
         setScreen("landing");
@@ -205,6 +216,12 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
 
       // 1. Check if URL has ?restore=CODE
       if (initialRestoreCode) {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("restore");
+          window.history.replaceState({}, "", url.pathname + (url.search ? url.search : "") + url.hash);
+        } catch {}
+
         const norm = normalizeRollCode(initialRestoreCode);
         if (norm.length === 6) {
           try {

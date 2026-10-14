@@ -50,6 +50,15 @@ export function CameraSettingsSheet({
   const [isStandalonePwa, setIsStandalonePwa] = useState(false);
   const [showIosFullscreenTip, setShowIosFullscreenTip] = useState(false);
 
+  const checkRealFullscreen = (): boolean => {
+    if (typeof document === "undefined") return false;
+    const doc = document as unknown as {
+      fullscreenElement?: Element;
+      webkitFullscreenElement?: Element;
+    };
+    return Boolean(doc.fullscreenElement || doc.webkitFullscreenElement);
+  };
+
   React.useEffect(() => {
     if (typeof window === "undefined") return;
     const isStandalone =
@@ -57,28 +66,30 @@ export function CameraSettingsSheet({
       window.matchMedia("(display-mode: standalone)").matches;
     setIsStandalonePwa(isStandalone);
 
-    const doc = document as unknown as {
-      fullscreenElement?: Element;
-      webkitFullscreenElement?: Element;
-    };
-
     const updateFsState = () => {
-      const fs = Boolean(doc.fullscreenElement || doc.webkitFullscreenElement || isStandalone);
-      setIsFullscreen(fs);
+      setIsFullscreen(checkRealFullscreen());
     };
 
     updateFsState();
     document.addEventListener("fullscreenchange", updateFsState);
     document.addEventListener("webkitfullscreenchange", updateFsState);
+    window.addEventListener("resize", updateFsState);
     return () => {
       document.removeEventListener("fullscreenchange", updateFsState);
       document.removeEventListener("webkitfullscreenchange", updateFsState);
+      window.removeEventListener("resize", updateFsState);
     };
   }, []);
 
+  // Refresh real fullscreen state whenever the settings sheet opens
+  React.useEffect(() => {
+    if (open) {
+      setIsFullscreen(checkRealFullscreen());
+    }
+  }, [open]);
+
   const handleToggleFullscreen = async () => {
     triggerHaptic([20]);
-    if (isStandalonePwa) return;
 
     const doc = document as unknown as {
       fullscreenElement?: Element;
@@ -87,39 +98,45 @@ export function CameraSettingsSheet({
       webkitExitFullscreen?: () => Promise<void>;
     };
     const docEl = document.documentElement as unknown as {
-      requestFullscreen?: () => Promise<void>;
+      requestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
       webkitRequestFullscreen?: () => Promise<void>;
     };
 
-    if (doc.fullscreenElement || doc.webkitFullscreenElement) {
+    const isCurrentlyFs = checkRealFullscreen();
+
+    if (isCurrentlyFs) {
       try {
         if (doc.exitFullscreen) await doc.exitFullscreen();
         else if (doc.webkitExitFullscreen) await doc.webkitExitFullscreen();
-        setIsFullscreen(false);
-        setShowIosFullscreenTip(false);
-      } catch {
-        /* ignore */
+      } catch (err) {
+        console.warn("Exit fullscreen failed:", err);
       }
+      setIsFullscreen(checkRealFullscreen());
+      setShowIosFullscreenTip(false);
     } else {
       let entered = false;
       try {
         if (docEl.requestFullscreen) {
-          await docEl.requestFullscreen();
-          entered = true;
+          await docEl.requestFullscreen({ navigationUI: "hide" } as FullscreenOptions).catch(async () => {
+            if (docEl.requestFullscreen) await docEl.requestFullscreen();
+          });
+          entered = checkRealFullscreen();
         } else if (docEl.webkitRequestFullscreen) {
           await docEl.webkitRequestFullscreen();
-          entered = true;
+          entered = checkRealFullscreen();
         }
-      } catch {
+      } catch (err) {
+        console.warn("Request fullscreen failed:", err);
         entered = false;
       }
 
-      if (entered) {
-        setIsFullscreen(true);
-        setShowIosFullscreenTip(false);
-      } else {
-        // iOS Safari on iPhone doesn't permit DOM requestFullscreen: reveal Add-to-Home-Screen guidance
+      const activeFs = checkRealFullscreen();
+      setIsFullscreen(activeFs);
+      if (!entered && !activeFs) {
+        // Fullscreen API not supported or rejected (e.g. iOS Safari)
         setShowIosFullscreenTip((prev) => !prev);
+      } else {
+        setShowIosFullscreenTip(false);
       }
     }
   };
@@ -266,7 +283,7 @@ export function CameraSettingsSheet({
                 onClick={handleToggleFullscreen}
                 aria-label={lang === "id" ? "Alihkan Mode Layar Penuh" : "Toggle Fullscreen Mode"}
                 className={`w-12 h-7 flex items-center rounded-full p-1 transition-colors cursor-pointer ${
-                  isFullscreen || isStandalonePwa ? "bg-amber-400 justify-end" : "bg-zinc-700 justify-start"
+                  isFullscreen ? "bg-amber-400 justify-end" : "bg-zinc-700 justify-start"
                 }`}
               >
                 <div className="w-5 h-5 rounded-full bg-black shadow" />
