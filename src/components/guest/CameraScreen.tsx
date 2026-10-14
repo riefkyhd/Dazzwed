@@ -262,12 +262,11 @@ export function CameraScreen({
 
     try {
       setIsProcessing(true);
-      const isMirrored = facing === "user" && mirrorFront;
 
       const capturePromise = capture(
         cameraAspect,
         undefined,
-        isMirrored,
+        undefined,
         (fastPreview) => {
           if (activeSessionIdRef.current !== sessionId) {
             if (fastPreview instanceof ImageBitmap) {

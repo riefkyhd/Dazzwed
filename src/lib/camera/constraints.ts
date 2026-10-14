@@ -32,6 +32,7 @@ export function classifyError(e: unknown, permissionStatus?: string): CameraErro
       return "not-found";
     case "NotReadableError":
     case "TrackStartError":
+    case "AbortError":
       return "in-use";
     default:
       return "unknown";

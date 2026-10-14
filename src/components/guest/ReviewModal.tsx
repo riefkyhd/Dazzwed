@@ -203,13 +203,32 @@ export function ReviewModal({
     onRetake();
   };
 
-  // Derive frame aspect CSS class & ratio label
-  const aspectClass =
-    aspect === "1:1"
-      ? "aspect-square max-h-[64vh]"
-      : aspect === "16:9"
-      ? "aspect-[9/16] max-h-[64vh]"
-      : "aspect-[3/4] max-h-[72vh]";
+  // Derive precise CSS styles so card NEVER distorts and always maintains exact aspect ratio
+  const aspectStyle = useMemo<React.CSSProperties>(() => {
+    if (aspect === "1:1") {
+      return {
+        aspectRatio: "1 / 1",
+        width: "min(100%, 60vh)",
+        height: "auto",
+        maxHeight: "60vh",
+      };
+    }
+    if (aspect === "16:9") {
+      return {
+        aspectRatio: "9 / 16",
+        width: "min(100%, calc(64vh * 9 / 16))",
+        height: "auto",
+        maxHeight: "64vh",
+      };
+    }
+    // Default 3:4 (portrait 3:4 sensor)
+    return {
+      aspectRatio: "3 / 4",
+      width: "min(100%, calc(68vh * 3 / 4))",
+      height: "auto",
+      maxHeight: "68vh",
+    };
+  }, [aspect]);
 
   // Clean frame number badge (e.g. "EXP 08/15" or "FRAME 08")
   const currentFrame = shotsLeft !== undefined ? totalShots - shotsLeft + 1 : undefined;
@@ -242,7 +261,8 @@ export function ReviewModal({
       {/* Main Print Stage (Hero the photo with authentic physical print aesthetics) */}
       <div className="relative w-full max-w-md flex-1 min-h-0 flex items-center justify-center my-auto py-2">
         <div
-          className={`relative w-auto h-full max-w-full ${aspectClass} rounded-2xl overflow-hidden shadow-[0_10px_30px_-5px_rgba(0,0,0,0.6)] border border-white/10 bg-zinc-950 flex items-center justify-center transition-all duration-300 ${
+          style={aspectStyle}
+          className={`relative rounded-2xl overflow-hidden shadow-[0_10px_30px_-5px_rgba(0,0,0,0.6)] border border-white/10 bg-zinc-950 flex items-center justify-center transition-all duration-300 ${
             isKeeping ? "scale-[0.96] opacity-90" : "scale-100 opacity-100"
           }`}
         >

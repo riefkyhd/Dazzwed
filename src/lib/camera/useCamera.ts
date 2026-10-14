@@ -128,6 +128,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
   }, []);
 
   const [facing, setFacing] = useState<Facing>("environment");
+  const [actualFacing, setActualFacing] = useState<Facing>("environment");
+  const actualFacingRef = useRef<Facing>("environment");
   const [lensChoice, setLensChoice] = useState<string | undefined>(undefined);
   const [lenses, setLenses] = useState<Lens[]>([]);
   const [activeId, setActiveId] = useState<string | undefined>();
@@ -196,27 +198,36 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       track.onunmute = () => clearTimeout(muteTimer);
     };
 
+    let runInFlight = false;
+    let nextRunQueued: boolean | null = null;
+
     async function run(isRestart = false) {
-      setError(null);
-      if (isRestart) {
-        setRestarting(true);
-      } else {
-        setStarting(true);
+      if (runInFlight) {
+        nextRunQueued = isRestart;
+        return;
       }
-
-      if (streamRef.current) {
-        stopStream(streamRef.current);
-        streamRef.current = null;
-        // Hardware daemon cooldown (AVFoundation / Camera2) to release camera sensor lock
-        await new Promise((r) => setTimeout(r, 200));
-      }
-
-      // Coordinate with any other tabs to claim camera exclusive lease
-      const coordinator = getCameraCoordinator();
-      await coordinator.claimCamera(180);
-      if (cancelled) return;
+      runInFlight = true;
 
       try {
+        setError(null);
+        if (isRestart) {
+          setRestarting(true);
+        } else {
+          setStarting(true);
+        }
+
+        if (streamRef.current) {
+          stopStream(streamRef.current);
+          streamRef.current = null;
+          // Hardware daemon cooldown (AVFoundation / Camera2) to release camera sensor lock
+          await new Promise((r) => setTimeout(r, 200));
+        }
+
+        // Coordinate with any other tabs to claim camera exclusive lease
+        const coordinator = getCameraCoordinator();
+        await coordinator.claimCamera(180);
+        if (cancelled) return;
+
         // Enumerate devices if not yet known so we can directly pick the best lens
         if (knownDevices.length === 0 && typeof navigator !== "undefined" && navigator.mediaDevices?.enumerateDevices) {
           try {
@@ -453,11 +464,19 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         setError(null);
         isYieldedToOtherTabRef.current = false;
         setIsYieldedToOtherTab(false);
+        const detectedFacing = (s.getVideoTracks()[0]?.getSettings().facingMode as Facing) || facing;
+        actualFacingRef.current = detectedFacing;
+        setActualFacing(detectedFacing);
+        setFacing(detectedFacing);
         coordinator.notifyActive();
         diagnostics.logEvent("TRACK_ACQUIRED", `${settingsAfter.width}x${settingsAfter.height}`);
       } catch (e) {
         if (cancelled) return;
         setStream(null);
+        // If switching cameras failed, restore facing state back to the active camera
+        if (facing !== actualFacingRef.current) {
+          setFacing(actualFacingRef.current);
+        }
         let kind: CameraErrorKind = e instanceof CameraError ? e.kind : "unknown";
         if (kind === "denied" && typeof navigator !== "undefined" && navigator.permissions?.query) {
           try {
@@ -472,6 +491,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       } finally {
         setStarting(false);
         setRestarting(false);
+        runInFlight = false;
+        if (nextRunQueued !== null) {
+          const next = nextRunQueued;
+          nextRunQueued = null;
+          setTimeout(() => !cancelled && void run(next), 30);
+        }
       }
     }
     runRef.current = () => run(true);
@@ -521,7 +546,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           diagnostics.logEvent("REACQUIRE_STREAM", "silent resume / reclaim lease");
           isYieldedToOtherTabRef.current = false;
           setIsYieldedToOtherTab(false);
-          scheduleRestart(0);
+          scheduleRestart(160);
+        } else {
+          const v = videoRef.current;
+          if (v && v.paused) {
+            v.play().catch(() => {});
+          }
         }
       }
     };
@@ -533,7 +563,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       if (!t || t.readyState !== "live" || t.muted || isYieldedToOtherTabRef.current) {
         isYieldedToOtherTabRef.current = false;
         setIsYieldedToOtherTab(false);
-        scheduleRestart(0);
+        scheduleRestart(160);
+      } else {
+        const v = videoRef.current;
+        if (v && v.paused) {
+          v.play().catch(() => {});
+        }
       }
     };
 
@@ -716,7 +751,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             normTargetCropRect.width = targetCrop.sw / vw;
             normTargetCropRect.height = targetCrop.sh / vh;
 
-            const isMirrored = facingRef.current === "user" && mirrorFrontRef.current;
+            const isMirrored = actualFacingRef.current === "user" && mirrorFrontRef.current;
             const currentLook = activeLookRef.current;
 
             try {
@@ -953,15 +988,15 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
         isCapturingRef.current = true;
         const targetAspect = aspectOverride || cameraAspect;
-        const isMirrored = mirrorOverride !== undefined ? mirrorOverride : (facing === "user" && mirrorFront);
+        const isMirrored = mirrorOverride !== undefined ? mirrorOverride : (actualFacingRef.current === "user" && mirrorFrontRef.current);
 
         // Independent AbortController for this specific capture
         const abortCtrl = new AbortController();
 
         const runCapture = async (): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
           // Determine whether flash is required
-          const isEnvironment = facing === "environment";
-          const isUser = facing === "user";
+          const isEnvironment = actualFacingRef.current === "environment";
+          const isUser = actualFacingRef.current === "user";
           const hasHardwareTorch = isEnvironment && !!track && hasTorch(track);
 
         let shouldFireTorch = false;
@@ -990,10 +1025,16 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           // 2. Dual snapshot at exact same instant t=0 (instant preview bitmap and archival frame source)
           let previewBmp: ImageBitmap | null = null;
           try {
-            const [bmpC, bmpV] = await Promise.all([
-              c ? createImageBitmap(c).catch(() => null) : Promise.resolve(null),
-              typeof createImageBitmap === "function" ? createImageBitmap(v).catch(() => null) : Promise.resolve(null),
-            ]);
+            let bmpC: ImageBitmap | null = null;
+            if (c) {
+              try {
+                const crop = cropForAspectAndZoom(c.width, c.height, targetAspect, 1);
+                bmpC = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
+              } catch {
+                bmpC = await createImageBitmap(c).catch(() => null);
+              }
+            }
+            const bmpV = typeof createImageBitmap === "function" ? await createImageBitmap(v).catch(() => null) : null;
             previewBmp = bmpC;
             if (bmpV) frozenSource = bmpV;
           } catch (e) {
@@ -1023,10 +1064,16 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               track,
               async () => {
                 try {
-                  const [bmpC, bmpV] = await Promise.all([
-                    c ? createImageBitmap(c).catch(() => null) : Promise.resolve(null),
-                    typeof createImageBitmap === "function" ? createImageBitmap(v).catch(() => null) : Promise.resolve(null),
-                  ]);
+                  let bmpC: ImageBitmap | null = null;
+                  if (c) {
+                    try {
+                      const crop = cropForAspectAndZoom(c.width, c.height, targetAspect, 1);
+                      bmpC = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
+                    } catch {
+                      bmpC = await createImageBitmap(c).catch(() => null);
+                    }
+                  }
+                  const bmpV = typeof createImageBitmap === "function" ? await createImageBitmap(v).catch(() => null) : null;
                   previewBmp = bmpC;
                   if (bmpV) frozenSource = bmpV;
                 } catch {
@@ -1041,10 +1088,16 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             try {
               await new Promise((r) => setTimeout(r, 260));
               try {
-                const [bmpC, bmpV] = await Promise.all([
-                  c ? createImageBitmap(c).catch(() => null) : Promise.resolve(null),
-                  typeof createImageBitmap === "function" ? createImageBitmap(v).catch(() => null) : Promise.resolve(null),
-                ]);
+                let bmpC: ImageBitmap | null = null;
+                if (c) {
+                  try {
+                    const crop = cropForAspectAndZoom(c.width, c.height, targetAspect, 1);
+                    bmpC = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
+                  } catch {
+                    bmpC = await createImageBitmap(c).catch(() => null);
+                  }
+                }
+                const bmpV = typeof createImageBitmap === "function" ? await createImageBitmap(v).catch(() => null) : null;
                 previewBmp = bmpC;
                 if (bmpV) frozenSource = bmpV;
               } catch {
