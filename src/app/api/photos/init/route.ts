@@ -128,34 +128,23 @@ export async function POST(req: Request) {
     }
 
     const sb = supabaseAdmin();
-    let guestQuery = await sb
+    const { data: guest, error: guestErr } = await sb
       .from("guests")
       .select("id, display_name, consent_version, consent_at")
       .eq("id", guestIdParsed.data)
       .eq("event_id", event.id)
       .maybeSingle();
 
-    if (guestQuery.error && guestQuery.error.message?.includes("schema cache")) {
-      guestQuery = await sb
-        .from("guests")
-        .select("id, display_name")
-        .eq("id", guestIdParsed.data)
-        .eq("event_id", event.id)
-        .maybeSingle();
+    if (guestErr || !guest) {
+      return NextResponse.json({ error: "Guest not found" }, { status: 404 });
     }
 
-    const guest = guestQuery.data;
-    if (!guest) return NextResponse.json({ error: "Guest not found" }, { status: 404 });
-
     // Strict consent enforcement: reject if consent missing or outdated
-    const guestAny = guest as Record<string, unknown>;
-    if ("consent_version" in guestAny && guestAny.consent_version !== undefined) {
-      if (!guestAny.consent_at || guestAny.consent_version !== CONSENT_VERSION) {
-        return NextResponse.json(
-          { error: "Consent required or outdated", code: "CONSENT_REQUIRED" },
-          { status: 403 }
-        );
-      }
+    if (!guest.consent_at || guest.consent_version !== CONSENT_VERSION) {
+      return NextResponse.json(
+        { error: "Consent required or outdated", code: "CONSENT_REQUIRED" },
+        { status: 403 }
+      );
     }
 
     // Initiate Google Drive Resumable Upload Session

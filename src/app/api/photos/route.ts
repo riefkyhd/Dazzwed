@@ -117,37 +117,24 @@ export async function POST(req: Request) {
 
     const sb = supabaseAdmin();
 
-    // 4. Verify guest belongs to this event
-    let guestQuery = await sb
+    // 4. Verify guest belongs to this event and consent is valid
+    const { data: guest, error: guestErr } = await sb
       .from("guests")
       .select("id, display_name, drive_folder_id, consent_version, consent_at")
       .eq("id", guestId)
       .eq("event_id", event.id)
       .maybeSingle();
 
-    if (guestQuery.error && guestQuery.error.message?.includes("schema cache")) {
-      guestQuery = await sb
-        .from("guests")
-        .select("id, display_name, drive_folder_id")
-        .eq("id", guestId)
-        .eq("event_id", event.id)
-        .maybeSingle();
-    }
-
-    const guest = guestQuery.data;
-    if (!guest) {
+    if (guestErr || !guest) {
       return NextResponse.json({ error: "Guest not found for this event" }, { status: 404 });
     }
 
     // Strict consent enforcement: reject if consent missing or outdated
-    const guestAny = guest as Record<string, unknown>;
-    if ("consent_version" in guestAny && guestAny.consent_version !== undefined) {
-      if (!guestAny.consent_at || guestAny.consent_version !== CONSENT_VERSION) {
-        return NextResponse.json(
-          { error: "Consent required or outdated", code: "CONSENT_REQUIRED" },
-          { status: 403 }
-        );
-      }
+    if (!guest.consent_at || guest.consent_version !== CONSENT_VERSION) {
+      return NextResponse.json(
+        { error: "Consent required or outdated", code: "CONSENT_REQUIRED" },
+        { status: 403 }
+      );
     }
 
     // 5. Server-side atomic shot reservation

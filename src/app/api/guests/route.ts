@@ -83,7 +83,7 @@ export async function POST(req: Request) {
   if (candidate) {
     const { data } = await sb
       .from("guests")
-      .select("id,display_name,created_at")
+      .select("id,display_name,created_at,consent_version,consent_at,consent_telemetry")
       .eq("id", candidate)
       .eq("event_id", ev.id)
       .maybeSingle();
@@ -108,40 +108,26 @@ export async function POST(req: Request) {
       guest.consent_telemetry = consentTelemetry;
 
       const updateRes = await sb.from("guests").update(patchWithConsent).eq("id", data.id);
-      if (updateRes.error && updateRes.error.message?.includes("schema cache")) {
-        const fallbackPatch: Record<string, unknown> = { last_seen_at: nowIso };
-        if (name !== undefined) fallbackPatch.display_name = name;
-        await sb.from("guests").update(fallbackPatch).eq("id", data.id);
+      if (updateRes.error) {
+        console.error("Update guest consent error:", updateRes.error);
+        return NextResponse.json({ error: "server_error" }, { status: 500 });
       }
     }
   }
 
   if (!guest) {
     const nowIso = new Date().toISOString();
-    const insertWithConsent: Record<string, unknown> = {
-      event_id: ev.id,
-      display_name: name || null,
-      consent_version: consentVersion,
-      consent_at: nowIso,
-      consent_telemetry: consentTelemetry,
-    };
-
-    let insertRes = await sb
+    const insertRes = await sb
       .from("guests")
-      .insert(insertWithConsent)
-      .select("id,display_name,created_at")
+      .insert({
+        event_id: ev.id,
+        display_name: name || null,
+        consent_version: consentVersion,
+        consent_at: nowIso,
+        consent_telemetry: consentTelemetry,
+      })
+      .select("id,display_name,created_at,consent_version,consent_at,consent_telemetry")
       .single();
-
-    if (insertRes.error && insertRes.error.message?.includes("schema cache")) {
-      insertRes = await sb
-        .from("guests")
-        .insert({
-          event_id: ev.id,
-          display_name: name || null,
-        })
-        .select("id,display_name,created_at")
-        .single();
-    }
 
     if (insertRes.error || !insertRes.data) {
       console.error("Insert guest error:", insertRes.error);

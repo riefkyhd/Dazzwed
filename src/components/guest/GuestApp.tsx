@@ -414,9 +414,42 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     }
   };
 
-  const handleClearLocalData = async () => {
+  const purgeAllLocalClientState = async () => {
     clearLocalConsent();
     await clearSessionTriple(event.slug);
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.clear();
+        window.sessionStorage.clear();
+      } catch {}
+
+      // Delete IndexedDB database
+      if (typeof window.indexedDB !== "undefined") {
+        try {
+          if (window.indexedDB.databases) {
+            const dbs = await window.indexedDB.databases();
+            for (const db of dbs) {
+              if (db.name) {
+                window.indexedDB.deleteDatabase(db.name);
+              }
+            }
+          } else {
+            window.indexedDB.deleteDatabase("disposable-cam");
+          }
+        } catch {}
+      }
+
+      // Enforce zero localStorage items even if any component unmount microtask fires
+      setTimeout(() => {
+        try {
+          window.localStorage.clear();
+        } catch {}
+      }, 0);
+    }
+  };
+
+  const handleClearLocalData = async () => {
+    await purgeAllLocalClientState();
     setConsentGranted(false);
     setGuestId(null);
     setRollCode(null);
@@ -443,8 +476,7 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
     } catch (e) {
       console.error("Delete roll error:", e);
     }
-    clearLocalConsent();
-    await clearSessionTriple(event.slug);
+    await purgeAllLocalClientState();
     setConsentGranted(false);
     setGuestId(null);
     setRollCode(null);

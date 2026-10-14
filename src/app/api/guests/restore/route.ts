@@ -108,11 +108,9 @@ export async function POST(req: Request) {
     })
     .eq("id", matchedGuest.id);
 
-  if (updateRes.error && updateRes.error.message?.includes("schema cache")) {
-    await sb
-      .from("guests")
-      .update({ last_seen_at: nowIso })
-      .eq("id", matchedGuest.id);
+  if (updateRes.error) {
+    console.error("Restore update consent error:", updateRes.error);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 
   // Count active photos

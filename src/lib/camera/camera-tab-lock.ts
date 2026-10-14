@@ -112,14 +112,19 @@ export class CameraTabCoordinator {
     if (this.channel) {
       try {
         this.channel.postMessage(msg);
+        return;
       } catch {
         /* broadcast channel error fallback */
       }
     }
 
-    // Also update localStorage so cross-origin/non-BroadcastChannel tabs receive it
+    // Only update localStorage as a fallback if BroadcastChannel is unavailable
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...msg, _t: Date.now() }));
+      if (msg.type === "RELEASE_CAMERA") {
+        localStorage.removeItem(STORAGE_KEY);
+      } else {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...msg, _t: Date.now() }));
+      }
     } catch {
       /* ignore quota or private browsing errors */
     }
@@ -214,15 +219,20 @@ export class CameraTabCoordinator {
   };
 
   public destroy() {
-    this.notifyReleased();
     this.isDestroyed = true;
     if (typeof window !== "undefined") {
       window.removeEventListener("storage", this.handleStorageEvent);
       window.removeEventListener("pagehide", this.handleUnload);
       window.removeEventListener("beforeunload", this.handleUnload);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch {
+        /* ignore */
+      }
     }
     if (this.channel) {
       try {
+        this.channel.postMessage({ type: "RELEASE_CAMERA", tabId: this.tabId });
         this.channel.close();
       } catch {
         /* ignore */
