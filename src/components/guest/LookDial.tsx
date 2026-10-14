@@ -58,9 +58,53 @@ export function LookDial({
   isCollapsed = false,
   onOpenLookDrawer,
 }: LookDialProps) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const chipRefs = React.useRef<Map<string, HTMLButtonElement>>(new Map());
+
   const availableLooks = BUILTIN_LOOKS.filter(
     (l) => !allowedLookIds || allowedLookIds.includes(l.id)
   );
+
+  const centerActiveChip = React.useCallback(
+    (behavior: ScrollBehavior = "smooth") => {
+      const container = containerRef.current;
+      if (!container) return;
+      const chip = chipRefs.current.get(activeLook.id);
+      if (!chip) return;
+
+      const chipLeft = chip.offsetLeft;
+      const chipWidth = chip.offsetWidth;
+      const containerWidth = container.clientWidth;
+
+      // Position active recipe in the middle; clamp to [0, maxScroll] for edge chips
+      const targetLeft = chipLeft - (containerWidth - chipWidth) / 2;
+      const maxScroll = Math.max(0, container.scrollWidth - containerWidth);
+      const clamped = Math.max(0, Math.min(targetLeft, maxScroll));
+
+      container.scrollTo({
+        left: clamped,
+        behavior,
+      });
+    },
+    [activeLook.id]
+  );
+
+  React.useEffect(() => {
+    if (isCollapsed) return;
+
+    centerActiveChip("auto");
+    const rafId = requestAnimationFrame(() => {
+      centerActiveChip("smooth");
+    });
+    const t1 = setTimeout(() => centerActiveChip("smooth"), 100);
+    const t2 = setTimeout(() => centerActiveChip("smooth"), 300);
+
+    return () => {
+      cancelAnimationFrame(rafId);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [isCollapsed, activeLook.id, centerActiveChip]);
 
   if (availableLooks.length <= 1) return null;
 
@@ -84,13 +128,20 @@ export function LookDial({
 
   return (
     <div className="relative max-w-full overflow-hidden flex items-center justify-center">
-      <div className="flex items-center gap-1.5 p-1 bg-zinc-950/95 rounded-full border border-white/15 shadow-xl select-none overflow-x-auto no-scrollbar scroll-smooth">
+      <div
+        ref={containerRef}
+        className="flex items-center gap-1.5 p-1 bg-zinc-950/95 rounded-full border border-white/15 shadow-xl select-none overflow-x-auto no-scrollbar scroll-smooth"
+      >
         {availableLooks.map((look) => {
           const isSelected = activeLook.id === look.id;
           const chipLabel = getLookChipLabel(look);
           return (
             <button
               key={look.id}
+              ref={(el) => {
+                if (el) chipRefs.current.set(look.id, el);
+                else chipRefs.current.delete(look.id);
+              }}
               type="button"
               onClick={() => {
                 triggerHaptic([20]);
