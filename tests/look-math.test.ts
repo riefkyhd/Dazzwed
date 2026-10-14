@@ -50,4 +50,30 @@ describe("Look Engine Math & Pure Functions", () => {
       expect(rng1()).toBe(rng2());
     }
   });
+
+  it("formats date stamp as DD MM 'YY by default", async () => {
+    const { drawDateStamp } = await import("@/lib/imaging/looks/stamp-and-frame");
+    let capturedText = "";
+    const mockCtx = {
+      save: () => {},
+      restore: () => {},
+      fillText: (text: string) => {
+        capturedText = text;
+      },
+      font: "",
+      textAlign: "",
+      textBaseline: "",
+      fillStyle: "",
+      shadowColor: "",
+      shadowBlur: 0,
+    } as unknown as CanvasRenderingContext2D;
+
+    const look = {
+      ...NEUTRAL_LOOK,
+      dateStamp: { enabled: true, color: "#ff7700", glow: true },
+    };
+    const testDate = new Date(2026, 9, 14); // Oct 14, 2026
+    drawDateStamp(mockCtx, 1000, 1000, look, testDate);
+    expect(capturedText).toBe("14 10 '26");
+  });
 });
