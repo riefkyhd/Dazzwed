@@ -208,7 +208,7 @@ export function ReviewModal({
     aspect === "1:1"
       ? "aspect-square max-h-[64vh]"
       : aspect === "16:9"
-      ? "aspect-[9/16] max-h-[76vh]"
+      ? "aspect-[9/16] max-h-[66vh]"
       : "aspect-[3/4] max-h-[72vh]";
 
   // Clean frame number badge (e.g. "EXP 08/15" or "FRAME 08")
@@ -242,7 +242,7 @@ export function ReviewModal({
       {/* Main Print Stage (Hero the photo with authentic physical print aesthetics) */}
       <div className="relative w-full max-w-md flex-1 min-h-0 flex items-center justify-center my-auto py-2">
         <div
-          className={`relative w-full ${aspectClass} rounded-2xl overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.9)] border border-white/10 bg-zinc-950 flex items-center justify-center transition-all duration-300 ${
+          className={`relative w-full ${aspectClass} rounded-2xl overflow-hidden shadow-[0_10px_30px_-5px_rgba(0,0,0,0.6)] border border-white/10 bg-zinc-950 flex items-center justify-center transition-all duration-300 ${
             isKeeping ? "scale-[0.96] opacity-90" : "scale-100 opacity-100"
           }`}
         >
@@ -295,7 +295,7 @@ export function ReviewModal({
       </div>
 
       {/* Bottom Action Area with Status & Ergonomic Buttons */}
-      <div className="w-full max-w-md flex flex-col gap-2 shrink-0">
+      <div className="w-full max-w-md flex flex-col gap-2 shrink-0 relative z-20">
         {/* Error notification if saving failed */}
         {errorMsg && (
           <div className="w-full py-2 px-3 rounded-lg bg-red-950/80 border border-red-800 text-red-200 text-xs text-center font-medium animate-in fade-in duration-150">

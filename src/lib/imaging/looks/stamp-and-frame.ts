@@ -95,7 +95,16 @@ export function drawDateStamp(
   const yy = String(date.getFullYear()).slice(-2);
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
-  const stampText = `'${yy} ${mm} ${dd}`;
+
+  let stampText = `${dd} ${mm} '${yy}`;
+  if (look.dateStamp.format) {
+    stampText = look.dateStamp.format
+      .replace(/'YY/g, `'${yy}`)
+      .replace(/YYYY/g, String(date.getFullYear()))
+      .replace(/YY/g, yy)
+      .replace(/MM/g, mm)
+      .replace(/DD/g, dd);
+  }
 
   const fontSize = Math.max(14, Math.round(h * (look.dateStamp.size || 0.026)));
   const marginX = Math.round(w * 0.04);

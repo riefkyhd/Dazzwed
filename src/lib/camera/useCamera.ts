@@ -486,6 +486,9 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           isYieldedToOtherTabRef.current = true;
           setIsYieldedToOtherTab(true);
           coordinator.notifyYielded(requesterTabId);
+        } else {
+          // Immediately acknowledge so the claiming tab does not stall waiting for a timeout
+          coordinator.notifyYielded(requesterTabId);
         }
       },
     });
@@ -499,14 +502,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       if (document.visibilityState === "hidden") {
         diagnostics.logEvent("VISIBILITY_CHANGE", "hidden");
         if (suspendTimer) clearTimeout(suspendTimer);
-        // Fast background suspend (2.5 seconds) so other tabs or apps aren't blocked
+        // Fast background suspend (1.2 seconds) so other tabs or apps aren't blocked
         suspendTimer = setTimeout(() => {
-          diagnostics.logEvent("TRACKS_SUSPENDED", "2.5s background timeout");
+          diagnostics.logEvent("TRACKS_SUSPENDED", "1.2s background timeout");
           stopStream(streamRef.current);
           streamRef.current = null;
           setStream(null);
           coordinator.notifyReleased();
-        }, 2500);
+        }, 1200);
       } else if (document.visibilityState === "visible") {
         diagnostics.logEvent("VISIBILITY_CHANGE", "visible");
         if (suspendTimer) {
@@ -1132,8 +1135,13 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     setError(null);
     isYieldedToOtherTabRef.current = false;
     setIsYieldedToOtherTab(false);
+    if (streamRef.current) {
+      stopStream(streamRef.current);
+      streamRef.current = null;
+      setStream(null);
+    }
     const coordinator = getCameraCoordinator();
-    await coordinator.claimCamera(250);
+    await coordinator.claimCamera(300);
     await runRef.current();
   }, []);
 

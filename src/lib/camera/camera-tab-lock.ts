@@ -128,9 +128,9 @@ export class CameraTabCoordinator {
   /**
    * Request that any other tab holding the camera sensor release it immediately.
    * Returns a promise that resolves after the other tab acknowledges yield or after
-   * a safe 150ms cooldown for mobile OS hardware sensor teardown.
+   * a safe cooldown for mobile OS hardware sensor teardown.
    */
-  public async claimCamera(timeoutMs = 180): Promise<void> {
+  public async claimCamera(timeoutMs = 280): Promise<void> {
     if (typeof window === "undefined") return;
 
     return new Promise<void>((resolve) => {
@@ -143,14 +143,14 @@ export class CameraTabCoordinator {
         }
       }, timeoutMs);
 
-      // If another tab actively replies with CAMERA_YIELDED to our tabId, resolve early with 50ms cooldown
+      // If another tab actively replies with CAMERA_YIELDED to our tabId, resolve early with Camera2 driver cooldown
       const prevOnYield = this.listeners.onYielded;
       this.listeners.onYielded = (fromTabId) => {
         prevOnYield?.(fromTabId);
         if (!resolved) {
           resolved = true;
           clearTimeout(timer);
-          setTimeout(resolve, 60); // brief OS Camera2 driver cooldown
+          setTimeout(resolve, 250); // safe OS Camera2 driver buffer flush cooldown
         }
       };
 

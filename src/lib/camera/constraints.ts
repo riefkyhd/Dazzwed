@@ -171,16 +171,16 @@ export async function openStream(
 
   let last: unknown;
   for (const constraints of constraintLadder(opts)) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+    for (let attempt = 0; attempt < 3; attempt++) {
       try {
         return await mediaDevices.getUserMedia(constraints);
       } catch (e) {
         last = e;
         const kind = classifyError(e);
         if (kind === "denied") throw new CameraError("denied", e);
-        // Camera briefly busy (e.g. right after another stream was stopped): retry once.
-        if (kind === "in-use" && attempt === 0) {
-          await sleep(400);
+        // Camera briefly busy (e.g. right after another stream or tab was stopped): retry with backoff.
+        if (kind === "in-use" && attempt < 2) {
+          await sleep(attempt === 0 ? 350 : 650);
           continue;
         }
         break; // Overconstrained / not-found / etc: try the next, more relaxed rung.
