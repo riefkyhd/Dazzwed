@@ -19,6 +19,8 @@ interface CameraTopBarProps {
   onOpenSettings: () => void;
   onNativeTipClick?: () => void;
   lang: Lang;
+  showSyncTooltip?: boolean;
+  syncTooltipFading?: boolean;
 }
 
 export function CameraTopBar({
@@ -34,6 +36,9 @@ export function CameraTopBar({
   onOpenSyncStatus,
   onOpenSettings,
   onNativeTipClick,
+  lang,
+  showSyncTooltip = false,
+  syncTooltipFading = false,
 }: CameraTopBarProps) {
   // Cycle flash: auto -> on -> off -> auto
   const cycleFlash = () => {
@@ -139,32 +144,60 @@ export function CameraTopBar({
       </button>
 
       {/* 4. Sync Status Indicator (>= 48x48 hit target) */}
-      <button
-        type="button"
-        onClick={() => {
-          triggerHaptic([15]);
-          onOpenSyncStatus?.();
-        }}
-        aria-label={syncError ? "Sync error" : pendingCount > 0 ? `${pendingCount} photos pending` : "All photos synced"}
-        className="w-12 h-12 flex items-center justify-center rounded-full active:scale-90 transition-transform cursor-pointer"
-      >
-        <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-950/95 border border-white/15 shadow-md">
-          <span
-            className={`w-2 h-2 rounded-full ${
-              syncError
-                ? "bg-rose-500 animate-ping"
-                : pendingCount > 0
-                  ? "bg-amber-400 animate-pulse"
-                  : "bg-emerald-400"
+      <div className="relative">
+        <button
+          type="button"
+          onClick={() => {
+            triggerHaptic([15]);
+            onOpenSyncStatus?.();
+          }}
+          aria-label={syncError ? "Sync error" : pendingCount > 0 ? `${pendingCount} photos pending` : "All photos synced"}
+          className="w-12 h-12 flex items-center justify-center rounded-full active:scale-90 transition-transform cursor-pointer"
+        >
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-950/95 border border-white/15 shadow-md">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                syncError
+                  ? "bg-rose-500 animate-ping"
+                  : pendingCount > 0
+                    ? "bg-amber-400 animate-pulse"
+                    : "bg-emerald-400"
+              }`}
+            />
+            {pendingCount > 0 && (
+              <span className="font-mono text-[10px] font-bold text-amber-300">
+                {pendingCount}
+              </span>
+            )}
+          </div>
+        </button>
+
+        {/* Floating Sync Tooltip (First photo save only, auto-vanishes after ~2s) */}
+        {showSyncTooltip && (
+          <div
+            role="tooltip"
+            className={`absolute top-full mt-2 -right-8 sm:right-0 z-50 pointer-events-none transition-all duration-500 ease-out ${
+              syncTooltipFading ? "opacity-0 -translate-y-1" : "opacity-100 translate-y-0"
             }`}
-          />
-          {pendingCount > 0 && (
-            <span className="font-mono text-[10px] font-bold text-amber-300">
-              {pendingCount}
-            </span>
-          )}
-        </div>
-      </button>
+          >
+            <div className="relative bg-zinc-950/95 border border-amber-500/40 text-zinc-100 px-3.5 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md w-56 text-center animate-in fade-in zoom-in-95 duration-200">
+              {/* Caret arrow pointing up to sync indicator */}
+              <div className="absolute -top-1.5 right-12 sm:right-5 w-3 h-3 bg-zinc-950 border-t border-l border-amber-500/40 rotate-45" />
+              <div className="flex items-center gap-1.5 justify-center mb-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
+                  {lang === "id" ? "Sinkronisasi" : "Auto-Sync"}
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-200 leading-snug font-sans">
+                {lang === "id"
+                  ? "Indikator sinkronisasi — foto Anda diunggah otomatis di latar belakang"
+                  : "Sync indicator — your photos upload automatically in the background"}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* 5. More / Settings Sheet Button (>= 48x48 hit target) */}
       <button

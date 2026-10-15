@@ -719,6 +719,7 @@ export function GuestApp({
           pendingCount={pendingCount}
           onCheckRoll={checkRollSync}
           isCheckingRoll={isCheckingRoll}
+          onDeleteRoll={handleDeleteRoll}
         />
       )}
 
@@ -737,8 +738,6 @@ export function GuestApp({
           onNativePhoto={handleNativePhoto}
           allowedLookIds={resolveThemeLooks(event.theme).allowedLookIds}
           defaultLookId={resolveThemeLooks(event.theme).defaultLookId}
-          onClearLocalData={handleClearLocalData}
-          onDeleteRoll={handleDeleteRoll}
         />
       )}
 

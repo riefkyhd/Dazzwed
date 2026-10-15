@@ -61,10 +61,10 @@ export async function ensureGuestFolder(
     return currentGuest.drive_folder_id;
   }
 
-  // Create subfolder in Drive with unique roll code: e.g. "Roll 7K9X2B"
-  // Guest display name is excluded from Drive folder names to strictly avoid PII leakage
+  // Create subfolder in Drive with unique roll code: e.g. "Dhifa (7K9X2B)" or "Roll 7K9X2B"
   const rollCode = computeRollCodeFromGuestId(guestId);
-  const folderName = `Roll ${rollCode}`;
+  const cleanName = displayName?.trim().replace(/[/\\?%*:|"<>]/g, "");
+  const folderName = cleanName ? `${cleanName} (${rollCode})` : `Roll ${rollCode}`;
 
   const res = await drive.files.create({
     requestBody: {

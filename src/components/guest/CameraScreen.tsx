@@ -37,8 +37,6 @@ interface CameraScreenProps {
   onNativePhoto: (file: File, quickThumb?: string) => void;
   allowedLookIds?: string[];
   defaultLookId?: string;
-  onClearLocalData?: () => void;
-  onDeleteRoll?: () => Promise<void>;
 }
 
 export function CameraScreen({
@@ -55,13 +53,16 @@ export function CameraScreen({
   onNativePhoto,
   allowedLookIds,
   defaultLookId,
-  onClearLocalData,
-  onDeleteRoll,
 }: CameraScreenProps) {
   const searchParams = useSearchParams();
   const isDebug = searchParams?.get("debug") === "1";
   const [showHud, setShowHud] = useState(isDebug);
   const [mirrorFront, setMirrorFront] = useState(true);
+
+  // Sync indicator tooltip (First kept photo in session, auto-vanishes after ~2s)
+  const [showSyncTooltip, setShowSyncTooltip] = useState(false);
+  const [syncTooltipFading, setSyncTooltipFading] = useState(false);
+  const hasTriggeredSyncTipRef = useRef(false);
 
   const {
     videoRef,
@@ -391,6 +392,27 @@ export function CameraScreen({
       const { filteredBlob, originalBlob } = await session.blobsPromise;
       if (filteredBlob && filteredBlob.size > 0) {
         void onShotCaptured(filteredBlob, originalBlob);
+
+        // Trigger first-time photo save sync indicator tooltip (Part 4)
+        if (!hasTriggeredSyncTipRef.current) {
+          try {
+            const alreadyShown = typeof window !== "undefined" && window.sessionStorage.getItem("dc_sync_tip_shown");
+            if (!alreadyShown) {
+              if (typeof window !== "undefined") {
+                window.sessionStorage.setItem("dc_sync_tip_shown", "1");
+              }
+              hasTriggeredSyncTipRef.current = true;
+              setShowSyncTooltip(true);
+              setSyncTooltipFading(false);
+              setTimeout(() => {
+                setSyncTooltipFading(true);
+                setTimeout(() => {
+                  setShowSyncTooltip(false);
+                }, 500);
+              }, 2000);
+            }
+          } catch {}
+        }
       }
     } catch (e) {
       console.error("Failed to persist shot in background:", e);
@@ -627,6 +649,8 @@ export function CameraScreen({
               onOpenSettings={() => setSettingsOpen(true)}
               onNativeTipClick={() => setShowNativeFlashTip(true)}
               lang={lang}
+              showSyncTooltip={showSyncTooltip}
+              syncTooltipFading={syncTooltipFading}
             />
           </header>
 
@@ -832,8 +856,6 @@ export function CameraScreen({
         performanceMode={performanceMode}
         onSelectPerformanceMode={setPerformanceMode}
         qualityTier={qualityTier}
-        onClearLocalData={onClearLocalData}
-        onDeleteRoll={onDeleteRoll}
       />
 
       {/* Sync Status Sheet with natural slide up/down animation */}

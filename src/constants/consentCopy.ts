@@ -2,6 +2,7 @@ export const CONSENT_VERSION = "2026-10-v1";
 
 export interface ConsentCopy {
   summary: string;
+  editorialSubtitle: string;
   checkboxAlbum: string;
   checkboxTelemetry: string;
   detailsTitle: string;
@@ -16,17 +17,22 @@ export interface ConsentCopy {
   retentionBody: string;
   rightsTitle: string;
   rightsBody: string;
+  withdrawAction: string;
+  withdrawConfirm: string;
+  withdrawSuccess: string;
 }
 
 export const CONSENT_COPY: Record<"en" | "id", ConsentCopy> = {
   en: {
     summary:
-      "Welcome! This digital disposable camera lets you take photos to celebrate the wedding. Photos you choose to keep are saved directly to the couple's private wedding album.",
+      "Snap moments for the couple's private wedding album.",
+    editorialSubtitle:
+      "Snap moments for the couple's private wedding album.",
     checkboxAlbum:
-      "I agree to take and share photos for the couple's wedding album, and I confirm I am at least 18 years old (or have parent/guardian consent).",
+      "I agree to share my photos with the couple and confirm I am 18+ (or have parent/guardian permission).",
     checkboxTelemetry:
-      "Help improve the camera by sharing anonymous error and performance diagnostics (optional).",
-    detailsTitle: "Read Full Privacy Notice (Indonesia UU PDP)",
+      "Share anonymous error logs to help keep the camera smooth (optional)",
+    detailsTitle: "Privacy & data notice (Indonesia UU PDP)",
     detailsIntro:
       "In accordance with Indonesia Law No. 27 of 2022 on Personal Data Protection (UU PDP), here is how your data is handled:",
     controllerTitle: "1. Data Controller",
@@ -43,16 +49,21 @@ export const CONSENT_COPY: Record<"en" | "id", ConsentCopy> = {
       "Photos and albums are stored in Google Drive and Supabase. Anonymous diagnostic logs are automatically deleted after 30 days. You may delete your roll at any time.",
     rightsTitle: "5. Your Rights & Erasure",
     rightsBody:
-      "You have the right to withdraw consent and delete your film roll at any time using the 'Delete My Roll' option in camera settings, which immediately erases all your photos from the album.",
+      "You have the right to withdraw consent and delete your film roll at any time, which permanently erases all your photos from Google Drive, the server, and this device.",
+    withdrawAction: "Withdraw consent & delete my roll",
+    withdrawConfirm: "Are you sure? This permanently erases all photos from your roll in Google Drive, the database, and this device.",
+    withdrawSuccess: "Your roll and photos have been permanently deleted.",
   },
   id: {
     summary:
-      "Selamat datang! Kamera saku digital ini untuk mengabadikan momen pernikahan. Foto yang kamu simpan akan masuk langsung ke album pribadi kedua mempelai.",
+      "Abadikan momen untuk album pernikahan pribadi mempelai.",
+    editorialSubtitle:
+      "Abadikan momen untuk album pernikahan pribadi mempelai.",
     checkboxAlbum:
-      "Saya setuju untuk mengambil dan membagikan foto untuk album pernikahan mempelai, serta menyatakan berusia minimal 18 tahun (atau didampingi orang tua/wali).",
+      "Saya setuju membagikan foto ke mempelai & menyatakan berusia 18+ (atau seizin orang tua/wali).",
     checkboxTelemetry:
-      "Bantu tingkatkan kualitas kamera dengan mengirimkan laporan kesalahan & performa anonim (opsional).",
-    detailsTitle: "Baca Pemberitahuan Privasi Lengkap (UU PDP)",
+      "Kirim laporan galat anonim untuk menjaga kamera tetap lancar (opsional)",
+    detailsTitle: "Pemberitahuan privasi & data (UU PDP)",
     detailsIntro:
       "Sesuai dengan Undang-Undang Republik Indonesia No. 27 Tahun 2022 tentang Pelindungan Data Pribadi (UU PDP), berikut informasi mengenai pemrosesan data kamu:",
     controllerTitle: "1. Pengendali Data Pribadi",
@@ -69,6 +80,9 @@ export const CONSENT_COPY: Record<"en" | "id", ConsentCopy> = {
       "Foto disimpan di Google Drive dan Supabase. Data diagnostik otomatis dihapus setelah 30 hari. Kamu dapat menghapus seluruh roll foto kamu kapan saja.",
     rightsTitle: "5. Hak & Penghapusan Data",
     rightsBody:
-      "Kamu berhak menarik persetujuan dan menghapus seluruh roll foto kapan saja melalui menu 'Hapus Roll Saya' di pengaturan kamera untuk menghapus permanen seluruh foto dari album.",
+      "Kamu berhak menarik persetujuan dan menghapus seluruh roll foto kapan saja, yang akan menghapus permanen seluruh foto kamu dari Google Drive, server, dan perangkat ini.",
+    withdrawAction: "Tarik persetujuan & hapus roll saya",
+    withdrawConfirm: "Apakah kamu yakin? Ini akan menghapus permanen seluruh foto dari roll kamu di Google Drive, database, dan perangkat ini.",
+    withdrawSuccess: "Roll dan foto kamu telah dihapus permanen.",
   },
 };

@@ -21,6 +21,7 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
     { label: "Settings", href: "/admin/settings" },
     { label: "Photos & Guests", href: "/admin/photos" },
     { label: "QR & Print", href: "/admin/qr" },
+    { label: "User Guide", href: "/admin/guide" },
     { label: "Connect Drive", href: "/admin/connect-drive" },
   ];
 
@@ -117,6 +118,16 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
       icon: (
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-blue-400">
           <path d="M5.5 16a3.5 3.5 0 0 1-.369-6.98 4 4 0 1 1 7.753-1.977A4.5 4.5 0 1 1 13.5 16h-8Z" />
+        </svg>
+      ),
+    },
+    {
+      label: "User Guide & Manual",
+      href: "/admin/guide",
+      desc: "Timeline checklist, QR rules & FAQ",
+      icon: (
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-amber-400">
+          <path d="M10.75 16.82A7.462 7.462 0 0 1 15 15.5c.71 0 1.396.098 2.046.282A.75.75 0 0 0 18 15.06v-11a.75.75 0 0 0-.546-.721A9.006 9.006 0 0 0 15 3a8.963 8.963 0 0 0-4.25 1.065V16.82ZM9.25 4.065A8.963 8.963 0 0 0 5 3c-.85 0-1.673.118-2.455.339A.75.75 0 0 0 2 4.06v11a.75.75 0 0 0 .954.722A7.462 7.462 0 0 1 5 15.5c1.579 0 3.042.487 4.25 1.32V4.065Z" />
         </svg>
       ),
     },

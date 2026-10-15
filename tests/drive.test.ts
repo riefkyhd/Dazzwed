@@ -114,7 +114,13 @@ describe("Google Drive Photo Uploads", () => {
     const folder2 = await ensureGuestFolder(mockDrive, "root-100", guest2Id, sameName);
 
     expect(folder1).not.toBe(folder2);
-    expect(createdFolders.some(f => f.name === `Roll ${code1}`)).toBe(true);
-    expect(createdFolders.some(f => f.name === `Roll ${code2}`)).toBe(true);
+    expect(createdFolders.some(f => f.name === `${sameName} (${code1})`)).toBe(true);
+    expect(createdFolders.some(f => f.name === `${sameName} (${code2})`)).toBe(true);
+
+    // Also verify null/empty display name falls back cleanly to Roll <code3>
+    const guest3Id = "33333333-3333-4333-8333-333333333333";
+    const code3 = computeRollCodeFromGuestId(guest3Id);
+    await ensureGuestFolder(mockDrive, "root-100", guest3Id, null);
+    expect(createdFolders.some(f => f.name === `Roll ${code3}`)).toBe(true);
   });
 });

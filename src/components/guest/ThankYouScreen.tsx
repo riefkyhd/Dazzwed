@@ -10,9 +10,17 @@ interface ThankYouScreenProps {
   pendingCount: number;
   onCheckRoll?: () => Promise<void> | void;
   isCheckingRoll?: boolean;
+  onDeleteRoll?: () => Promise<void> | void;
 }
 
-export function ThankYouScreen({ coupleNames, lang, pendingCount, onCheckRoll, isCheckingRoll }: ThankYouScreenProps) {
+export function ThankYouScreen({
+  coupleNames,
+  lang,
+  pendingCount,
+  onCheckRoll,
+  isCheckingRoll,
+  onDeleteRoll,
+}: ThankYouScreenProps) {
   return (
     <div className="flex flex-col min-h-dvh max-w-md mx-auto px-6 py-10 justify-between items-center text-center">
       <div className="w-full flex justify-end">
@@ -69,8 +77,28 @@ export function ThankYouScreen({ coupleNames, lang, pendingCount, onCheckRoll, i
         )}
       </div>
 
-      <footer className="text-xs text-zinc-600 font-mono tracking-wider uppercase">
-        {coupleNames}
+      <footer className="w-full text-center space-y-3 pt-4">
+        {onDeleteRoll && (
+          <div>
+            <button
+              type="button"
+              onClick={async () => {
+                const confirmMsg =
+                  lang === "id"
+                    ? "Apakah kamu yakin? Ini akan menghapus permanen seluruh foto dari roll kamu di Google Drive, database, dan perangkat ini."
+                    : "Are you sure? This permanently erases all photos from your roll in Google Drive, the database, and this device.";
+                if (!window.confirm(confirmMsg)) return;
+                await onDeleteRoll();
+              }}
+              className="text-[11px] text-zinc-500 hover:text-rose-400 underline underline-offset-4 transition cursor-pointer"
+            >
+              {lang === "id" ? "Tarik persetujuan & hapus roll saya" : "Withdraw consent & delete my roll"}
+            </button>
+          </div>
+        )}
+        <div className="text-xs text-zinc-600 font-mono tracking-wider uppercase">
+          {coupleNames}
+        </div>
       </footer>
     </div>
   );

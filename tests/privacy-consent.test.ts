@@ -8,8 +8,8 @@ describe("Privacy & Consent Compliance (Indonesia UU PDP)", () => {
     expect(CONSENT_COPY.en).toBeDefined();
     expect(CONSENT_COPY.id).toBeDefined();
 
-    expect(CONSENT_COPY.en.checkboxAlbum).toContain("I agree to take and share photos");
-    expect(CONSENT_COPY.id.checkboxAlbum).toContain("Saya setuju untuk mengambil dan membagikan foto");
+    expect(CONSENT_COPY.en.checkboxAlbum).toContain("I agree to share my photos with the couple");
+    expect(CONSENT_COPY.id.checkboxAlbum).toContain("Saya setuju membagikan foto ke mempelai");
 
     expect(CONSENT_COPY.en.detailsTitle).toContain("UU PDP");
     expect(CONSENT_COPY.id.detailsTitle).toContain("UU PDP");
