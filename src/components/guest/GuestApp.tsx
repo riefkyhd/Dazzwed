@@ -738,6 +738,7 @@ export function GuestApp({
           onNativePhoto={handleNativePhoto}
           allowedLookIds={resolveThemeLooks(event.theme).allowedLookIds}
           defaultLookId={resolveThemeLooks(event.theme).defaultLookId}
+          onDeleteRoll={handleDeleteRoll}
         />
       )}
 

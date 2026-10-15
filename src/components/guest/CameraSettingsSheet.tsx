@@ -23,6 +23,7 @@ interface CameraSettingsSheetProps {
   performanceMode?: PerformanceMode;
   onSelectPerformanceMode?: (mode: PerformanceMode) => void;
   qualityTier?: QualityTier;
+  onDeleteRoll?: () => Promise<void>;
 }
 
 export function CameraSettingsSheet({
@@ -42,8 +43,10 @@ export function CameraSettingsSheet({
   performanceMode = "auto",
   onSelectPerformanceMode,
   qualityTier = "A",
+  onDeleteRoll,
 }: CameraSettingsSheetProps) {
   const [copied, setCopied] = useState(false);
+  const [isDeletingRoll, setIsDeletingRoll] = useState(false);
   const [rendered, setRendered] = useState(open);
   const [visible, setVisible] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -482,6 +485,57 @@ export function CameraSettingsSheet({
                   {copied ? t(lang, "savedToDevice") : t(lang, "copyRestoreLink")}
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* UU PDP Mid-Roll Privacy Rights & Consent Withdrawal */}
+          {onDeleteRoll && (
+            <div className="pt-3 border-t border-zinc-800">
+              <details className="group">
+                <summary className="text-[11px] text-zinc-500 hover:text-zinc-400 cursor-pointer list-none flex items-center justify-between transition-colors select-none py-1">
+                  <span>{lang === "id" ? "Hak privasi & data" : "Privacy & data rights"}</span>
+                  <svg
+                    className="w-3.5 h-3.5 transition-transform duration-200 group-open:rotate-180 text-zinc-600"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="mt-2 p-3 rounded-xl bg-zinc-950/80 border border-zinc-800/80 space-y-2.5">
+                  <p className="text-[11px] text-zinc-400 leading-relaxed">
+                    {lang === "id"
+                      ? "Foto Anda disimpan secara privat untuk album mempelai. Sesuai hak privasi UU PDP, Anda dapat menarik persetujuan dan menghapus permanen semua foto yang telah diunggah kapan saja."
+                      : "Your photos are stored privately for the couple's album. In accordance with privacy rights (Indonesia UU PDP), you can withdraw consent and permanently erase all your uploaded photos at any time."}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={isDeletingRoll}
+                    onClick={async () => {
+                      const message =
+                        lang === "id"
+                          ? "Hapus permanen semua foto Anda dari album mempelai dan tarik persetujuan? Tindakan ini tidak dapat dibatalkan."
+                          : "Permanently delete all your photos from the couple's album and withdraw consent? This action cannot be undone.";
+                      if (window.confirm(message)) {
+                        setIsDeletingRoll(true);
+                        try {
+                          await onDeleteRoll();
+                          handleDismiss();
+                        } catch (err) {
+                          console.error("Failed to delete roll:", err);
+                          setIsDeletingRoll(false);
+                        }
+                      }
+                    }}
+                    className="text-[11px] text-rose-400/90 hover:text-rose-300 underline underline-offset-2 transition-colors disabled:opacity-50 cursor-pointer block text-left"
+                  >
+                    {isDeletingRoll
+                      ? (lang === "id" ? "Menghapus rol..." : "Deleting roll...")
+                      : (lang === "id" ? "Tarik persetujuan & hapus rol foto saya" : "Withdraw consent & delete my uploaded roll")}
+                  </button>
+                </div>
+              </details>
             </div>
           )}
         </div>

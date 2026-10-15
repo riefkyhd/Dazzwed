@@ -67,6 +67,18 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        source: "/admin/guests",
+        destination: "/admin/photos",
+      },
+      {
+        source: "/admin/looks",
+        destination: "/admin/look-lab",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

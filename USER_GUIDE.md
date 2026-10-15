@@ -82,6 +82,12 @@
 | **Shots Per Guest** | `/admin/settings` | Configures the number of shots on each guest's roll (default: 15). | Adjust before the event starts. |
 | **Reset All Guest Sessions** | `/admin/settings` | Grants all guests another 15-shot roll without deleting previous photos. | Use during after-parties or when resetting test phones before the wedding. |
 
+### Admin Navigation Layout (Clean Top Bar + Utility Dropdown)
+The admin navigation uses a streamlined 5-link primary bar with an account popover:
+- **Primary Desktop Nav (Single-Line, `>= 1024px`):** `Dashboard` (`/admin`), `Gallery` (`/admin/photos`), `QR & Print` (`/admin/qr`), `Look Lab` (`/admin/look-lab`), and `Settings` (`/admin/settings`).
+- **Right Utility & Account Menu:** Quick `? Guide` pill button + Account trigger (`username ▾`) containing full admin email, `Connect Google Drive`, `System Health` diagnostics, and `Sign Out`.
+- **Mobile & Tablet Drawer (`< 1024px`):** Mobile bottom navigation bar and expandable drawer keeping all admin routes accessible on touchscreens.
+
 ---
 
 ## 4. Technical Architecture & Deployment (For Buyers)
@@ -139,7 +145,9 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 1. **Zero-Activity Pre-Consent Gate:**
    - Absolutely zero network requests, tracking scripts, cookies, `localStorage`, or `IndexedDB` instances are initialized until the guest explicitly clicks **"Start camera"**.
 2. **Right to Erasure (UU PDP Article 39 / GDPR Article 17):**
-   - Guests can withdraw consent and permanently delete their roll at any time via:
-     - The expandable **Privacy & data notice** on the landing screen (`/e/[slug]`).
-     - The footer link on the **Thank You** screen.
-   - Deletion removes the guest's folder from Google Drive, wipes their database row and photos, and clears all client storage.
+   - Guests can withdraw consent and permanently delete their roll at any point during their session:
+     - **Before shooting:** The expandable **Privacy & data notice** on the landing screen (`/e/[slug]`).
+     - **Mid-roll (shots 1–14):** The quiet **Privacy & data rights** expandable footer inside the camera settings sheet (`CameraSettingsSheet`).
+     - **Completed roll (shot 15):** The footer action on the celebratory **Thank You** screen (`ThankYouScreen`).
+   - Calling deletion triggers `POST /api/guests/delete`, which permanently purges all guest photos and folders from Google Drive and Supabase, and wipes all local browser state (`localStorage`, `sessionStorage`, `IndexedDB`).
+   - Local-only data clearing ("Clear Data on This Phone Only") is strictly prevented inside the camera to close the 15-shot reset loophole while ensuring authentic legal erasure compliance.
