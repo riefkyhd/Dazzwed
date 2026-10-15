@@ -742,19 +742,27 @@ export function GuestApp({
         />
       )}
 
-      {screen === "landing" && (
-        <LandingScreen
-          coupleNames={event.couple_names}
-          shotsPerGuest={shotsPerGuest}
-          eventSlug={event.slug}
-          tokenExpiresAt={tokenExpiresAt}
-          lang={lang}
-          onLanguageChange={handleLanguageChange}
-          onStartCamera={handleStartCamera}
-          onNativePhoto={handleNativePhoto}
-          onRestoreSuccess={handleRestoreSuccess}
-        />
-      )}
+      {screen === "landing" && (() => {
+        const themeObj = event.theme && typeof event.theme === "object" ? (event.theme as Record<string, unknown>) : null;
+        const eventSubtitle = typeof themeObj?.eventSubtitle === "string" && themeObj.eventSubtitle.trim()
+          ? themeObj.eventSubtitle.trim()
+          : undefined;
+
+        return (
+          <LandingScreen
+            coupleNames={event.couple_names}
+            eventSubtitle={eventSubtitle}
+            shotsPerGuest={shotsPerGuest}
+            eventSlug={event.slug}
+            tokenExpiresAt={tokenExpiresAt}
+            lang={lang}
+            onLanguageChange={handleLanguageChange}
+            onStartCamera={handleStartCamera}
+            onNativePhoto={handleNativePhoto}
+            onRestoreSuccess={handleRestoreSuccess}
+          />
+        );
+      })()}
     </GuestErrorBoundary>
   );
 }

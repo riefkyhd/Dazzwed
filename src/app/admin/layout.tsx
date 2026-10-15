@@ -14,7 +14,7 @@ export default async function AdminLayout({
   return (
     <div className="min-h-screen bg-[#0C0A09] text-zinc-100 font-sans selection:bg-amber-400 selection:text-black">
       {user && user.email && <AdminNavbar userEmail={user.email} />}
-      <main className="w-full">{children}</main>
+      <main className="w-full pb-24 md:pb-8">{children}</main>
     </div>
   );
 }

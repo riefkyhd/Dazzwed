@@ -55,6 +55,15 @@ export function CameraSettingsSheet({
   const [isStandalonePwa, setIsStandalonePwa] = useState(false);
   const [showIosFullscreenTip, setShowIosFullscreenTip] = useState(false);
 
+  // Gesture state for real-time swipe down tracking
+  const [dragY, setDragY] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartY = React.useRef(0);
+  const dragStartTime = React.useRef(0);
+  const dragLastY = React.useRef(0);
+  const dragLastTime = React.useRef(0);
+  const dragVelocity = React.useRef(0);
+
   const checkRealFullscreen = (): boolean => {
     if (typeof document === "undefined") return false;
     const doc = document as unknown as {
@@ -149,6 +158,8 @@ export function CameraSettingsSheet({
   React.useEffect(() => {
     if (open) {
       setRendered(true);
+      setDragY(0);
+      setIsDragging(false);
       const timer = requestAnimationFrame(() => {
         setVisible(true);
       });
@@ -166,6 +177,7 @@ export function CameraSettingsSheet({
 
   const handleDismiss = () => {
     setVisible(false);
+    setDragY(0);
     setTimeout(() => {
       onClose();
     }, 250);
@@ -184,7 +196,7 @@ export function CameraSettingsSheet({
   };
 
   const handleClearLocal = () => {
-    triggerHaptic([20]);
+    triggerHaptic([30]);
     const confirmMsg =
       lang === "id"
         ? "Apakah kamu yakin ingin menghapus data dan keluar di HP ini? Roll foto kamu tetap tersimpan di album kedua mempelai."
@@ -214,25 +226,128 @@ export function CameraSettingsSheet({
     }
   };
 
+  // Pointer event handlers for gesture-driven drag down
+  const scrollRef = React.useRef<HTMLDivElement>(null);
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    // Ignore clicks on buttons, inputs, links, or toggles
+    const target = e.target as HTMLElement;
+    if (target.closest("button, input, select, a, [role='button']")) {
+      return;
+    }
+
+    // If pointer down is in the scrollable content area, only allow sheet drag if scrollTop <= 0
+    if (scrollRef.current && scrollRef.current.contains(target) && scrollRef.current.scrollTop > 0) {
+      return;
+    }
+
+    dragStartY.current = e.clientY;
+    dragStartTime.current = performance.now();
+    dragLastY.current = e.clientY;
+    dragLastTime.current = performance.now();
+    dragVelocity.current = 0;
+    setIsDragging(true);
+
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId);
+    } catch {
+      /* pointer capture might fail on synthetic events */
+    }
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+
+    const currentY = e.clientY;
+    const now = performance.now();
+    const dt = now - dragLastTime.current;
+    if (dt > 8) {
+      dragVelocity.current = (currentY - dragLastY.current) / dt;
+      dragLastY.current = currentY;
+      dragLastTime.current = now;
+    }
+
+    const deltaY = currentY - dragStartY.current;
+    if (deltaY < 0) {
+      // Upward drag: apply strong resistance (rubberband)
+      setDragY(deltaY * 0.15);
+    } else {
+      // Downward drag: 1:1 direct tracking
+      setDragY(deltaY);
+    }
+  };
+
+  const handlePointerUpOrCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    try {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+
+    const totalDelta = dragY;
+    const totalTime = performance.now() - dragStartTime.current;
+    const velocity = dragVelocity.current;
+
+    // Threshold: dragged down > 110px OR flicked down with velocity > 0.4px/ms
+    if (totalDelta > 110 || (totalDelta > 35 && velocity > 0.4)) {
+      triggerHaptic([15]);
+      handleDismiss();
+    } else {
+      // Spring back to open position
+      setDragY(0);
+    }
+  };
+
+  // Dynamic transform and transition style
+  const sheetTransform = isDragging
+    ? `translateY(${Math.max(0, dragY)}px)`
+    : visible
+      ? "translateY(0)"
+      : "translateY(100%)";
+
+  const sheetTransition = isDragging
+    ? "none"
+    : "transform 250ms cubic-bezier(0.32, 0.72, 0, 1)";
+
+  // Backdrop opacity dynamically dims out as sheet is dragged down
+  const backdropOpacity = isDragging
+    ? Math.max(0, Math.min(1, 1 - dragY / 350))
+    : visible
+      ? 1
+      : 0;
+
   return (
     <div
       className={`fixed inset-0 z-50 flex flex-col justify-end bg-black/60 select-none transition-opacity duration-250 ease-out ${
-        visible ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+        visible ? "pointer-events-auto" : "pointer-events-none"
       }`}
+      style={{ opacity: backdropOpacity }}
     >
       {/* Backdrop tap to dismiss */}
       <div className="flex-1 cursor-pointer" onClick={handleDismiss} />
 
-      {/* Sheet Content */}
+      {/* Sheet Content with Gestural Pointer Tracking */}
       <div
-        className={`w-full max-w-md mx-auto bg-zinc-900 border-t border-zinc-700/80 rounded-t-3xl p-6 space-y-4 shadow-2xl transition-transform duration-250 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-          visible ? "translate-y-0" : "translate-y-full"
-        }`}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUpOrCancel}
+        onPointerCancel={handlePointerUpOrCancel}
+        style={{
+          transform: sheetTransform,
+          transition: sheetTransition,
+          touchAction: "none",
+        }}
+        className="w-full max-w-md mx-auto bg-zinc-900 border-t border-zinc-700/80 rounded-t-3xl p-6 max-h-[88vh] flex flex-col shadow-2xl cursor-grab active:cursor-grabbing will-change-transform"
       >
-        {/* Grab Handle Pill */}
-        <div className="w-10 h-1 rounded-full bg-zinc-600/70 mx-auto -mt-2 mb-2" />
+        {/* Grab Handle Pill - visual affordance with enlarged hit area */}
+        <div className="w-full flex items-center justify-center -mt-2 mb-1 py-1 touch-none">
+          <div className="w-12 h-1.5 rounded-full bg-zinc-500/80 hover:bg-zinc-400 transition-colors" />
+        </div>
 
-        <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+        <div className="flex items-center justify-between pb-2 border-b border-zinc-800 touch-none shrink-0">
           <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
             {lang === "id" ? "Pengaturan Kamera" : "Camera Tools"}
           </h2>
@@ -248,8 +363,12 @@ export function CameraSettingsSheet({
           </button>
         </div>
 
-        {/* Setting Rows */}
-        <div className="space-y-3 font-sans text-sm">
+        {/* Setting Rows (Scrollable if viewport is short) */}
+        <div
+          ref={scrollRef}
+          className="space-y-3 font-sans text-sm overflow-y-auto overscroll-contain flex-1 pt-1 pr-0.5"
+          style={{ touchAction: "pan-y" }}
+        >
           {/* Rule of Thirds Grid */}
           <div className="flex items-center justify-between py-1">
             <span className="text-zinc-200">{lang === "id" ? "Garis Kisi (Grid)" : "Rule of Thirds Grid"}</span>

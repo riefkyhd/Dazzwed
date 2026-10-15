@@ -16,6 +16,7 @@ export interface ConsentSubmission {
 
 interface LandingScreenProps {
   coupleNames: string;
+  eventSubtitle?: string;
   shotsPerGuest: number;
   eventSlug: string;
   tokenExpiresAt?: string | null;
@@ -28,6 +29,7 @@ interface LandingScreenProps {
 
 export function LandingScreen({
   coupleNames,
+  eventSubtitle,
   shotsPerGuest,
   eventSlug,
   tokenExpiresAt,
@@ -103,7 +105,7 @@ export function LandingScreen({
         </div>
 
         <p className="text-sm font-sans tracking-wide text-zinc-400 uppercase mb-2">
-          {t(lang, "welcomeTo")}
+          {eventSubtitle || t(lang, "welcomeTo")}
         </p>
 
         <h1 className="font-serif text-4xl sm:text-5xl text-accent font-normal leading-tight mb-6">

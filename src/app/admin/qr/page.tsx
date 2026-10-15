@@ -11,7 +11,7 @@ export default async function AdminQrPage() {
   const sb = supabaseAdmin();
   const { data: event, error } = await sb
     .from("events")
-    .select("slug, couple_names, shots_per_guest, access_token")
+    .select("slug, couple_names, shots_per_guest, access_token, theme")
     .order("created_at", { ascending: true })
     .limit(1)
     .single();

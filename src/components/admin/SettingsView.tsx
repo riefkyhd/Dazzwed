@@ -20,6 +20,7 @@ interface SettingsViewProps {
       accentFg?: string;
       bgColor?: string;
       note?: string;
+      eventSubtitle?: string;
       activeLookId?: string;
       sessionResetAt?: string;
     };
@@ -44,6 +45,9 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
   );
   const [welcomeNote, setWelcomeNote] = useState(
     initialEvent.theme?.note || "",
+  );
+  const [eventSubtitle, setEventSubtitle] = useState(
+    initialEvent.theme?.eventSubtitle || "",
   );
   const [activeLookId, setActiveLookId] = useState(
     initialEvent.theme?.activeLookId || "cpm-35",
@@ -275,6 +279,7 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
             accentColor,
             bgColor,
             note: welcomeNote,
+            eventSubtitle: eventSubtitle.trim(),
             activeLookId,
             ...(sessionResetAt ? { sessionResetAt } : {}),
           },
@@ -323,12 +328,29 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
         {/* Basic Info Card */}
         <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-4">
           <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-            1. Wedding Information
+            1. Event & Couple Information
           </h2>
 
           <div>
             <label className="block text-xs text-zinc-400 mb-1.5 font-medium">
-              Couple Names (Displayed on Camera and Table Cards)
+              Event Tagline / Subtitle (e.g. &quot;the wedding of&quot;, &quot;the celebration of&quot;, &quot;the 30th birthday of&quot;)
+            </label>
+            <input
+              type="text"
+              value={eventSubtitle}
+              onChange={(e) => setEventSubtitle(e.target.value)}
+              placeholder="Defaults to 'the wedding of' if left blank"
+              maxLength={80}
+              className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-sm text-zinc-100 placeholder:text-zinc-600"
+            />
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Displayed above the names on the guest front page and printable poster.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1.5 font-medium">
+              Couple or Host Names (Displayed on Camera and Posters)
             </label>
             <input
               type="text"
