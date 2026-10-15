@@ -24,7 +24,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: "Unveiled — Disposable Wedding Camera",
     description: "Celebrate the couple, capture the vibe, unveil the memories.",
-    images: [{ url: "/logo.png", width: 1024, height: 1024, alt: "Unveiled" }],
+    images: [{ url: "/Unveiled_logo_horizontal.png", width: 2400, height: 1792, alt: "Unveiled" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Unveiled — Disposable Wedding Camera",
+    description: "Celebrate the couple, capture the vibe, unveil the memories.",
+    images: ["/Unveiled_logo_horizontal.png"],
   },
 };
 

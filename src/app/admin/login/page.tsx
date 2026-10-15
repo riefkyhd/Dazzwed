@@ -42,12 +42,18 @@ export default function AdminLoginPage() {
     <div className="min-h-screen bg-[#0C0A09] text-zinc-100 flex flex-col justify-center items-center p-4">
       <div className="w-full max-w-md bg-zinc-950/80 border border-zinc-800 rounded-3xl p-8 shadow-2xl backdrop-blur-md">
         {/* Header */}
-        <div className="text-center mb-8">
-          <div className="relative inline-flex items-center justify-center w-16 h-16 rounded-2xl overflow-hidden border border-amber-500/30 mb-4 bg-[#F9F6EE] shadow-lg">
-            <Image src="/icon-192.png" alt="Unveiled Logo" fill priority sizes="64px" className="object-contain p-1" />
+        <div className="flex flex-col items-center text-center mb-8">
+          <div className="relative h-12 w-40 mb-3 drop-shadow-md">
+            <Image
+              src="/Unveiled_logo_horizontal_transparent.png"
+              alt="Unveiled"
+              fill
+              priority
+              sizes="160px"
+              className="object-contain"
+            />
           </div>
-          <h1 className="text-2xl font-serif font-bold text-white tracking-tight">Unveiled</h1>
-          <p className="text-xs uppercase tracking-widest text-amber-400 font-mono mt-1">Admin Sign In</p>
+          <p className="text-xs uppercase tracking-widest text-amber-400 font-mono">Admin Sign In</p>
         </div>
 
         <p className="text-xs text-zinc-400 mb-6 leading-relaxed text-center">

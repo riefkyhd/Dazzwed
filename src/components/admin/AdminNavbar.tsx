@@ -141,14 +141,18 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
       <header className="border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-md sticky top-0 z-40 print:hidden">
         <div className="max-w-6xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between">
           {/* Brand */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            <Link href="/admin" className="flex items-center gap-2.5 group">
-              <div className="relative w-7 h-7 sm:w-8 sm:h-8 rounded-lg overflow-hidden border border-amber-500/30 group-hover:scale-105 transition-transform shrink-0 bg-[#F9F6EE]">
-                <Image src="/icon-192.png" alt="Unveiled" fill sizes="32px" className="object-contain p-0.5" />
+          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+            <Link href="/admin" className="flex items-center group">
+              <div className="relative h-7 sm:h-8 w-[72px] sm:w-[82px] group-hover:opacity-90 transition-opacity">
+                <Image
+                  src="/Unveiled_logo_horizontal_transparent.png"
+                  alt="Unveiled"
+                  fill
+                  priority
+                  sizes="(max-width: 640px) 72px, 82px"
+                  className="object-contain object-left"
+                />
               </div>
-              <span className="font-serif font-bold text-sm sm:text-base text-white tracking-tight">
-                Unveiled
-              </span>
             </Link>
             <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full">
               Admin
