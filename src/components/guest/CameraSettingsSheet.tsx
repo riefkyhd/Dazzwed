@@ -58,6 +58,7 @@ export function CameraSettingsSheet({
   // Gesture state for real-time swipe down tracking
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
   const dragStartY = React.useRef(0);
   const dragStartTime = React.useRef(0);
   const dragLastY = React.useRef(0);
@@ -227,8 +228,6 @@ export function CameraSettingsSheet({
   };
 
   // Pointer event handlers for gesture-driven drag down
-  const scrollRef = React.useRef<HTMLDivElement>(null);
-
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     // Ignore clicks on buttons, inputs, links, or toggles
     const target = e.target as HTMLElement;
