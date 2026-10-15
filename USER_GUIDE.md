@@ -78,6 +78,7 @@
 | **Link Duration** | `/admin/settings` | Sets how long the QR code remains active (`24h`, `48h`, `72h`, `7d`, Custom). | Set when creating or planning the event access window. |
 | **Update Expiration Time** | `/admin/settings` | Extends the active access window **WITHOUT modifying the QR code or token**. | **Safe after printing.** Use when the wedding runs late. |
 | **Rotate Token** | `/admin/settings` | Generates a brand-new cryptographic token and QR code; revokes previous links. | **ONLY before printing.** Use during testing or if the link leaks. |
+| **Guest Camera Preview** | `/admin` | Directly opens the guest camera link with the active access token (`?t=<token>`). | Use to test or preview the camera experience from the host view. |
 | **Shots Per Guest** | `/admin/settings` | Configures the number of shots on each guest's roll (default: 15). | Adjust before the event starts. |
 | **Reset All Guest Sessions** | `/admin/settings` | Grants all guests another 15-shot roll without deleting previous photos. | Use during after-parties or when resetting test phones before the wedding. |
 

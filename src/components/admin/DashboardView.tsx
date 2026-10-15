@@ -14,6 +14,7 @@ interface DashboardViewProps {
     closes_at: string | null;
     manually_closed: boolean;
     drive_root_folder_id: string | null;
+    access_token?: string;
   };
   metrics: {
     totalGuests: number;
@@ -128,7 +129,7 @@ export function DashboardView({
 
         <div className="flex items-center gap-2">
           <Link
-            href={`/e/${event.slug}`}
+            href={`/e/${event.slug}${event.access_token ? `?t=${event.access_token}` : ""}`}
             target="_blank"
             className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-200 transition-all flex items-center gap-1.5"
           >

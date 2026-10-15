@@ -13,7 +13,7 @@ export default async function AdminDashboardPage() {
   // 1. Fetch active event
   const { data: event } = await sb
     .from("events")
-    .select("id, slug, couple_names, shots_per_guest, opens_at, closes_at, manually_closed, drive_root_folder_id")
+    .select("id, slug, couple_names, shots_per_guest, opens_at, closes_at, manually_closed, drive_root_folder_id, access_token")
     .order("created_at", { ascending: true })
     .limit(1)
     .single();
