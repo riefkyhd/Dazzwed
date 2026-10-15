@@ -24,23 +24,6 @@ export async function getEventBySlug(slug: string): Promise<EventRow | null> {
     .eq("slug", slug)
     .maybeSingle();
 
-  if (error) {
-    if (error.message.includes("access_token")) {
-      const fallback = await supabaseAdmin()
-        .from("events")
-        .select("id,slug,couple_names,shots_per_guest,opens_at,closes_at,manually_closed,theme,drive_root_folder_id")
-        .eq("slug", slug)
-        .maybeSingle();
-      if (fallback.data) {
-        return {
-          ...fallback.data,
-          access_token: "DEVELOP1",
-          token_expires_at: new Date(Date.now() + 72 * 3600 * 1000).toISOString(),
-          token_duration_hours: 72,
-        } as EventRow;
-      }
-    }
-    throw new Error(`getEventBySlug failed: ${error.message}`);
-  }
+  if (error) throw new Error(`getEventBySlug failed: ${error.message}`);
   return data as EventRow | null;
 }
