@@ -431,6 +431,19 @@ export function AdminGuideView() {
                 : "Di Safari (iPhone): Ketuk ikon 'aA' di bilah alamat -> Pengaturan Situs Web -> Kamera -> Izinkan. Di Chrome (Android): Ketuk ikon gembok di samping URL -> Izin -> Kamera -> Izinkan, lalu muat ulang halaman. Tamu juga dapat memilih opsi 'Gunakan kamera bawaan HP' untuk mengambil foto langsung."}
             </p>
           </div>
+
+          <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+            <h4 className="text-sm font-bold text-white">
+              {lang === "en"
+                ? "Q: Where are the official horizontal Unveiled branding assets used?"
+                : "T: Di mana aset logo horizontal resmi Unveiled digunakan?"}
+            </h4>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {lang === "en"
+                ? "The official transparent lockup `/Unveiled_logo_horizontal_transparent.png` is used across dark headers (Admin Navbar, Admin Login, Root page) without redundant text, while `/Unveiled_logo_horizontal.png` with warm ivory backing is configured for OpenGraph and Twitter social share cards."
+                : "Aset transparan resmi `/Unveiled_logo_horizontal_transparent.png` digunakan pada header gelap (Navbar Admin, Login Admin, Halaman Utama) tanpa teks berulang, sedangkan `/Unveiled_logo_horizontal.png` dengan latar krem gading dikonfigurasi untuk kartu pratinjau media sosial (OpenGraph & Twitter)."}
+            </p>
+          </div>
         </div>
       )}
 

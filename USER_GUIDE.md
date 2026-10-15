@@ -93,6 +93,11 @@
 - **Styling & Shaders:** Tailwind CSS, WebGL 1.0/2.0 fragment shaders for LUT color grading and film grain
 - **Hosting:** Vercel (Edge Middleware + Serverless Functions)
 
+### Official Branding Assets
+- `/Unveiled_logo_horizontal_transparent.png`: Transparent horizontal lockup (nautilus shell emblem + gold serif "UNVEILED") optimized for dark backgrounds (Admin Navbar, Admin Login, Root page).
+- `/Unveiled_logo_horizontal.png`: Ivory background lockup (`#FDFBF6`) used for OpenGraph (`og:image`) and Twitter Cards.
+- `/unveiled-transparent.png`: Standalone transparent nautilus shell mark used on guest landing and camera headers.
+
 ### Environment Variables (`.env.local`)
 ```bash
 # Supabase
