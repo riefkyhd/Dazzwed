@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateQrSvg } from "@/lib/qr";
 import QRCode from "qrcode";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -8,10 +9,24 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug") || "our-wedding";
   const format = searchParams.get("format") || "png"; // png | svg
+  let token = searchParams.get("token") || searchParams.get("t");
+
+  if (!token) {
+    const sb = supabaseAdmin();
+    const { data: ev } = await sb
+      .from("events")
+      .select("access_token")
+      .eq("slug", slug)
+      .maybeSingle();
+    if (ev?.access_token) {
+      token = ev.access_token;
+    }
+  }
 
   // Determine origin
   const origin = searchParams.get("origin") || new URL(req.url).origin;
-  const guestUrl = `${origin}/e/${slug}`;
+  const tokenQuery = token ? `?t=${token}` : "";
+  const guestUrl = `${origin}/e/${slug}${tokenQuery}`;
 
   if (format === "svg") {
     const svg = await generateQrSvg(guestUrl);

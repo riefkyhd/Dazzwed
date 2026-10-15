@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { checkRateLimit, getClientIp, hashClientIp } from "@/lib/rate-limit";
 import { computeRollCodeFromGuestId } from "@/lib/guest/session";
 import { CONSENT_VERSION } from "@/constants/consentCopy";
+import { validateEventToken } from "@/lib/event-token";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,7 @@ const body = z.object({
   consentVersion: z.string(),
   consentAlbum: z.boolean(),
   consentTelemetry: z.boolean().optional().default(false),
+  eventToken: z.string().nullish(),
 });
 
 const cookieName = (slug: string) => `dc_g_${slug}`;
@@ -42,7 +44,7 @@ export async function POST(req: Request) {
 
   const parsed = body.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "bad_request" }, { status: 400 });
-  const { eventSlug, guestId: bodyGuestId, consentVersion, consentAlbum, consentTelemetry } = parsed.data;
+  const { eventSlug, guestId: bodyGuestId, consentVersion, consentAlbum, consentTelemetry, eventToken } = parsed.data;
 
   // Strict consent check: must match current CONSENT_VERSION and consentAlbum must be true
   if (consentVersion !== CONSENT_VERSION || !consentAlbum) {
@@ -59,12 +61,32 @@ export async function POST(req: Request) {
   const status = eventStatus(ev);
   if (status !== "open") return NextResponse.json({ error: "closed", status }, { status: 403 });
 
+  // Verify access window expiration
+  if (ev.token_expires_at && new Date() >= new Date(ev.token_expires_at)) {
+    return NextResponse.json(
+      { error: "Event access window has expired", code: "EVENT_EXPIRED" },
+      { status: 403 }
+    );
+  }
+
   const sb = supabaseAdmin();
   const cookieHeader = req.headers.get("cookie") ?? "";
   const cookieId = cookieHeader
     .split(/;\s*/)
     .map((c) => c.split("="))
     .find(([k]) => k === cookieName(eventSlug))?.[1];
+
+  // If not resuming with an existing verified session cookie, require valid eventToken
+  const isResumingWithCookie = Boolean(cookieId && z.string().uuid().safeParse(cookieId).success);
+  if (!isResumingWithCookie) {
+    if (!validateEventToken(eventToken, ev.access_token)) {
+      return NextResponse.json(
+        { error: "Invalid or missing event access token", code: "INVALID_EVENT_TOKEN" },
+        { status: 403 }
+      );
+    }
+  }
+
   const candidate = [cookieId, bodyGuestId].find((v) => v && z.uuid().safeParse(v).success);
 
   const sessionResetAt = (ev.theme && typeof ev.theme === "object" && "sessionResetAt" in ev.theme)

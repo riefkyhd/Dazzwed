@@ -8,6 +8,7 @@ interface QrGeneratorViewProps {
     slug: string;
     couple_names: string;
     shots_per_guest: number;
+    access_token?: string;
   };
 }
 
@@ -23,7 +24,8 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
     }
   }, []);
 
-  const guestUrl = `${baseUrl || "https://dazzwed.vercel.app"}/e/${event.slug}`;
+  const tokenQuery = event.access_token ? `?t=${event.access_token}` : "";
+  const guestUrl = `${baseUrl || "https://dazzwed.vercel.app"}/e/${event.slug}${tokenQuery}`;
 
   useEffect(() => {
     let ignore = false;
@@ -102,7 +104,7 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
               className="flex-1 px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-xs font-mono text-zinc-200"
             />
             <span className="self-center text-xs font-mono text-amber-400">
-              /e/{event.slug}
+              /e/{event.slug}{event.access_token ? `?t=${event.access_token}` : ""}
             </span>
           </div>
         </div>

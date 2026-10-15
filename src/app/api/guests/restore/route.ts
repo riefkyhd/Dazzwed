@@ -65,6 +65,13 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Event not found" }, { status: 404 });
   }
 
+  if (ev.token_expires_at && new Date() >= new Date(ev.token_expires_at)) {
+    return NextResponse.json(
+      { error: "Event access window has expired", code: "EVENT_EXPIRED" },
+      { status: 403 }
+    );
+  }
+
   // 3. Event-wide anomaly guard against distributed brute force: max 30 failed attempts per 10 minutes
   const failEventLimit = await checkRateLimit(`restore_fail_event:${ev.id}`, 30, 600);
   if (!failEventLimit.allowed) {

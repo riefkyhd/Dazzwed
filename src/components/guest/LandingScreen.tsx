@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Image from "next/image";
 import { type Lang, t } from "@/lib/i18n";
 import { CONSENT_COPY, CONSENT_VERSION } from "@/constants/consentCopy";
+import { formatExpirationNotice } from "@/lib/event-token";
 import { NativeCameraInput } from "./NativeCameraInput";
 import { RestoreRollModal } from "./RestoreRollModal";
 
@@ -17,6 +18,7 @@ interface LandingScreenProps {
   coupleNames: string;
   shotsPerGuest: number;
   eventSlug: string;
+  tokenExpiresAt?: string | null;
   lang: Lang;
   onLanguageChange: (lang: Lang) => void;
   onStartCamera: (name: string, consent: ConsentSubmission) => void;
@@ -28,6 +30,7 @@ export function LandingScreen({
   coupleNames,
   shotsPerGuest,
   eventSlug,
+  tokenExpiresAt,
   lang,
   onLanguageChange,
   onStartCamera,
@@ -108,11 +111,29 @@ export function LandingScreen({
         </h1>
 
         {/* Privacy Notice Summary Card */}
-        <div className="w-full bg-surface/70 border border-zinc-800/80 rounded-2xl p-4 mb-6 text-left backdrop-blur-sm shadow-xl">
+        <div className="w-full bg-surface/70 border border-zinc-800/80 rounded-2xl p-4 mb-4 text-left backdrop-blur-sm shadow-xl">
           <p className="text-xs text-zinc-300 leading-relaxed">
             {copy.summary}
           </p>
         </div>
+
+        {/* Event Access Expiration Notice Badge */}
+        {tokenExpiresAt && (() => {
+          const notice = formatExpirationNotice(tokenExpiresAt, lang);
+          if (notice.isExpired) return null;
+          return (
+            <div className="w-full mb-5 flex items-center justify-center">
+              <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs font-mono shadow-sm">
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+                <span>
+                  {lang === "id"
+                    ? `📷 Tautan aktif • Ditutup dalam ${notice.relativeRemaining} (${notice.formattedDate})`
+                    : `📷 Camera active • Closes in ${notice.relativeRemaining} (${notice.formattedDate})`}
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Form: Optional Name + Explicit Consent */}
         <form onSubmit={handleStart} className="w-full space-y-4 text-left">

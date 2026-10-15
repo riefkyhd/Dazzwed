@@ -74,11 +74,18 @@ export function resolveThemeLooks(theme: unknown): {
 interface GuestAppProps {
   event: EventRow;
   initialRestoreCode?: string | null;
+  eventToken?: string;
+  tokenExpiresAt?: string | null;
 }
 
 type Screen = "landing" | "camera" | "thankyou" | "closed";
 
-export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
+export function GuestApp({
+  event,
+  initialRestoreCode,
+  eventToken,
+  tokenExpiresAt,
+}: GuestAppProps) {
   const initialStatus = useMemo(() => eventStatus(event), [event]);
   const [overrideStatus, setOverrideStatus] = useState<EventStatus | null>(null);
   const status = overrideStatus ?? initialStatus;
@@ -161,6 +168,7 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
             consentVersion: CONSENT_VERSION,
             consentAlbum: consentParams?.consentAlbum ?? local?.album ?? true,
             consentTelemetry: consentParams?.consentTelemetry ?? local?.telemetry ?? false,
+            eventToken: eventToken || undefined,
           }),
         });
 
@@ -207,7 +215,7 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
         return null;
       }
     },
-    [event.slug, lang],
+    [event.slug, lang, eventToken],
   );
 
   // Triple-Healed Multi-Session Identity & ?restore= handling on mount (strictly after consent)
@@ -739,6 +747,7 @@ export function GuestApp({ event, initialRestoreCode }: GuestAppProps) {
           coupleNames={event.couple_names}
           shotsPerGuest={shotsPerGuest}
           eventSlug={event.slug}
+          tokenExpiresAt={tokenExpiresAt}
           lang={lang}
           onLanguageChange={handleLanguageChange}
           onStartCamera={handleStartCamera}

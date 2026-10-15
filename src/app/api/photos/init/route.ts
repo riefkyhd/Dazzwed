@@ -121,6 +121,9 @@ export async function POST(req: Request) {
     if (eventStatus(event) !== "open") {
       return NextResponse.json({ error: "Event is closed for photos" }, { status: 403 });
     }
+    if (event.token_expires_at && new Date() >= new Date(event.token_expires_at)) {
+      return NextResponse.json({ error: "Event access window has expired", code: "EVENT_EXPIRED" }, { status: 403 });
+    }
 
     const rootFolderId = event.drive_root_folder_id;
     if (!rootFolderId) {

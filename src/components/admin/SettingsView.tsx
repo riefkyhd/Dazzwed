@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { formatExpirationNotice } from "@/lib/event-token";
 
 interface SettingsViewProps {
   initialEvent: {
@@ -11,6 +12,9 @@ interface SettingsViewProps {
     opens_at: string | null;
     closes_at: string | null;
     manually_closed: boolean;
+    access_token?: string;
+    token_expires_at?: string | null;
+    token_duration_hours?: number;
     theme: {
       accentColor?: string;
       accentFg?: string;
@@ -50,6 +54,97 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
   const [resettingSessions, setResettingSessions] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetSuccessMsg, setResetSuccessMsg] = useState<string | null>(null);
+
+  // Rotating Token & Expiration Window state
+  const [accessToken, setAccessToken] = useState(initialEvent.access_token || "");
+  const [tokenExpiresAt, setTokenExpiresAt] = useState(
+    initialEvent.token_expires_at ? initialEvent.token_expires_at.slice(0, 16) : "",
+  );
+  const [tokenDurationHours, setTokenDurationHours] = useState(
+    initialEvent.token_duration_hours || 72,
+  );
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [showRotateModal, setShowRotateModal] = useState(false);
+  const [rotatingToken, setRotatingToken] = useState(false);
+  const [updatingToken, setUpdatingToken] = useState(false);
+  const [tokenSuccessMsg, setTokenSuccessMsg] = useState<string | null>(null);
+
+  async function handleCopyLink() {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    const url = `${origin}/e/${initialEvent.slug}${accessToken ? `?t=${accessToken}` : ""}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 3000);
+    } catch {}
+  }
+
+  async function handleUpdateExpiration() {
+    setUpdatingToken(true);
+    setTokenSuccessMsg(null);
+    try {
+      const res = await fetch("/api/admin/events/token", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: initialEvent.id,
+          tokenDurationHours,
+          tokenExpiresAt: tokenExpiresAt ? new Date(tokenExpiresAt).toISOString() : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to update expiration window");
+      }
+      setTokenSuccessMsg("Access window updated successfully! Existing QR codes remain valid.");
+      if (data.tokenExpiresAt) {
+        setTokenExpiresAt(data.tokenExpiresAt.slice(0, 16));
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUpdatingToken(false);
+    }
+  }
+
+  async function handleRotateToken() {
+    setRotatingToken(true);
+    setTokenSuccessMsg(null);
+    try {
+      const res = await fetch("/api/admin/events/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId: initialEvent.id,
+          tokenDurationHours,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error || "Failed to rotate token");
+      }
+      setAccessToken(data.accessToken);
+      if (data.tokenExpiresAt) {
+        setTokenExpiresAt(data.tokenExpiresAt.slice(0, 16));
+      }
+      setTokenSuccessMsg(
+        `Token rotated to [${data.accessToken}]! Previous QR codes and links are now deactivated. Remember to download or print new QR codes.`,
+      );
+      setShowRotateModal(false);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setRotatingToken(false);
+    }
+  }
+
+  function handlePresetDuration(hours: number) {
+    setTokenDurationHours(hours);
+    const newDate = new Date(Date.now() + hours * 3600 * 1000);
+    const tzOffsetMs = newDate.getTimezoneOffset() * 60000;
+    const localIso = new Date(newDate.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+    setTokenExpiresAt(localIso);
+  }
 
   async function handleResetSessions() {
     setResettingSessions(true);
@@ -318,10 +413,155 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
           </div>
         </div>
 
+        {/* 3. Event Link & Rotating Access Token Card */}
+        <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                3. Event Link & Access Window
+              </h2>
+              <p className="text-xs text-zinc-400 mt-0.5">
+                Manage rotating access tokens, secure QR links, and guest camera expiration.
+              </p>
+            </div>
+            {accessToken && (
+              <span className="px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-mono font-bold tracking-wider">
+                TOKEN: {accessToken}
+              </span>
+            )}
+          </div>
+
+          {/* Guest Link Display & Copy */}
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1.5 font-medium">
+              Active Guest Camera Link
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                readOnly
+                value={
+                  typeof window !== "undefined"
+                    ? `${window.location.origin}/e/${initialEvent.slug}${accessToken ? `?t=${accessToken}` : ""}`
+                    : `/e/${initialEvent.slug}${accessToken ? `?t=${accessToken}` : ""}`
+                }
+                className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-mono text-zinc-300 select-all"
+              />
+              <button
+                type="button"
+                onClick={handleCopyLink}
+                className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 active:scale-95 text-xs font-semibold text-zinc-200 transition cursor-pointer shrink-0"
+              >
+                {tokenCopied ? "✓ Copied!" : "Copy Link"}
+              </button>
+            </div>
+          </div>
+
+          {/* Access Window Expiration Notice */}
+          <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs text-zinc-400 font-medium">Camera Expiration Status:</span>
+              {tokenExpiresAt ? (() => {
+                const notice = formatExpirationNotice(tokenExpiresAt, "en");
+                return (
+                  <span
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold ${
+                      notice.isExpired
+                        ? "bg-red-950/80 border border-red-800 text-red-300"
+                        : "bg-emerald-950/80 border border-emerald-800 text-emerald-300"
+                    }`}
+                  >
+                    <span
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        notice.isExpired ? "bg-red-400" : "bg-emerald-400 animate-pulse"
+                      }`}
+                    />
+                    {notice.isExpired
+                      ? `Expired (${notice.formattedDate})`
+                      : `Active • Closes in ${notice.relativeRemaining} (${notice.formattedDate})`}
+                  </span>
+                );
+              })() : (
+                <span className="text-xs text-zinc-500 font-mono">No expiration set</span>
+              )}
+            </div>
+
+            {/* Quick Presets */}
+            <div>
+              <label className="block text-[11px] text-zinc-400 mb-2">
+                Quick Select Duration (from now):
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {[
+                  { label: "24 Hours (1 Day)", hours: 24 },
+                  { label: "48 Hours (2 Days)", hours: 48 },
+                  { label: "72 Hours (3 Days)", hours: 72 },
+                  { label: "7 Days (1 Week)", hours: 168 },
+                ].map((preset) => (
+                  <button
+                    key={preset.hours}
+                    type="button"
+                    onClick={() => handlePresetDuration(preset.hours)}
+                    className={`px-3 py-2 rounded-xl text-xs font-mono transition text-center cursor-pointer border ${
+                      tokenDurationHours === preset.hours
+                        ? "bg-amber-400 text-black font-bold border-amber-400"
+                        : "bg-zinc-900 text-zinc-300 border-zinc-800 hover:border-zinc-700"
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Custom Expiration Date & Time */}
+            <div className="pt-1">
+              <label className="block text-[11px] text-zinc-400 mb-1.5">
+                Exact Expiration Date & Time:
+              </label>
+              <input
+                type="datetime-local"
+                value={tokenExpiresAt}
+                onChange={(e) => setTokenExpiresAt(e.target.value)}
+                className="w-full sm:w-72 px-4 py-2 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-xs font-mono text-zinc-200"
+              />
+            </div>
+
+            {/* Action Buttons for Window & Rotation */}
+            <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-zinc-800/80">
+              <button
+                type="button"
+                disabled={updatingToken}
+                onClick={handleUpdateExpiration}
+                className="px-4 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-semibold transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {updatingToken ? "Updating…" : "Update Expiration Time (Keep QR)"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowRotateModal(true)}
+                className="px-4 py-2 rounded-xl bg-red-950/60 hover:bg-red-900/80 border border-red-800/80 text-red-200 text-xs font-semibold transition active:scale-95 cursor-pointer sm:ml-auto flex items-center gap-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-red-400">
+                  <path fillRule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.75A.75.75 0 0 0 3 12.83v4.482a.75.75 0 0 0 1.5 0v-2.185l.407.407a7 7 0 0 0 11.93-3.414.75.75 0 0 0-1.525-.301Zm-10.624-2.848a5.5 5.5 0 0 1 9.201-2.466l.312.311h-2.433a.75.75 0 0 0 0 1.5h4.482A.75.75 0 0 0 17 7.17V2.688a.75.75 0 0 0-1.5 0v2.185l-.407-.407A7 7 0 0 0 3.163 7.88a.75.75 0 0 0 1.525.301Z" clipRule="evenodd" />
+                </svg>
+                Rotate Token & Generate New QR
+              </button>
+            </div>
+
+            {tokenSuccessMsg && (
+              <div className="p-3 rounded-xl bg-emerald-950/70 border border-emerald-800 text-emerald-200 text-xs leading-relaxed font-sans mt-2">
+                ✓ {tokenSuccessMsg}
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Theme Customizer Card */}
         <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-4">
           <h2 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-            3. Visual Theme & Accents
+            4. Visual Theme & Accents
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -583,6 +823,51 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
                 className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-semibold shadow-lg shadow-red-600/20 transition active:scale-95 disabled:opacity-50 cursor-pointer"
               >
                 {resettingSessions ? "Resetting Devices…" : "Confirm Reset"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rotate Token Confirmation Modal */}
+      {showRotateModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="w-12 h-12 rounded-full bg-amber-950/80 border border-amber-800 flex items-center justify-center text-amber-400 mx-auto">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+                <path fillRule="evenodd" d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm14.49 3.882a7.5 7.5 0 0 1-12.548 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.986a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 14.056-4.041.75.75 0 0 0-1.449-.382Z" clipRule="evenodd" />
+              </svg>
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-base font-bold text-white font-serif">
+                Rotate Token & Invalidate Old Links?
+              </h3>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                This will generate a brand new 8-character token and immediately invalidate the current guest link and all previously printed QR codes. Anyone scanning the old QR code will see the closed access screen.
+              </p>
+              <div className="p-3 rounded-xl bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-300 text-left space-y-1">
+                <div><span className="font-semibold text-amber-400">⚡ New Window:</span> Will be set for {tokenDurationHours} hours from right now.</div>
+                <div><span className="font-semibold text-red-400">⚠️ Physical QRs:</span> You will need to re-download or print new table cards.</div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={rotatingToken}
+                onClick={() => setShowRotateModal(false)}
+                className="px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs font-medium border border-zinc-800 transition cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={rotatingToken}
+                onClick={handleRotateToken}
+                className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black text-xs font-bold shadow-lg shadow-amber-400/20 transition active:scale-95 disabled:opacity-50 cursor-pointer"
+              >
+                {rotatingToken ? "Rotating Token…" : "Confirm & Rotate"}
               </button>
             </div>
           </div>
