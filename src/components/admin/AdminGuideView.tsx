@@ -239,7 +239,7 @@ export function AdminGuideView() {
                 <span>
                   <strong>{lang === "en" ? "15-Shot Film Limit:" : "Batas 15 Foto per Tamu:"}</strong>{" "}
                   {lang === "en"
-                    ? "Each roll is capped at 15 shots (configurable in Settings), creating anticipation and deliberate vintage captures."
+                    ? "Each roll is capped at 15 shots (configurable in Settings), creating anticipation and deliberate analog captures."
                     : "Setiap roll dibatasi 15 jepretan (dapat diubah di Settings), menciptakan nostalgia kamera saku sekali pakai."}
                 </span>
               </div>
@@ -277,8 +277,8 @@ export function AdminGuideView() {
                 <span>
                   <strong>{lang === "en" ? "Processed Film + Clean Originals:" : "Hasil Simulasi Film + File Asli:"}</strong>{" "}
                   {lang === "en"
-                    ? "Each guest folder contains the film-graded vintage photos plus an `originals/` subfolder with pristine camera captures."
-                    : "Setiap folder tamu berisi foto analog vintage yang sudah diproses, plus subfolder `originals/` berisi foto asli kamera tanpa filter."}
+                    ? "Each guest folder contains the film-graded photos plus an `originals/` subfolder with pristine camera captures."
+                    : "Setiap folder tamu berisi foto analog yang sudah diproses, plus subfolder `originals/` berisi foto asli kamera tanpa filter."}
                 </span>
               </div>
               <div className="flex items-start gap-2">

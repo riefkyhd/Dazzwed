@@ -6,11 +6,11 @@
 
 ## 1. Product Overview
 
-**Unveiled** is a premium, web-based analog disposable camera designed for weddings and luxury celebrations. It captures genuine candid moments from guests' perspectives with curated vintage film simulations, real-time grain rendering, and automated background sync directly into the couple's private Google Drive.
+**Unveiled** is a premium, web-based analog disposable camera designed for weddings and luxury celebrations. It captures genuine candid moments from guests' perspectives with curated analog film profiles, real-time grain rendering, and automated background sync directly into the couple's private Google Drive.
 
 ### Key Highlights
 - **Zero-Install Web Experience:** Guests scan a physical QR code on their table to immediately open the camera. No App Store download, no password, and no sign-up.
-- **Authentic Film Aesthetics:** Real-time WebGL film looks (CPM 35, Portra 400, Tungsten 800T, Cine 250D, Classic B&W) with physical grain simulation and analog date stamps.
+- **Curated Film Looks:** Real-time WebGL color grades (CPM 35, Portra 400, Tungsten 800T, Cine 250D, Classic B&W) with physical grain simulation and analog date stamps.
 - **Indonesia UU PDP & GDPR Privacy Compliance:** Strict zero-activity pre-consent gate (zero cookies, storage, or telemetry before explicit guest agreement), EXIF/GPS location scrubbing, and full self-service Right to Erasure.
 - **Offline Venue Resilience:** Spotty Wi-Fi in ballrooms or outdoor venues never causes photo loss. Photos are queued locally in `IndexedDB` and automatically upload in the background once signal returns.
 - **Organized Google Drive Sync:** Automatically creates isolated folders labeled `Guest Name (RollCode)` containing film-graded JPEGs and raw unedited camera originals.
@@ -64,7 +64,7 @@
      - `Dhifa (7EGE9X)` (if name was provided)
      - `Roll 7EGE9X` (if name was left blank)
    - Inside each folder:
-     - `2026-10-16T12-30-00_7EGE9X_1.jpg` (film-graded vintage photos)
+     - `2026-10-16T12-30-00_7EGE9X_1.jpg` (film-graded analog photos)
      - `originals/` (clean, uncompressed camera originals)
 2. **Automated 30-Day Cleanup:**
    - Daily cron (`/api/cron/cleanup`) automatically purges anonymous telemetry logs and rate-limit IP digests after 30 days to protect guest privacy.
