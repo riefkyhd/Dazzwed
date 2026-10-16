@@ -36,10 +36,12 @@
 
 ### Phase 2: Printing Table Cards & Signage (`/admin/qr`)
 - Navigate to `/admin/qr` to access the high-resolution printable assets.
-- **Download Poster (PNG):** Downloads the complete, high-resolution A4 Poster image (featuring the luxury cream paper background, smooth rounded double gold borders, official Unveiled brand emblem, couple names, framed QR code card, 3-step guest instructions, and private album footer note) ready to save to camera roll, transfer to USB, or print at a photo studio.
-- **Download Poster (SVG):** Downloads the complete scalable vector A4 poster file for large-format physical signage printing or easel stands.
-- **Print A4 Poster:** Optimized for direct single-page A4 printing (`210mm × 297mm`) from desktop or mobile browsers with zero dark margins, zero horizontal overflow, and clean page-break isolation.
+- **Hero-Sized QR Code & Unified Vector Architecture:** The table signage features an enlarged hero QR code (560px × 560px inside a 660px framed card, occupying 55% of the total poster width) designed for instant scanning across banquet tables up to 2 meters away. Both the on-screen preview, direct browser print, and file downloads are powered by a unified vector SVG engine that eliminates CSS flexbox/grid distortion and ensures 100% visual parity across all mediums.
+- **Download Poster (PNG):** Downloads a 300 DPI ultra-high-resolution print file (`2480px × 3508px`, ISO 216 A4 ratio) featuring the luxury cream paper background, smooth rounded double gold borders, official Unveiled brand emblem, couple names, hero QR card, 3-step guest instructions, and private album footer note—ready for camera roll, USB stick, or photo lab printing.
+- **Download Poster (SVG):** Downloads the complete scalable vector A4 poster file for large-format physical signage printing, easel banners, or professional Canva/Adobe Illustrator editing.
+- **Print A4 Poster:** Sends the vector SVG directly to the browser print dialog (`210mm × 297mm`), guaranteeing zero CSS grid line stretching, zero flexbox pagination overflow, and crisp vector typography on "Save as PDF" or physical printers.
 - **Bare QR Code Export:** Download standalone raw **QR PNG (1200px)** or **QR SVG (Vector)** if your stationery designer is creating custom wedding cards or bespoke paper suites.
+
 
 > [!WARNING]
 > **CRITICAL RULE: NEVER ROTATE TOKEN AFTER PRINTING PHYSICAL CARDS**

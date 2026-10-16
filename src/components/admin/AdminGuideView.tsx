@@ -183,8 +183,8 @@ export function AdminGuideView() {
                 <span>
                   <strong>{lang === "en" ? "Vertical A4 Portrait Poster:" : "Poster Vertikal A4 Portrait:"}</strong>{" "}
                   {lang === "en"
-                    ? "Visit `/admin/qr` to print or export the complete A4 signage poster. Click 'Print A4 Poster' for direct 1-page printing with zero dark margins, or click 'Download Poster (PNG)' / 'Download Poster (SVG)' for high-resolution photo-studio files."
-                    : "Buka `/admin/qr` untuk mencetak atau mengunduh poster signage A4 lengkap. Klik 'Print A4 Poster' untuk cetak langsung 1 halaman tanpa margin gelap, atau klik 'Download Poster (PNG)' / 'Download Poster (SVG)' untuk file beresolusi tinggi siap cetak."}
+                    ? "Visit `/admin/qr` to print or export the complete A4 signage poster. Features an enlarged hero QR code (560px / 55% of card width) for effortless scanning from across dinner tables, luxury typography, balanced spacing, and unified vector SVG rendering that guarantees 100% distortion-free 1-page A4 printing (Save as PDF) and 300 DPI high-res PNG export."
+                    : "Buka `/admin/qr` untuk mencetak atau mengunduh poster signage A4 lengkap. Dilengkapi kode QR ukuran besar (560px / 55% lebar kartu) agar mudah dipindai tamu dari kejauhan meja, tipografi mewah yang seimbang, serta rendering vektor SVG terpadu yang menjamin cetak 1 halaman A4 (Save as PDF) bebas distorsi dan ekspor PNG resolusi tinggi 300 DPI."}
                 </span>
               </div>
               <div className="flex items-start gap-2">
