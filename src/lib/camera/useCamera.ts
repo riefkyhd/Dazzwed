@@ -17,7 +17,7 @@ import {
 } from "./caps";
 import { CameraError, openStream, type CameraErrorKind } from "./constraints";
 import { pickDefaultLens, pickerLenses, toLens, type Lens } from "./lenses";
-import { renderShot, prewarmCapturePipeline, isCanvasBlankOrBlack } from "@/lib/imaging/render";
+import { renderShot, prewarmCapturePipeline, isCanvasBlankOrBlack, isBlobBlankOrBlack } from "@/lib/imaging/render";
 import { cropForAspectAndZoom, fitLongestEdge, type CameraAspect } from "@/lib/imaging/geometry";
 import type { LookRecipe } from "@/lib/imaging/looks/types";
 import { CPM35_LOOK, getLookById } from "@/lib/imaging/looks/presets";
@@ -656,7 +656,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     if (c) {
       import("@/lib/imaging/looks/pipeline").then(({ LookEnginePipeline }) => {
         if (destroyed || !canvasRef.current) return;
-        const pipeline = new LookEnginePipeline(canvasRef.current);
+        const pipeline = new LookEnginePipeline(canvasRef.current, { preserveDrawingBuffer: true });
         lookPipelineRef.current = pipeline;
 
         let lastTime = performance.now();
@@ -1013,19 +1013,37 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           }
         }
         let frozenSource: ImageBitmap | HTMLVideoElement | HTMLCanvasElement = v;
+        let snapCanvasFallback: HTMLCanvasElement | null = null;
         let passedFrozenSourceToPreview = false;
 
         const takeFrameSnapshots = async (): Promise<{
           previewBmp: ImageBitmap | null;
+          snapCanvas: HTMLCanvasElement | null;
         }> => {
           let previewBmp: ImageBitmap | null = null;
-          // 1. Try reading the active WebGL preview canvas if valid and non-black
+          let snapCanvas: HTMLCanvasElement | null = null;
+
+          // 1. Snapshot from active in-DOM WebGL preview canvas (guaranteed hardware pixels & preserveDrawingBuffer)
           if (c && c.width > 0 && c.height > 0 && !isCanvasBlankOrBlack(c)) {
             try {
+              // Create a 2D snapshot canvas to guarantee pixels stay preserved regardless of WebKit video lifecycle
+              snapCanvas = document.createElement("canvas");
+              snapCanvas.width = c.width;
+              snapCanvas.height = c.height;
+              const sCtx = snapCanvas.getContext("2d");
+              if (sCtx) {
+                sCtx.drawImage(c, 0, 0);
+              }
               const crop = cropForAspectAndZoom(c.width, c.height, targetAspect, 1);
-              previewBmp = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
+              if (snapCanvas && !isCanvasBlankOrBlack(snapCanvas)) {
+                previewBmp = await createImageBitmap(snapCanvas, crop.sx, crop.sy, crop.sw, crop.sh);
+              } else {
+                previewBmp = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
+              }
             } catch {
-              previewBmp = await createImageBitmap(c).catch(() => null);
+              try {
+                previewBmp = await createImageBitmap(c).catch(() => null);
+              } catch {}
             }
           }
 
@@ -1041,14 +1059,19 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             }
           }
 
-          return { previewBmp };
+          return { previewBmp, snapCanvas };
         };
 
         if (!shouldFireTorch && !shouldFireScreenFlash) {
           // --- Non-flash Instant Capture Pipeline (< 80ms) ---
           // 1. Snapshot video and canvas synchronously BEFORE freezing RAF loop
-          const { previewBmp } = await takeFrameSnapshots();
-          frozenSource = v;
+          const { previewBmp, snapCanvas } = await takeFrameSnapshots();
+          snapCanvasFallback = snapCanvas;
+          if (snapCanvas && !isCanvasBlankOrBlack(snapCanvas)) {
+            frozenSource = snapCanvas;
+          } else {
+            frozenSource = v;
+          }
 
           // 2. Freeze viewfinder immediately
           isFrozenRef.current = true;
@@ -1077,7 +1100,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               async () => {
                 const snap = await takeFrameSnapshots();
                 previewBmp = snap.previewBmp;
-                frozenSource = v;
+                snapCanvasFallback = snap.snapCanvas;
+                if (snap.snapCanvas && !isCanvasBlankOrBlack(snap.snapCanvas)) {
+                  frozenSource = snap.snapCanvas;
+                } else {
+                  frozenSource = v;
+                }
               },
               { maxStabilizeMs: 260 }
             );
@@ -1088,7 +1116,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               await new Promise((r) => setTimeout(r, 260));
               const snap = await takeFrameSnapshots();
               previewBmp = snap.previewBmp;
-              frozenSource = v;
+              snapCanvasFallback = snap.snapCanvas;
+              if (snap.snapCanvas && !isCanvasBlankOrBlack(snap.snapCanvas)) {
+                frozenSource = snap.snapCanvas;
+              } else {
+                frozenSource = v;
+              }
             } finally {
               callbacks?.onScreenFlash?.(false);
             }
@@ -1131,15 +1164,16 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
           const effectiveDigitalZoom = Math.max(1, digitalZoom);
           const swEV = exposureCompRange ? 0 : exposureCompValueRef.current;
+          const isFromSnapCanvas = frozenSource === snapCanvasFallback;
           let filteredBlob: Blob;
           try {
             filteredBlob = await renderShot(frozenSource, {
-              zoom: effectiveDigitalZoom,
+              zoom: isFromSnapCanvas ? 1 : effectiveDigitalZoom,
               aspect: targetAspect,
-              applyFilter: true,
+              applyFilter: isFromSnapCanvas ? false : true,
               look: activeLook,
               seed: shotSeed,
-              mirror: isMirrored,
+              mirror: isFromSnapCanvas ? false : isMirrored,
               maxEdge: safeMaxEdge,
               quality: 0.92,
               exposureCompensation: swEV,
@@ -1147,13 +1181,30 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           } catch (err) {
             console.warn("Archival filtered renderShot failed, falling back to clean render:", err);
             filteredBlob = await renderShot(frozenSource, {
-              zoom: effectiveDigitalZoom,
+              zoom: isFromSnapCanvas ? 1 : effectiveDigitalZoom,
               aspect: targetAspect,
               applyFilter: false,
-              mirror: isMirrored,
+              mirror: isFromSnapCanvas ? false : isMirrored,
               maxEdge: Math.min(safeMaxEdge, 1920),
               quality: 0.85,
             });
+          }
+
+          // Black-Blob Sanity Guard: If filteredBlob was black, recover from snapCanvasFallback
+          if (filteredBlob && (await isBlobBlankOrBlack(filteredBlob)) && snapCanvasFallback) {
+            console.warn("Archival filteredBlob was solid black, recovering from snapCanvasFallback");
+            try {
+              filteredBlob = await renderShot(snapCanvasFallback, {
+                zoom: 1,
+                aspect: targetAspect,
+                applyFilter: false,
+                look: activeLook,
+                seed: shotSeed,
+                mirror: false,
+                maxEdge: safeMaxEdge,
+                quality: 0.92,
+              });
+            } catch {}
           }
 
           await new Promise((r) => setTimeout(r, 20));
@@ -1161,15 +1212,19 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           let originalBlob: Blob;
           try {
             originalBlob = await renderShot(frozenSource, {
-              zoom: effectiveDigitalZoom,
+              zoom: isFromSnapCanvas ? 1 : effectiveDigitalZoom,
               aspect: targetAspect,
               applyFilter: false,
-              mirror: isMirrored,
+              mirror: isFromSnapCanvas ? false : isMirrored,
               maxEdge: safeMaxEdge,
               quality: 0.92,
             });
           } catch (err) {
             console.warn("Archival original renderShot failed, reusing filtered:", err);
+            originalBlob = filteredBlob;
+          }
+
+          if (originalBlob && (await isBlobBlankOrBlack(originalBlob))) {
             originalBlob = filteredBlob;
           }
 

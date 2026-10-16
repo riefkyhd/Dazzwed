@@ -19,29 +19,113 @@ export type Source = HTMLVideoElement | ImageBitmap | HTMLImageElement | HTMLCan
  */
 export function isCanvasBlankOrBlack(canvas: HTMLCanvasElement): boolean {
   try {
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) return true;
     const w = canvas.width;
     const h = canvas.height;
     if (w <= 0 || h <= 0) return true;
 
-    const points = [
-      [Math.floor(w * 0.5), Math.floor(h * 0.5)],
-      [Math.floor(w * 0.2), Math.floor(h * 0.2)],
-      [Math.floor(w * 0.8), Math.floor(h * 0.2)],
-      [Math.floor(w * 0.2), Math.floor(h * 0.8)],
-      [Math.floor(w * 0.8), Math.floor(h * 0.8)],
-    ];
+    // 1. Try 2D context first (standard 2D canvases & test mocks)
+    const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D | null;
+    if (ctx && typeof ctx.getImageData === "function") {
+      const points = [
+        [Math.floor(w * 0.5), Math.floor(h * 0.5)],
+        [Math.floor(w * 0.2), Math.floor(h * 0.2)],
+        [Math.floor(w * 0.8), Math.floor(h * 0.2)],
+        [Math.floor(w * 0.2), Math.floor(h * 0.8)],
+        [Math.floor(w * 0.8), Math.floor(h * 0.8)],
+      ];
 
-    let allBlankOrSolidBlack = true;
-    for (const [x, y] of points) {
-      const pixel = ctx.getImageData(x, y, 1, 1).data;
-      if (pixel[3] > 0 && (pixel[0] > 0 || pixel[1] > 0 || pixel[2] > 0)) {
-        allBlankOrSolidBlack = false;
-        break;
+      let allBlankOrSolidBlack = true;
+      for (const [x, y] of points) {
+        const pixel = ctx.getImageData(x, y, 1, 1).data;
+        if (pixel[3] > 0 && (pixel[0] > 10 || pixel[1] > 10 || pixel[2] > 10)) {
+          allBlankOrSolidBlack = false;
+          break;
+        }
+      }
+      return allBlankOrSolidBlack;
+    }
+
+    // 2. Otherwise check if canvas is WebGL or WebGL2
+    const gl = (canvas.getContext("webgl2") || canvas.getContext("webgl")) as WebGLRenderingContext | WebGL2RenderingContext | null;
+    if (gl && typeof gl.readPixels === "function") {
+      const samplePoints = [
+        [Math.floor(w * 0.5), Math.floor(h * 0.5)],
+        [Math.floor(w * 0.2), Math.floor(h * 0.2)],
+        [Math.floor(w * 0.8), Math.floor(h * 0.8)],
+      ];
+      const pixel = new Uint8Array(4);
+      for (const [x, y] of samplePoints) {
+        gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        if (pixel[3] > 0 && (pixel[0] > 10 || pixel[1] > 10 || pixel[2] > 10)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Fast sanity check on a JPEG Blob: samples center and downscaled pixels.
+ * Returns true if the image is solid black or transparent (all channels <= 10).
+ */
+export async function isBlobBlankOrBlack(blob: Blob): Promise<boolean> {
+  try {
+    if (!blob || blob.size < 500) return true;
+    let imgSource: ImageBitmap | HTMLImageElement | null = null;
+    let urlToRevoke: string | null = null;
+
+    if (typeof createImageBitmap === "function") {
+      try {
+        imgSource = await createImageBitmap(blob);
+      } catch {
+        imgSource = null;
       }
     }
-    return allBlankOrSolidBlack;
+
+    if (!imgSource && typeof Image !== "undefined" && typeof URL !== "undefined") {
+      try {
+        const url = URL.createObjectURL(blob);
+        urlToRevoke = url;
+        const img = new Image();
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve();
+          img.onerror = () => reject(new Error("img load error"));
+          img.src = url;
+        });
+        imgSource = img;
+      } catch {
+        imgSource = null;
+      }
+    }
+
+    if (!imgSource) return false;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 16;
+    canvas.height = 16;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) {
+      if (imgSource instanceof ImageBitmap && typeof imgSource.close === "function") imgSource.close();
+      if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
+      return false;
+    }
+
+    ctx.drawImage(imgSource, 0, 0, 16, 16);
+    if (imgSource instanceof ImageBitmap && typeof imgSource.close === "function") imgSource.close();
+    if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
+
+    const data = ctx.getImageData(0, 0, 16, 16).data;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] > 0 && (data[i] > 10 || data[i + 1] > 10 || data[i + 2] > 10)) {
+        return false;
+      }
+    }
+    return true;
   } catch {
     return false;
   }

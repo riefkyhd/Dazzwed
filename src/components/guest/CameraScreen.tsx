@@ -22,6 +22,8 @@ import { ReviewModal } from "./ReviewModal";
 import { LookDial } from "./LookDial";
 import { GuestGalleryModal } from "./GuestGalleryModal";
 import { getLookById, CPM35_LOOK } from "@/lib/imaging/looks/presets";
+import { isBlobBlankOrBlack } from "@/lib/imaging/render";
+export { isBlobBlankOrBlack };
 
 interface CameraScreenProps {
   eventSlug: string;
@@ -75,35 +77,6 @@ async function imageBitmapToBlob(bmp: ImageBitmap): Promise<Blob> {
   });
 }
 
-/**
- * Fast sanity check on a JPEG Blob: samples center and downscaled pixels.
- * Returns true if the image is solid black or transparent (all channels <= 10).
- */
-export async function isBlobBlankOrBlack(blob: Blob): Promise<boolean> {
-  try {
-    if (typeof createImageBitmap !== "function") return false;
-    const bmp = await createImageBitmap(blob);
-    const canvas = document.createElement("canvas");
-    canvas.width = 16;
-    canvas.height = 16;
-    const ctx = canvas.getContext("2d", { willReadFrequently: true });
-    if (!ctx) {
-      if (typeof bmp.close === "function") bmp.close();
-      return false;
-    }
-    ctx.drawImage(bmp, 0, 0, 16, 16);
-    if (typeof bmp.close === "function") bmp.close();
-    const data = ctx.getImageData(0, 0, 16, 16).data;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i + 3] > 0 && (data[i] > 10 || data[i + 1] > 10 || data[i + 2] > 10)) {
-        return false;
-      }
-    }
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export function CameraScreen({
   eventSlug,
