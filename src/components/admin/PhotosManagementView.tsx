@@ -55,6 +55,7 @@ export function PhotosManagementView({
   const [notification, setNotification] = useState<string | null>(null);
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
   const [failedImages, setFailedImages] = useState<Record<string, boolean>>({});
+  const [imageRetries, setImageRetries] = useState<Record<string, number>>({});
 
   // Map of guestId -> roll code and name
   const guestMetaMap = useMemo(() => {
@@ -179,7 +180,7 @@ export function PhotosManagementView({
   }, [activeLightboxIndex]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-stone-800">
         <div>
@@ -390,12 +391,23 @@ export function PhotosManagementView({
                                 </div>
                               )}
                               <img
-                                src={`/api/admin/photos/${photo.drive_file_id}?size=grid`}
+                                src={`/api/admin/photos/${photo.drive_file_id}?size=grid${
+                                  imageRetries[photo.id] ? `&r=${imageRetries[photo.id]}` : ""
+                                }`}
                                 alt={guestName ? `Shot by ${guestName}` : `Shot by Roll ${rollCode}`}
                                 loading="lazy"
                                 decoding="async"
                                 onLoad={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
-                                onError={() => setFailedImages((prev) => ({ ...prev, [photo.id]: true }))}
+                                onError={() => {
+                                  const count = imageRetries[photo.id] || 0;
+                                  if (count < 2) {
+                                    setTimeout(() => {
+                                      setImageRetries((prev) => ({ ...prev, [photo.id]: count + 1 }));
+                                    }, 800 + Math.random() * 500);
+                                  } else {
+                                    setFailedImages((prev) => ({ ...prev, [photo.id]: true }));
+                                  }
+                                }}
                                 className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
                                   isLoaded ? "opacity-100" : "opacity-0"
                                 }`}

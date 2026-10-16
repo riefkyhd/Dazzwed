@@ -15,14 +15,29 @@ export function getOAuth2Client(redirectUri?: string) {
   );
 }
 
+// In-memory cache for resolved Drive tokens (5 min TTL)
+let cachedTokens: {
+  refreshToken: string | null;
+  rootFolderId: string | null;
+  expiresAt: number;
+} | null = null;
+
 /**
  * Resolves the Google Drive refresh token and root folder ID,
- * checking environment variables first, then falling back to the database events record.
+ * checking in-memory cache first, then database events record, then environment variables.
  */
 export async function resolveDriveTokens(): Promise<{
   refreshToken: string | null;
   rootFolderId: string | null;
 }> {
+  const now = Date.now();
+  if (cachedTokens && cachedTokens.expiresAt > now) {
+    return {
+      refreshToken: cachedTokens.refreshToken,
+      rootFolderId: cachedTokens.rootFolderId,
+    };
+  }
+
   const env = serverEnv();
   let refreshToken: string | null = null;
   let rootFolderId: string | null = null;
@@ -51,7 +66,55 @@ export async function resolveDriveTokens(): Promise<{
   if (!refreshToken) refreshToken = env.GOOGLE_REFRESH_TOKEN || null;
   if (!rootFolderId) rootFolderId = env.DRIVE_ROOT_FOLDER_ID || null;
 
+  cachedTokens = {
+    refreshToken,
+    rootFolderId,
+    expiresAt: now + 5 * 60 * 1000,
+  };
+
   return { refreshToken, rootFolderId };
+}
+
+// In-memory cache for Google OAuth access tokens (50 min TTL) + deduplication promise
+let cachedAccessToken: { token: string; expiresAt: number } | null = null;
+let tokenRefreshPromise: Promise<string | null> | null = null;
+
+/**
+ * Returns a valid Google OAuth access token, caching for 50 minutes and deduplicating
+ * concurrent token requests so parallel thumbnail loads never hit OAuth 429 rate limits.
+ */
+export async function getDriveAccessToken(refreshToken: string): Promise<string | null> {
+  const now = Date.now();
+  if (cachedAccessToken && cachedAccessToken.expiresAt > now + 60_000) {
+    return cachedAccessToken.token;
+  }
+
+  if (tokenRefreshPromise) {
+    return tokenRefreshPromise;
+  }
+
+  tokenRefreshPromise = (async () => {
+    try {
+      const oauth2Client = getOAuth2Client();
+      oauth2Client.setCredentials({ refresh_token: refreshToken });
+      const tokenRes = await oauth2Client.getAccessToken();
+      const token = tokenRes.token || null;
+      if (token) {
+        cachedAccessToken = {
+          token,
+          expiresAt: Date.now() + 50 * 60 * 1000,
+        };
+      }
+      return token;
+    } catch (err) {
+      console.error("Failed to retrieve Drive access token:", err);
+      return null;
+    } finally {
+      tokenRefreshPromise = null;
+    }
+  })();
+
+  return tokenRefreshPromise;
 }
 
 /**
@@ -71,3 +134,4 @@ export function getDriveClient(explicitToken?: string): drive_v3.Drive {
 
   return google.drive({ version: "v3", auth: oauth2Client });
 }
+

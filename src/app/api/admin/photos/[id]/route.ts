@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { Readable } from "node:stream";
 import { getAdminUser } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getDriveClient, getOAuth2Client, resolveDriveTokens } from "@/lib/drive/client";
+import { getDriveClient, getOAuth2Client, getDriveAccessToken, resolveDriveTokens } from "@/lib/drive/client";
 
 export const dynamic = "force-dynamic";
 
@@ -100,11 +100,9 @@ export async function GET(
         const targetDim = size === "lightbox" ? "=s1600" : "=s800";
         const resizedUrl = rawThumbnail.replace(/=s\d+$/, targetDim);
 
-        // Fetch thumbnail from Google's high-speed CDN using OAuth token
-        const oauth2Client = getOAuth2Client();
-        oauth2Client.setCredentials({ refresh_token: refreshToken });
-        const tokenRes = await oauth2Client.getAccessToken();
-        const authHeader: Record<string, string> = tokenRes.token ? { Authorization: `Bearer ${tokenRes.token}` } : {};
+        // Fetch thumbnail from Google's high-speed CDN using cached OAuth token
+        const accessToken = await getDriveAccessToken(refreshToken);
+        const authHeader: Record<string, string> = accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 
         const thumbFetch = await fetch(resizedUrl, { headers: authHeader });
         if (thumbFetch.ok && thumbFetch.body) {

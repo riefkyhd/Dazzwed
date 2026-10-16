@@ -13,13 +13,15 @@ vi.mock("@/lib/drive/client", () => ({
   resolveDriveTokens: vi.fn(),
   getDriveClient: vi.fn(),
   getOAuth2Client: vi.fn(),
+  getDriveAccessToken: vi.fn(),
 }));
 
 import { GET } from "@/app/api/admin/photos/[id]/route";
 import { getAdminUser } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { resolveDriveTokens, getDriveClient, getOAuth2Client } from "@/lib/drive/client";
+import { resolveDriveTokens, getDriveClient, getOAuth2Client, getDriveAccessToken } from "@/lib/drive/client";
 import { Readable } from "node:stream";
+
 
 describe("GET /api/admin/photos/[id] Image Proxy", () => {
   beforeEach(() => {
@@ -87,6 +89,8 @@ describe("GET /api/admin/photos/[id] Image Proxy", () => {
       getAccessToken: vi.fn().mockResolvedValue({ token: "mock-access-token" }),
     };
     vi.mocked(getOAuth2Client).mockReturnValue(mockOAuth2 as any);
+    vi.mocked(getDriveAccessToken).mockResolvedValue("mock-access-token");
+
 
     // Mock fetch for Google CDN thumbnail
     const originalFetch = global.fetch;

@@ -88,7 +88,7 @@ export function DashboardView({
     (!event.closes_at || new Date() <= new Date(event.closes_at));
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* 85% Storage Alert Banner */}
       {metrics.storageWarning && (
         <div className="mb-6 p-4 rounded-xl bg-amber-950/80 border border-amber-600 text-amber-200 text-xs flex items-center justify-between">

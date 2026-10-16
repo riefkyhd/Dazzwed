@@ -491,6 +491,32 @@ export function AdminGuideView() {
           <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
             <h4 className="text-sm font-bold text-white">
               {lang === "en"
+                ? "Q: Why do some photos have date stamps while others do not?"
+                : "T: Mengapa sebagian foto memiliki cap tanggal (timestamp) dan sebagian tidak?"}
+            </h4>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {lang === "en"
+                ? "This is an authentic analog film feature! Consumer point-and-shoot emulsions (Disposable 400, Digicam CCD Flash, Rangefinder 35, Warm Portrait 400, Tungsten 800T, Panchromatic B&W 400, Mono Street 400, Super 8mm, Vivid 100) emulate vintage compact cameras with a quartz LCD databack stamped onto the negative. Professional SLR, instant, and motion picture recipes (Classic Neg 400, Golden 200, Instant Square, Cinema 250D, Neutral) and untouched RAW sensor originals do not burn date stamps by design."
+                : "Ini adalah fitur autentik kamera analog! Emulsi kamera saku konsumen (Disposable 400, Digicam CCD Flash, Rangefinder 35, Warm Portrait 400, Tungsten 800T, Panchromatic B&W 400, Mono Street 400, Super 8mm, Vivid 100) menyimulasikan cap tanggal quartz LCD khas kamera saku 90-an/2000-an. Resep SLR profesional, polaroid instan, sinema (Classic Neg 400, Golden 200, Instant Square, Cinema 250D, Neutral), serta hasil tangkapan sensor RAW asli tidak menyematkan cap tanggal."}
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+            <h4 className="text-sm font-bold text-white">
+              {lang === "en"
+                ? "Q: How does the admin gallery handle fast concurrent photo browsing and image loading?"
+                : "T: Bagaimana galeri admin menangani pemuatan foto cepat secara serentak?"}
+            </h4>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {lang === "en"
+                ? "Dazzwed uses in-memory token deduplication and caching for Google OAuth access tokens (50-minute TTL) and event tokens (5-minute TTL). When opening a gallery with dozens of photos, all thumbnail requests share a single warm bearer token instead of firing duplicate token refreshes to Google, eliminating OAuth 429 rate limits. In addition, the gallery includes automatic transient error retries and clean unmounted progressive Lightbox rendering to eliminate low-res ghosting overlays."
+                : "Dazzwed menerapkan deduplikasi dan caching token Google OAuth dalam memori (TTL 50 menit) serta token acara (TTL 5 menit). Saat membuka galeri dengan puluhan foto sekaligus, seluruh permintaan thumbnail berbagi token aktif yang sama tanpa membebani Google dengan refresh token berulang, mencegah error batas frekuensi OAuth 429. Selain itu, kartu foto dilengkapi pemulihan otomatis jika terjadi gangguan jaringan sesaat dan Lightbox progresif bersih tanpa efek tumpang tindih bayangan."}
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+            <h4 className="text-sm font-bold text-white">
+              {lang === "en"
                 ? "Q: Where are the official horizontal Unveiled branding assets used?"
                 : "T: Di mana aset logo horizontal resmi Unveiled digunakan?"}
             </h4>

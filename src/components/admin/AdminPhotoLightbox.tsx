@@ -163,9 +163,11 @@ export function AdminPhotoLightbox({
       } else if (e.key === " " || e.code === "Space") {
         e.preventDefault();
         if (activePhoto?.original_drive_file_id) {
+          setHdLoaded(false);
           setMode((m) => (m === "filtered" ? "original" : "filtered"));
         }
       }
+
     };
 
     window.addEventListener("keydown", handleKeyDown);
@@ -277,14 +279,16 @@ export function AdminPhotoLightbox({
           </div>
         ) : (
           <div className="relative max-h-full max-w-full flex items-center justify-center pointer-events-none">
-            {/* Base Layer: Instant cached thumbnail (=s800) */}
-            <img
-              src={`/api/admin/photos/${currentFileId}?size=grid`}
-              alt=""
-              aria-hidden="true"
-              onError={() => setHasError(true)}
-              className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl filter blur-[0.5px]"
-            />
+            {/* Base Layer: Instant cached thumbnail (=s800) - only shown while HD image is loading */}
+            {!hdLoaded && (
+              <img
+                src={`/api/admin/photos/${currentFileId}?size=grid`}
+                alt=""
+                aria-hidden="true"
+                onError={() => setHasError(true)}
+                className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl filter blur-[0.5px]"
+              />
+            )}
 
             {/* Top Layer: HD Lightbox image (=s1600) */}
             <img
@@ -293,11 +297,14 @@ export function AdminPhotoLightbox({
               alt={guestName ? `Photo by ${guestName}` : "Wedding photo"}
               onLoad={() => setHdLoaded(true)}
               onError={() => setHasError(true)}
-              className={`absolute inset-0 m-auto max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${
-                hdLoaded ? "opacity-100" : "opacity-0"
-              }`}
+              className={`${
+                hdLoaded
+                  ? "relative max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl opacity-100"
+                  : "absolute inset-0 m-auto max-h-full max-w-full w-auto h-auto object-contain rounded-lg opacity-0 pointer-events-none"
+              } transition-opacity duration-200`}
             />
           </div>
+
         )}
 
         {/* Desktop Side Chevron: Next */}
@@ -343,7 +350,12 @@ export function AdminPhotoLightbox({
         <div className="flex items-center bg-stone-900 border border-stone-800 p-0.5 rounded-xl min-h-[44px] shrink-0">
           <button
             type="button"
-            onClick={() => setMode("filtered")}
+            onClick={() => {
+              if (mode !== "filtered") {
+                setHdLoaded(false);
+                setMode("filtered");
+              }
+            }}
             className={`min-h-[38px] px-3 sm:px-4 rounded-lg font-medium text-xs whitespace-nowrap transition-all cursor-pointer ${
               mode === "filtered"
                 ? "bg-amber-400 text-black font-semibold shadow"
@@ -355,7 +367,8 @@ export function AdminPhotoLightbox({
           <button
             type="button"
             onClick={() => {
-              if (activePhoto.original_drive_file_id) {
+              if (activePhoto.original_drive_file_id && mode !== "original") {
+                setHdLoaded(false);
                 setMode("original");
               }
             }}
@@ -372,6 +385,7 @@ export function AdminPhotoLightbox({
             ◯ Original
           </button>
         </div>
+
 
         {/* Right: 1-Click HD Download */}
         <div className="shrink-0">

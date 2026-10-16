@@ -183,3 +183,21 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **In-DOM WebGL Viewfinder Snapshot with `preserveDrawingBuffer: true`:** On iOS Safari WebKit, offscreen WebGL contexts cannot reliably bind hardware video textures from active WebRTC streams. The active in-DOM WebGL viewfinder canvas is configured with `preserveDrawingBuffer: true`, allowing synchronous snapshots to a static 2D canvas at shutter press that are immune to WebKit compositor frame clears.
    - **Dual Black-Blob Sanity Guard (`isBlobBlankOrBlack`):** When the user taps **"Keep Photo"**, `CameraScreen` inspects the rendered JPEG blob using downscaled pixel sampling with `new Image()` and `createImageBitmap` fallback. If the rendered blob is ever solid black `(<=10)`, it is immediately rejected and the verified high-definition `previewBitmap` (which is already displayed in the review modal) is converted and uploaded to Google Drive, mathematically guaranteeing that a black photo can never be saved to the guest's roll or the event archive.
 
+---
+
+## 7. Editorial Admin Gallery & Analog Emulation Science
+
+1. **Authentic Quartz Databack Emulation vs. Professional Emulsions:**
+   - **Consumer Point-and-Shoot Cameras:** Emulsions that emulate retro 90s/00s compact analog cameras (`disposable-400`, `ccd-flash`, `cpm-35`, `portra-400`, `cinestill-800t`, `tri-x-400`, `ilford-hp5-plus`, `super-8mm-vintage`, `kodak-ektar-100`) include authentic quartz LCD databacks (`dateStamp.enabled: true`) burned onto the negative.
+   - **Professional SLR, Instant & Cinema Formats:** Professional editorial emulsions (`classic-neg`, `golden-200`, `instant-film` polaroid, `fuji-eterna-250d` motion picture, `neutral`) do not burn databacks (`dateStamp.enabled: false`) by design, mirroring authentic professional analog equipment.
+   - **Untouched RAW Originals:** Clean original sensor captures (`mode === "original"`) never contain databacks, preserving pristine digital negatives.
+
+2. **High-Concurrency Google Drive Token Caching & Resilient Gallery Loading:**
+   - **In-Memory OAuth Token Singleton (`getDriveAccessToken`):** Google OAuth access tokens are cached in memory for 50 minutes with active in-flight request deduplication (`tokenRefreshPromise`). When an admin loads a gallery of 30+ photos simultaneously, all thumbnail requests share a single warm bearer token instead of firing 30 concurrent token refreshes to Google, eliminating `429 Too Many Requests` rate limiting.
+   - **Event Token Cache:** Database event refresh tokens are cached for 5 minutes, eliminating redundant database queries on grid renders.
+   - **Transient Load Retries:** Photo cards in `PhotosManagementView` automatically retry up to 2 times with exponential jitter if a network blip occurs before displaying a missing file indicator.
+
+3. **Progressive Lightbox Rendering & Unified Container Spacing:**
+   - **Clean Unmount Progressive Loading (`AdminPhotoLightbox`):** The instant low-resolution thumbnail base layer (=s800) automatically unmounts as soon as the HD lightbox image (=s1600) finishes decoding. This completely eliminates double images, subpixel edge bleed, and ghosting outlines.
+   - **Unified Container Spacing:** Top navigation (`AdminNavbar`) and main admin views (`PhotosManagementView`, `DashboardView`, etc.) are standardized to `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8` for pixel-perfect edge alignment on widescreen displays.
+
