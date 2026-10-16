@@ -27,6 +27,12 @@ function getLookChipLabel(look: LookRecipe): string {
       return "250D";
     case "classic-neg":
       return "NEG";
+    case "classic-chrome":
+    case "classicchrome":
+      return "CHRM";
+    case "reala-ace":
+    case "realaace":
+      return "ACE";
     case "tri-x-400":
       return "B&W";
     case "ilford-hp5-plus":

@@ -18,7 +18,7 @@ function gaussianWeight(hue: number, center: number, sigma: number): number {
 }
 
 export function generateFilmHueTable(
-  type: "disposable" | "ccd" | "instant" | "golden" | "neutral" | "classic-neg" | "cpm35"
+  type: "disposable" | "ccd" | "instant" | "golden" | "neutral" | "classic-neg" | "cpm35" | "classic-chrome" | "reala-ace"
 ): HueNode[] {
   const nodes: HueNode[] = [];
   for (let i = 0; i < 24; i++) {
@@ -42,6 +42,31 @@ export function generateFilmHueTable(
       else if (hue <= 30 || hue >= 330) {
         dChroma = 1.10;
       }
+    } else if (type === "classic-chrome") {
+      // Classic Chrome (Homage to Kodachrome 64 & Documentary Reportage):
+      // 1. Signature cyan-teal sky shift: centered at 225°, strong rotation toward cyan
+      const skyW = gaussianWeight(hue, 225, 26);
+      // 2. Olive / army green foliage: centered at 105°, shifting toward yellow-teal, desaturating
+      const foliageW = gaussianWeight(hue, 105, 24);
+      // 3. Deep documentary brick red / burgundy: centered at 0° (wrap-around 360°)
+      const redW = gaussianWeight(hue, 0, 26);
+      // 4. Earthy yellow / amber desaturation: centered at 55°
+      const yellowW = gaussianWeight(hue, 55, 22);
+
+      dHue = -15.0 * skyW + 9.0 * foliageW + 3.0 * redW - 3.0 * yellowW;
+      dChroma = 1.0 - 0.12 * skyW - 0.22 * foliageW - 0.05 * redW - 0.18 * yellowW;
+      dLightness = -0.02 * skyW - 0.04 * foliageW - 0.04 * redW - 0.02 * yellowW;
+    } else if (type === "reala-ace") {
+      // Reala Ace 100 (Fujicolor Super HG Reala 100 with 4th Cyan Emulsion Layer):
+      // True-to-life 3D fidelity, delicate tonal graduation, and suppression of green/yellow spill
+      const foliageW = gaussianWeight(hue, 115, 24);
+      const skyW = gaussianWeight(hue, 220, 24);
+      const skinW = gaussianWeight(hue, 35, 20);
+      const redW = gaussianWeight(hue, 0, 24);
+
+      dHue = 1.0 * foliageW + 1.0 * skyW;
+      dChroma = 1.0 + 0.05 * foliageW + 0.05 * skyW + 0.02 * skinW + 0.05 * redW;
+      dLightness = -0.01 * foliageW + 0.01 * skinW;
     } else if (type === "classic-neg") {
       // Classic Neg 400 (Fujicolor Superia 400 Color Science):
       // 1. Signature deep teal foliage: centered at 110°, smoothly shifting greens toward cyan-teal
@@ -572,7 +597,166 @@ export const CLASSIC_NEG_LOOK: LookRecipe = {
 };
 
 /**
- * 7. Rangefinder 35 (Recalibrated 35mm Rangefinder Aesthetic)
+ * 7. Classic Chrome (Homage to Kodachrome 64 / Documentary Photojournalism)
+ */
+export const CLASSIC_CHROME_LOOK: LookRecipe = {
+  id: "classic-chrome",
+  name: "Classic Chrome",
+  version: 2,
+  aspectRatio: "3:2",
+  lens: {
+    radialBlur: { r0: 0.0001, r1: 0.0008 },
+    chromaticAberration: 0.0002,
+    distortion: 0.002,
+    vignette: { strength: 0.18, radius: 0.82, softness: 0.60, curvature: 3.8 },
+    bloom: { threshold: 0.88, strength: 0.06, radius: 0.010 },
+    halation: { threshold: 0.90, strength: 0.08, radius: 0.012, tint: [1.0, 0.40, 0.15] },
+  },
+  response: {
+    exposureEV: 0.02,
+    dyeMatrix: [
+      1.03, -0.01, -0.02,
+      -0.01, 1.02, -0.01,
+      -0.02, 0.02, 1.00,
+    ],
+    curveR: { contrast: 1.18, pivot: 0.45, toe: 0.012, shoulder: 0.84, type: "soft" },
+    curveG: { contrast: 1.17, pivot: 0.45, toe: 0.014, shoulder: 0.85, type: "soft" },
+    curveB: { contrast: 1.20, pivot: 0.45, toe: 0.008, shoulder: 0.83, type: "soft" },
+    localContrast: 0.08, // Punchy midtone separation and micro-contrast
+    effectiveLines: 2400,
+    flashFalloff: { strength: 0.16, radius: 0.55 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("classic-chrome"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.88 },
+    saturation: 0.84, // Subdued ~84% global saturation
+    brightSatCurve: { shadowBoost: 0.05, highlightDesat: 0.35 }, // Roll-off desaturation in bright highlights
+    highlightWarmth: 0.08,
+    shadowTint: [0.002, 0.005, 0.008], // Subtle cool cyan-teal shadow tint
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: {
+      amount: 0.09,
+      size: 0.0012,
+      roughness: 0.42,
+      chroma: 0.08,
+      exposureSensitivity: 0.35,
+    },
+    lightLeak: { probability: 0, strength: 0 },
+    dust: { density: 0.02, scratches: 0.01 },
+  },
+  dateStamp: { enabled: false },
+  frame: { type: "none" },
+  intensity: 1.0,
+  whiteProtect: true,
+  reference: {
+    referenceId: "fuji-classic-chrome",
+    referenceNotes: "Calibrated Fujifilm Classic Chrome documentary simulation; hard shadow contrast, soft highlight roll-off, signature cyan-teal sky shift, olive greens, and deep brick reds.",
+  },
+
+  // Backward compatibility
+  exposureEV: 0.02,
+  curve: { contrast: 1.18, pivot: 0.45, toe: 0.012, shoulder: 0.84 },
+  lift: [0.002, 0.005, 0.008],
+  gamma: [1.0, 1.0, 1.0],
+  gain: [1.01, 1.00, 0.98],
+  matrix: [1.03, -0.01, -0.02, -0.01, 1.02, -0.01, -0.02, 0.02, 1.00],
+  saturation: 0.84,
+  splitTone: { shadowHue: 200, shadowSat: 0.05, highlightHue: 42, highlightSat: 0.03, balance: -0.1 },
+  softFocus: { amount: 0, radius: 0 },
+  sharpen: 0.05,
+  bloom: { threshold: 0.88, strength: 0.06, radius: 0.010 },
+  halation: { threshold: 0.90, strength: 0.08, radius: 0.012, tint: [1.0, 0.40, 0.15] },
+  grain: { amount: 0.09, size: 0.0012, roughness: 0.42, chroma: 0.08 },
+  vignette: { strength: 0.18, radius: 0.82, softness: 0.60 },
+  flashFalloff: { strength: 0.16, radius: 0.55 },
+  lightLeak: { probability: 0, strength: 0 },
+  dust: { density: 0.02, scratches: 0.01 },
+};
+
+/**
+ * 8. Reala Ace 100 (Fujicolor Super HG Reala 100 / 4th Cyan Emulsion Layer)
+ */
+export const REALA_ACE_LOOK: LookRecipe = {
+  id: "reala-ace",
+  name: "Reala Ace 100",
+  version: 2,
+  aspectRatio: "3:2",
+  lens: {
+    radialBlur: { r0: 0.0001, r1: 0.0006 },
+    chromaticAberration: 0.0001,
+    distortion: 0.001,
+    vignette: { strength: 0.12, radius: 0.88, softness: 0.65, curvature: 3.0 },
+    bloom: { threshold: 0.92, strength: 0.05, radius: 0.008 },
+    halation: { threshold: 0.94, strength: 0.05, radius: 0.008, tint: [1.0, 0.45, 0.20] },
+  },
+  response: {
+    exposureEV: 0.04,
+    // 4th Cyan Layer cross-talk matrix suppressing unnatural fluorescent/mixed-light green casts
+    dyeMatrix: [
+      1.02, -0.01, -0.01,
+      -0.02, 1.04, -0.02,
+      -0.01, -0.01, 1.02,
+    ],
+    curveR: { contrast: 1.09, pivot: 0.48, toe: 0.026, shoulder: 0.89, type: "soft" },
+    curveG: { contrast: 1.08, pivot: 0.48, toe: 0.028, shoulder: 0.90, type: "soft" },
+    curveB: { contrast: 1.10, pivot: 0.48, toe: 0.025, shoulder: 0.88, type: "soft" },
+    localContrast: 0.02, // Clean clarity without digital edge haloing
+    effectiveLines: 2800,
+    flashFalloff: { strength: 0.12, radius: 0.60 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("reala-ace"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.92 }, // High-precision portrait skin preservation
+    saturation: 1.06, // True-to-life ~106% lifelike vibrance
+    brightSatCurve: { shadowBoost: 0.08, highlightDesat: 0.18 }, // Keeps open shadows 3D while gently softening speculars
+    highlightWarmth: 0.04, // Pristine neutral highlights
+    shadowTint: [0.001, 0.002, 0.002], // Clean, open, neutral shadows
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: {
+      amount: 0.06, // Renowned RMS 4 ultra-fine grain
+      size: 0.0010,
+      roughness: 0.35,
+      chroma: 0.06,
+      exposureSensitivity: 0.25,
+    },
+    lightLeak: { probability: 0, strength: 0 },
+    dust: { density: 0.01, scratches: 0.005 },
+  },
+  dateStamp: { enabled: false },
+  frame: { type: "none" },
+  intensity: 1.0,
+  whiteProtect: true,
+  reference: {
+    referenceId: "fuji-reala-ace-100",
+    referenceNotes: "Calibrated Fujicolor Super HG Reala 100 / Reala Ace simulation; 4th cyan-layer emulsion technology eliminating fluorescent color casts, open clean shadows, pristine highlight roll-off, and luminous porcelain portrait skin tones.",
+  },
+
+  // Backward compatibility
+  exposureEV: 0.04,
+  curve: { contrast: 1.09, pivot: 0.48, toe: 0.027, shoulder: 0.89 },
+  lift: [0.001, 0.002, 0.002],
+  gamma: [1.0, 1.0, 1.0],
+  gain: [1.01, 1.00, 1.00],
+  matrix: [1.02, -0.01, -0.01, -0.02, 1.04, -0.02, -0.01, -0.01, 1.02],
+  saturation: 1.06,
+  splitTone: { shadowHue: 190, shadowSat: 0.02, highlightHue: 40, highlightSat: 0.02, balance: 0.0 },
+  softFocus: { amount: 0, radius: 0 },
+  sharpen: 0.03,
+  bloom: { threshold: 0.92, strength: 0.05, radius: 0.008 },
+  halation: { threshold: 0.94, strength: 0.05, radius: 0.008, tint: [1.0, 0.45, 0.20] },
+  grain: { amount: 0.06, size: 0.0010, roughness: 0.35, chroma: 0.06 },
+  vignette: { strength: 0.12, radius: 0.88, softness: 0.65 },
+  flashFalloff: { strength: 0.12, radius: 0.60 },
+  lightLeak: { probability: 0, strength: 0 },
+  dust: { density: 0.01, scratches: 0.005 },
+};
+
+/**
+ * 9. Rangefinder 35 (Recalibrated 35mm Rangefinder Aesthetic)
  */
 export const CPM35_LOOK: LookRecipe = {
   id: "cpm-35",
@@ -1269,6 +1453,8 @@ export const KODAK_EKTAR_LOOK: LookRecipe = {
 export const BUILTIN_LOOKS: LookRecipe[] = [
   CPM35_LOOK,
   PORTRA_400_LOOK,
+  CLASSIC_CHROME_LOOK,
+  REALA_ACE_LOOK,
   CINESTILL_800T_LOOK,
   FUJI_ETERNA_LOOK,
   CLASSIC_NEG_LOOK,
@@ -1292,6 +1478,17 @@ const LOOK_ALIAS_MAP: Record<string, LookRecipe> = {
   kodakportra400: PORTRA_400_LOOK,
   kodakportra400cube: PORTRA_400_LOOK,
   warmportrait400cube: PORTRA_400_LOOK,
+  classicchrome: CLASSIC_CHROME_LOOK,
+  fujiclassicchrome: CLASSIC_CHROME_LOOK,
+  chrome: CLASSIC_CHROME_LOOK,
+  classicchromecube: CLASSIC_CHROME_LOOK,
+  fujiclassicchromecube: CLASSIC_CHROME_LOOK,
+  realaace: REALA_ACE_LOOK,
+  fujirealaace: REALA_ACE_LOOK,
+  realaace100: REALA_ACE_LOOK,
+  reala: REALA_ACE_LOOK,
+  realaacecube: REALA_ACE_LOOK,
+  fujirealaacecube: REALA_ACE_LOOK,
   tungsten800t: CINESTILL_800T_LOOK,
   tungsten800tcube: CINESTILL_800T_LOOK,
   cinestill800tcube: CINESTILL_800T_LOOK,

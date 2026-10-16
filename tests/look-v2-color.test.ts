@@ -10,7 +10,14 @@ import {
   evaluateToneCurve,
 } from "../src/lib/imaging/looks/math";
 import type { HueNode } from "../src/lib/imaging/looks/types";
-import { CLASSIC_NEG_LOOK, CPM35_LOOK, TRI_X_400_LOOK, getLookById } from "../src/lib/imaging/looks/presets";
+import {
+  CLASSIC_NEG_LOOK,
+  CPM35_LOOK,
+  TRI_X_400_LOOK,
+  CLASSIC_CHROME_LOOK,
+  REALA_ACE_LOOK,
+  getLookById,
+} from "../src/lib/imaging/looks/presets";
 
 describe("Look Engine v2 Color & Math Engine", () => {
   it("converts round-trip sRGB -> OKLab -> sRGB accurately", () => {
@@ -178,6 +185,8 @@ describe("Look Engine v2 Color & Math Engine", () => {
       const looks = [
         "cpm-35",
         "classic-neg",
+        "classic-chrome",
+        "reala-ace",
         "tri-x-400",
         "disposable-400",
         "golden-200",
@@ -208,6 +217,57 @@ describe("Look Engine v2 Color & Math Engine", () => {
           expect(g.chroma).toBe(0.0); // Strict monochromatic silver
         }
       }
+    });
+
+    it("verifies Classic Chrome documentary color science parameters", () => {
+      const look = getLookById("classic-chrome");
+      expect(look).toBeDefined();
+      expect(look.id).toBe("classic-chrome");
+      expect(look.name).toBe("Classic Chrome");
+
+      // Subdued global saturation
+      expect(look.color.saturation).toBeCloseTo(0.84, 2);
+
+      // Hard shadow contrast with deep black toe
+      expect(look.response.curveR.contrast).toBeGreaterThanOrEqual(1.15);
+      expect(look.response.curveR.toe).toBeLessThanOrEqual(0.015);
+      expect(look.response.curveR.shoulder).toBeLessThanOrEqual(0.86);
+
+      // Local contrast for midtone micro-contrast
+      expect(look.response.localContrast).toBeGreaterThan(0);
+
+      // Protected skin tones
+      expect(look.color.skinProtection.enabled).toBe(true);
+      expect(look.color.skinProtection.strength).toBeGreaterThanOrEqual(0.85);
+
+      // Aliases resolve to the same look
+      expect(getLookById("fuji-classic-chrome").id).toBe("classic-chrome");
+      expect(getLookById("chrome").id).toBe("classic-chrome");
+    });
+
+    it("verifies Reala Ace 100 true-to-life 4th-layer cyan color science parameters", () => {
+      const look = getLookById("reala-ace");
+      expect(look).toBeDefined();
+      expect(look.id).toBe("reala-ace");
+      expect(look.name).toBe("Reala Ace 100");
+
+      // True-to-life vibrant saturation without excess
+      expect(look.color.saturation).toBeCloseTo(1.06, 2);
+
+      // Open, transparent shadows (toe higher than Classic Chrome)
+      expect(look.response.curveR.toe).toBeGreaterThan(0.020);
+      expect(look.response.curveR.shoulder).toBeGreaterThanOrEqual(0.88);
+
+      // Ultra-fine grain
+      expect(look.emulsion.grain.amount).toBeLessThan(0.08);
+      expect(look.emulsion.grain.size).toBeLessThanOrEqual(0.0011);
+
+      // High-precision skin protection
+      expect(look.color.skinProtection.strength).toBeGreaterThanOrEqual(0.90);
+
+      // Aliases resolve to the same look
+      expect(getLookById("fuji-reala-ace").id).toBe("reala-ace");
+      expect(getLookById("reala").id).toBe("reala-ace");
     });
 
     it("enforces Hurter-Driffield asymmetric grain response curve mathematically", () => {

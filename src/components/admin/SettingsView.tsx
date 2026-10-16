@@ -669,6 +669,8 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
               <optgroup label="✨ Calibrated Film & Camera Recipes">
                 <option value="cpm-35">Rangefinder 35 (Classic 35mm Rangefinder — Golden Warmth)</option>
                 <option value="portra-400">Warm Portrait 400 (Pastel Warmth & Flattering Skin Tones)</option>
+                <option value="classic-chrome">Classic Chrome (Documentary Kodachrome 64 Warmth & Teal Sky)</option>
+                <option value="reala-ace">Reala Ace 100 (Fujicolor Reala 4th-Layer Cyan & Luminous Skin)</option>
                 <option value="cinestill-800t">Tungsten 800T (Night Tungsten & Red Halation Glow)</option>
                 <option value="fuji-eterna-250d">Cinema 250D (Soft Cinema Motion-Picture)</option>
                 <option value="classic-neg">Classic Neg 400 (Deep Teal Foliage & Crimson)</option>

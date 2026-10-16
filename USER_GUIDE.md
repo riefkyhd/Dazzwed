@@ -10,7 +10,7 @@
 
 ### Key Highlights
 - **Zero-Install Web Experience:** Guests scan a physical QR code on their table to immediately open the camera. No App Store download, no password, and no sign-up.
-- **Curated Film Looks:** Real-time WebGL color grades (CPM 35, Portra 400, Tungsten 800T, Cine 250D, Classic B&W) with physical grain simulation and analog date stamps.
+- **Curated Film Looks:** Real-time WebGL color grades (Classic Chrome, Reala Ace 100, Rangefinder 35, Portra 400, Tungsten 800T, Cinema 250D, Classic Neg, Tri-X 400 B&W) with physical grain simulation and analog date stamps.
 - **Indonesia UU PDP & GDPR Privacy Compliance:** Strict zero-activity pre-consent gate (zero cookies, storage, or telemetry before explicit guest agreement), EXIF/GPS location scrubbing, and full self-service Right to Erasure.
 - **Offline Venue Resilience:** Spotty Wi-Fi in ballrooms or outdoor venues never causes photo loss. Photos are queued locally in `IndexedDB` and automatically upload in the background once signal returns.
 - **Organized Google Drive Sync:** Automatically creates isolated folders labeled `Guest Name (RollCode)` containing film-graded JPEGs and raw unedited camera originals.
@@ -191,7 +191,7 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 
 1. **Authentic Quartz Databack Emulation vs. Professional Emulsions:**
    - **Consumer Point-and-Shoot Cameras:** Emulsions that emulate retro 90s/00s compact analog cameras (`disposable-400`, `ccd-flash`, `cpm-35`, `portra-400`, `cinestill-800t`, `tri-x-400`, `ilford-hp5-plus`, `super-8mm-vintage`, `kodak-ektar-100`) include authentic quartz LCD databacks (`dateStamp.enabled: true`) burned onto the negative.
-   - **Professional SLR, Instant & Cinema Formats:** Professional editorial emulsions (`classic-neg`, `golden-200`, `instant-film` polaroid, `fuji-eterna-250d` motion picture, `neutral`) do not burn databacks (`dateStamp.enabled: false`) by design, mirroring authentic professional analog equipment.
+   - **Professional SLR, Instant & Cinema Formats:** Professional editorial and documentary emulsions (`classic-chrome`, `reala-ace`, `classic-neg`, `golden-200`, `instant-film` polaroid, `fuji-eterna-250d` motion picture, `neutral`) do not burn databacks (`dateStamp.enabled: false`) by design, mirroring authentic professional analog equipment.
    - **Untouched RAW Originals:** Clean original sensor captures (`mode === "original"`) never contain databacks, preserving pristine digital negatives.
 
 2. **High-Concurrency Google Drive Token Caching & Resilient Gallery Loading:**
@@ -202,6 +202,10 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 3. **Progressive Lightbox Rendering & Unified Container Spacing:**
    - **Clean Unmount Progressive Loading (`AdminPhotoLightbox`):** The instant low-resolution thumbnail base layer (=s800) automatically unmounts as soon as the HD lightbox image (=s1600) finishes decoding. This completely eliminates double images, subpixel edge bleed, and ghosting outlines.
    - **Unified Container Spacing:** Top navigation (`AdminNavbar`) and main admin views (`PhotosManagementView`, `DashboardView`, etc.) are standardized to `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8` for pixel-perfect edge alignment on widescreen displays.
+
+4. **Fujifilm Color Science Emulations: Classic Chrome & Reala Ace 100:**
+   - **Classic Chrome (`classic-chrome`):** Homage to Kodachrome 64 and mid-century documentary reportage. Features subdued global saturation (~84%), steep crushed shadow toe (`toe: 0.012`), sculpted micro-contrast (`localContrast: 0.08`), signature cyan-teal sky rotation (-15° at 225°), olive/army foliage greens, deep terracotta/brick reds, and cool slate shadow tints.
+   - **Reala Ace 100 (`reala-ace`):** Fujicolor Super HG Reala 100 simulation utilizing digital 4th cyan-layer emulsion mechanics. Eliminates fluorescent and mixed lighting yellow-green casts, preserving delicate tonal graduation, open clean shadows (`toe: 0.026`), extended highlight shoulder rolloff (`shoulder: 0.89`), luminous porcelain/peach portrait skin tones, and ultra-fine RMS 4 grain.
 
 ---
 
