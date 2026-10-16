@@ -29,7 +29,12 @@ describe("camera lens heuristics & zoom preset resolution", () => {
     expect(classifyKind("Back Telephoto Camera")).toBe("tele");
     expect(classifyKind("Back Dual Camera")).toBe("virtual");
     expect(classifyKind("Back Triple Camera")).toBe("virtual");
-    expect(classifyKind("camera2 0, facing back")).toBe("unknown");
+    expect(classifyKind("camera2 0, facing back")).toBe("main");
+    expect(classifyKind("camera2 2, facing back")).toBe("ultrawide");
+    expect(classifyKind("camera2 3, facing back")).toBe("tele");
+    expect(classifyKind("camera 0, facing back")).toBe("main");
+    expect(classifyKind("camera 2, facing back")).toBe("ultrawide");
+    expect(classifyKind("camera 3, facing back")).toBe("tele");
     expect(classifyKind("")).toBe("unknown");
   });
 
@@ -89,6 +94,71 @@ describe("camera lens heuristics & zoom preset resolution", () => {
     ];
     expect(pickDefaultLens(unlabeledDevices)).toBeUndefined();
     expect(backLenses(unlabeledDevices)).toHaveLength(0);
+  });
+
+  it("accurately classifies Samsung Galaxy S23 FE multi-lens cameras and picks primary 1x lens as default", () => {
+    const s23Devices: DeviceLike[] = [
+      { deviceId: "s23-ultra", kind: "videoinput", label: "camera2 2, facing back" }, // 0.5x Ultra-Wide
+      { deviceId: "s23-main", kind: "videoinput", label: "camera2 0, facing back" },  // 1x Primary Wide
+      { deviceId: "s23-tele", kind: "videoinput", label: "camera2 3, facing back" },  // 3x Optical Telephoto
+      { deviceId: "s23-front", kind: "videoinput", label: "camera2 1, facing front" }, // Front Selfie
+    ];
+
+    const backs = backLenses(s23Devices);
+    expect(backs).toHaveLength(3);
+
+    // Default lens MUST be the primary wide (1x) lens, NEVER the ultra-wide lens
+    expect(pickDefaultLens(s23Devices)).toBe("s23-main");
+
+    // Picker must order: ultrawide (0.5x) -> main (1x) -> tele (3x)
+    const picker = pickerLenses(s23Devices);
+    expect(picker.map((p) => p.deviceId)).toEqual(["s23-ultra", "s23-main", "s23-tele"]);
+    expect(picker.map((p) => p.kind)).toEqual(["ultrawide", "main", "tele"]);
+    expect(picker.map((p) => p.explicitZoom)).toEqual([0.5, 1, 3]);
+
+    // 0.5x preset switches stream to s23-ultra
+    const plan05 = resolveZoomPreset({
+      preset: 0.5,
+      lenses: picker,
+      activeId: "s23-main",
+      zoomRange: { min: 1, max: 8, step: 0.1 },
+    });
+    expect(plan05.requiresStreamSwitch).toBe(true);
+    expect(plan05.targetDeviceId).toBe("s23-ultra");
+    expect(plan05.mechanism).toBe("camera-switch");
+
+    // 1x preset switches stream back to s23-main when on s23-ultra
+    const plan1x = resolveZoomPreset({
+      preset: 1,
+      lenses: picker,
+      activeId: "s23-ultra",
+      zoomRange: { min: 1, max: 8, step: 0.1 },
+    });
+    expect(plan1x.requiresStreamSwitch).toBe(true);
+    expect(plan1x.targetDeviceId).toBe("s23-main");
+    expect(plan1x.mechanism).toBe("camera-switch");
+
+    // 2x preset uses hardware zoom constraint on s23-main
+    const plan2x = resolveZoomPreset({
+      preset: 2,
+      lenses: picker,
+      activeId: "s23-main",
+      zoomRange: { min: 1, max: 8, step: 0.1 },
+    });
+    expect(plan2x.requiresStreamSwitch).toBe(false);
+    expect(plan2x.targetNativeZoom).toBe(2);
+    expect(plan2x.mechanism).toBe("browser-zoom-constraint");
+
+    // 3x preset switches to optical telephoto s23-tele
+    const plan3x = resolveZoomPreset({
+      preset: 3,
+      lenses: picker,
+      activeId: "s23-main",
+      zoomRange: { min: 1, max: 8, step: 0.1 },
+    });
+    expect(plan3x.requiresStreamSwitch).toBe(true);
+    expect(plan3x.targetDeviceId).toBe("s23-tele");
+    expect(plan3x.mechanism).toBe("camera-switch");
   });
 
   describe("resolveZoomPreset (0.5x, 1x, 2x, 3x selection strategy)", () => {

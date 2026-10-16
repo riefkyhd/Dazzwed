@@ -465,6 +465,32 @@ export function AdminGuideView() {
           <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
             <h4 className="text-sm font-bold text-white">
               {lang === "en"
+                ? "Q: How do the 0.5x / 1x / 2x / 3x multi-lens zoom controls work across different smartphones?"
+                : "T: Bagaimana kontrol multi-lensa 0.5x / 1x / 2x / 3x bekerja di berbagai jenis ponsel pintar?"}
+            </h4>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {lang === "en"
+                ? "Unveiled features universal hardware multi-lens zoom. On Android multi-camera devices (like Samsung Galaxy S23 FE), the engine classifies physical Camera2 sensors: 0.5x opens the true Ultra-Wide optical lens (camera2 2), 1x binds to the Primary Wide sensor (camera2 0) with autofocus and LED flash, and 2x/3x use hardware zoom or telephoto (camera2 3). On Google Pixel and iPhone, it seamlessly bridges unified track zoom and multi-sensor switching."
+                : "Unveiled dilengkapi sistem multi-lensa perangkat keras universal. Pada ponsel Android multi-kamera (seperti Samsung Galaxy S23 FE), sistem memetakan sensor Camera2 fisik: 0.5x menggunakan lensa Ultra-Wide optik asli (camera2 2), 1x menggunakan sensor Primary Wide (camera2 0) lengkap dengan autofokus dan lampu kilat, serta 2x/3x memanfaatkan zoom perangkat keras atau telefoto (camera2 3). Pada Google Pixel dan iPhone, sistem menyatukan zoom trek dan peralihan multi-sensor secara mulus."}
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+            <h4 className="text-sm font-bold text-white">
+              {lang === "en"
+                ? "Q: How does Unveiled prevent photo loss on iPhones (e.g. iPhone 13 / 15)?"
+                : "T: Bagaimana Unveiled mencegah foto hilang pada pengguna iPhone (mis. iPhone 13 / 15)?"}
+            </h4>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {lang === "en"
+                ? "On iOS WebKit, high-resolution canvases risk hitting memory allocation thresholds. Unveiled safeguards Safari captures by clamping render dimensions to a safe 2560px edge, using fallback encoding, storing photos via binary ArrayBuffer in IndexedDB to eliminate WebKit DataCloneError, and optimistically reserving the shot so the counter always decrements and photos sync reliably."
+                : "Pada iOS WebKit, kanvas resolusi tinggi rentan terkena batas memori Safari. Unveiled mengamankan pengambilan foto dengan membatasi dimensi kanvas ke batas aman 2560px, enkoder cadangan, menyimpan foto sebagai ArrayBuffer biner di IndexedDB untuk menghilangkan galat DataCloneError WebKit, serta reservasi bidikan optimistik agar hitungan foto selalu berkurang dan tersimpan aman."}
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+            <h4 className="text-sm font-bold text-white">
+              {lang === "en"
                 ? "Q: Where are the official horizontal Unveiled branding assets used?"
                 : "T: Di mana aset logo horizontal resmi Unveiled digunakan?"}
             </h4>

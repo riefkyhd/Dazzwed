@@ -64,4 +64,34 @@ describe("IndexedDB shot queue store", () => {
     expect(await countShots("g1")).toBe(1);
     expect(await countShots("g2")).toBe(1);
   });
+
+  it("stores and reconstructs Blobs via ArrayBuffer to prevent WebKit DataCloneError", async () => {
+    const originalText = "archival-original-frame";
+    const filteredText = "vintage-35mm-filtered-shot";
+    const originalBlob = new Blob([originalText], { type: "image/jpeg" });
+    const filteredBlob = new Blob([filteredText], { type: "image/jpeg" });
+
+    const shot = await addShot({
+      shotId: "shot-webkit-safe",
+      eventSlug: slug,
+      guestId,
+      blob: filteredBlob,
+      originalBlob,
+    });
+
+    expect(shot.imageBuffer).toBeInstanceOf(ArrayBuffer);
+    expect(shot.originalBuffer).toBeInstanceOf(ArrayBuffer);
+
+    const retrieved = await listShots(guestId);
+    const target = retrieved.find((s) => s.shotId === "shot-webkit-safe");
+    expect(target).toBeDefined();
+    expect(target?.blob).toBeInstanceOf(Blob);
+    expect(target?.originalBlob).toBeInstanceOf(Blob);
+
+    const retrievedText = await target!.blob!.text();
+    expect(retrievedText).toBe(filteredText);
+    const retrievedOrigText = await target!.originalBlob!.text();
+    expect(retrievedOrigText).toBe(originalText);
+  });
 });
+

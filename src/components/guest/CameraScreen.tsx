@@ -47,6 +47,33 @@ interface CameraScreenProps {
   defaultLookId?: string;
   onDeleteRoll?: () => Promise<void>;
 }
+async function imageBitmapToBlob(bmp: ImageBitmap): Promise<Blob> {
+  const canvas = document.createElement("canvas");
+  canvas.width = bmp.width;
+  canvas.height = bmp.height;
+  const ctx = canvas.getContext("2d");
+  if (ctx) ctx.drawImage(bmp, 0, 0);
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((b) => {
+      canvas.width = canvas.height = 0;
+      if (b && b.size > 0) {
+        resolve(b);
+      } else {
+        try {
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.90);
+          const parts = dataUrl.split(",");
+          const byteString = atob(parts[1] || "");
+          const ab = new ArrayBuffer(byteString.length);
+          const ia = new Uint8Array(ab);
+          for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+          resolve(new Blob([ab], { type: "image/jpeg" }));
+        } catch (e) {
+          reject(e);
+        }
+      }
+    }, "image/jpeg", 0.90);
+  });
+}
 
 export function CameraScreen({
   eventSlug,
@@ -400,7 +427,36 @@ export function CameraScreen({
 
     // Asynchronous background persist and upload as soon as archival blobs are ready
     try {
-      const { filteredBlob, originalBlob } = await session.blobsPromise;
+      let filteredBlob: Blob | null = null;
+      let originalBlob: Blob | undefined = undefined;
+
+      try {
+        const res = await session.blobsPromise;
+        filteredBlob = res.filteredBlob;
+        originalBlob = res.originalBlob;
+      } catch (err) {
+        console.warn("Archival blobsPromise threw, using fast preview fallback:", err);
+        if (session.filteredBlob && session.filteredBlob.size > 0) {
+          filteredBlob = session.filteredBlob;
+        } else if (session.previewBitmap) {
+          try {
+            filteredBlob = await imageBitmapToBlob(session.previewBitmap);
+          } catch (e2) {
+            console.error("Failed to convert previewBitmap to blob:", e2);
+          }
+        }
+      }
+
+      if (!filteredBlob || filteredBlob.size === 0) {
+        if (session.previewBitmap) {
+          try {
+            filteredBlob = await imageBitmapToBlob(session.previewBitmap);
+          } catch {}
+        } else if (session.filteredBlob && session.filteredBlob.size > 0) {
+          filteredBlob = session.filteredBlob;
+        }
+      }
+
       if (filteredBlob && filteredBlob.size > 0) {
         const retaken = [...retakenPresetsRef.current];
         retakenPresetsRef.current = [];
@@ -434,6 +490,12 @@ export function CameraScreen({
     } catch (e) {
       console.error("Failed to persist shot in background:", e);
       showToast(t(lang, "keepFailed"));
+    } finally {
+      if (session.previewBitmap && typeof session.previewBitmap.close === "function") {
+        try {
+          session.previewBitmap.close();
+        } catch {}
+      }
     }
   }, [activeReview, unfreezeViewfinder, onShotCaptured, showToast, lang, activeLook.id]);
 

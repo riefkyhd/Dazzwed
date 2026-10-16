@@ -13,6 +13,12 @@ export interface ShotRecord {
   blob: Blob | null; // filtered photo blob (dropped after sync)
   originalBlob?: Blob | null; // clean unfiltered original (dropped after sync)
   thumbnailBlob?: Blob | null; // permanent lightweight thumbnail for guest gallery (~1200px, WebP/JPEG)
+  imageBuffer?: ArrayBuffer | null;
+  mimeType?: string;
+  originalBuffer?: ArrayBuffer | null;
+  originalMimeType?: string;
+  thumbnailBuffer?: ArrayBuffer | null;
+  thumbnailMimeType?: string;
   size: number;
   width?: number;
   height?: number;
@@ -97,6 +103,31 @@ export function newShotId(): string {
   return crypto.randomUUID();
 }
 
+const inMemoryFallbackShots = new Map<string, ShotRecord>();
+
+export function _resetStoreForTesting(): void {
+  inMemoryFallbackShots.clear();
+}
+
+function deserializeRecord(raw: any): ShotRecord {
+  if (!raw) return raw;
+  const rec = { ...raw } as ShotRecord;
+  if (!rec.blob && rec.imageBuffer) {
+    rec.blob = new Blob([rec.imageBuffer], { type: rec.mimeType || "image/jpeg" });
+  } else if (!rec.blob && !rec.imageBuffer) {
+    rec.blob = null;
+  }
+  if (!rec.originalBlob && rec.originalBuffer) {
+    rec.originalBlob = new Blob([rec.originalBuffer], { type: rec.originalMimeType || "image/jpeg" });
+  } else if (!rec.originalBlob && !rec.originalBuffer) {
+    rec.originalBlob = null;
+  }
+  if (!rec.thumbnailBlob && rec.thumbnailBuffer) {
+    rec.thumbnailBlob = new Blob([rec.thumbnailBuffer], { type: rec.thumbnailMimeType || "image/jpeg" });
+  }
+  return rec;
+}
+
 export async function addShot(input: {
   shotId: string;
   eventSlug: string;
@@ -111,10 +142,38 @@ export async function addShot(input: {
   filtered?: boolean;
   lookId?: string;
   lookVersion?: number;
+  presetId?: string;
+  captureSource?: "takePhoto" | "videoFrame";
+  retakenPresetIds?: string[];
 }): Promise<ShotRecord> {
+  let imageBuffer: ArrayBuffer | null = null;
+  let originalBuffer: ArrayBuffer | null = null;
+  let thumbnailBuffer: ArrayBuffer | null = null;
+
+  try {
+    imageBuffer = await input.blob.arrayBuffer();
+  } catch {}
+
+  if (input.originalBlob) {
+    try {
+      originalBuffer = await input.originalBlob.arrayBuffer();
+    } catch {}
+  }
+
+  const thumb = input.thumbnailBlob || input.blob;
+  try {
+    thumbnailBuffer = await thumb.arrayBuffer();
+  } catch {}
+
   const rec: ShotRecord = {
     ...input,
-    thumbnailBlob: input.thumbnailBlob || input.blob, // Keep copy as gallery thumbnail
+    thumbnailBlob: thumb,
+    imageBuffer,
+    mimeType: input.blob.type || "image/jpeg",
+    originalBuffer,
+    originalMimeType: input.originalBlob?.type || "image/jpeg",
+    thumbnailBuffer,
+    thumbnailMimeType: thumb.type || "image/jpeg",
     size: input.blob.size + (input.originalBlob ? input.originalBlob.size : 0),
     createdAt: Date.now(),
     status: "queued",
@@ -124,67 +183,133 @@ export async function addShot(input: {
     nextAttemptAt: 0,
     originalNextAttemptAt: 0,
   };
-  // `add` (not `put`): the same shotId can never be stored twice.
-  await tx("readwrite", (s) => s.add(rec));
+
+  try {
+    // WebKit DataCloneError safeguard: store ArrayBuffers instead of raw Blob
+    const idbRec = { ...rec };
+    delete (idbRec as any).blob;
+    delete (idbRec as any).originalBlob;
+    delete (idbRec as any).thumbnailBlob;
+
+    await tx("readwrite", (s) => s.add(idbRec));
+  } catch (err) {
+    console.warn("IndexedDB addShot failed, retained in memory queue:", err);
+    inMemoryFallbackShots.set(rec.shotId, rec);
+  }
+
   return rec;
 }
 
 export async function getShot(shotId: string): Promise<ShotRecord | undefined> {
-  return tx("readonly", (s) => s.get(shotId));
+  try {
+    const raw = await tx("readonly", (s) => s.get(shotId));
+    if (raw) return deserializeRecord(raw);
+  } catch (err) {
+    console.warn("IndexedDB getShot failed, checking memory:", err);
+  }
+  const mem = inMemoryFallbackShots.get(shotId);
+  return mem ? deserializeRecord(mem) : undefined;
 }
 
 export async function listShots(guestId: string): Promise<ShotRecord[]> {
-  return tx("readonly", (s) => s.index("byGuest").getAll(guestId));
+  const map = new Map<string, ShotRecord>();
+  try {
+    const rawList = await tx("readonly", (s) => s.index("byGuest").getAll(guestId));
+    for (const r of rawList) {
+      map.set(r.shotId, deserializeRecord(r));
+    }
+  } catch (err) {
+    console.warn("IndexedDB listShots failed, checking memory fallback:", err);
+  }
+  for (const [id, r] of inMemoryFallbackShots.entries()) {
+    if (r.guestId === guestId && !map.has(id)) {
+      map.set(id, deserializeRecord(r));
+    }
+  }
+  return Array.from(map.values());
 }
 
 export async function getPendingShots(guestId?: string): Promise<ShotRecord[]> {
-  const db = await openDb();
+  const map = new Map<string, ShotRecord>();
   try {
-    return await new Promise<ShotRecord[]>((resolve, reject) => {
-      const t = db.transaction(STORE, "readonly");
-      const s = t.objectStore(STORE);
-      const req = s.getAll();
-      req.onsuccess = () => {
-        let results = (req.result || []) as ShotRecord[];
-        if (guestId) {
-          results = results.filter((r) => r.guestId === guestId);
+    const db = await openDb();
+    try {
+      const results = await new Promise<ShotRecord[]>((resolve, reject) => {
+        const t = db.transaction(STORE, "readonly");
+        const s = t.objectStore(STORE);
+        const req = s.getAll();
+        req.onsuccess = () => resolve((req.result || []) as ShotRecord[]);
+        req.onerror = () => reject(req.error);
+      });
+      for (const r of results) {
+        if (!guestId || r.guestId === guestId) {
+          map.set(r.shotId, deserializeRecord(r));
         }
-        // Pending if primary filtered photo is not synced yet, OR original is queued/uploading
-        resolve(
-          results.filter(
-            (r) =>
-              r.status !== "synced" ||
-              (r.originalStatus && r.originalStatus !== "none" && r.originalStatus !== "synced")
-          )
-        );
-      };
-      req.onerror = () => reject(req.error);
-    });
-  } finally {
-    db.close();
+      }
+    } finally {
+      db.close();
+    }
+  } catch (err) {
+    console.warn("IndexedDB getPendingShots failed, checking memory:", err);
   }
+
+  for (const [id, r] of inMemoryFallbackShots.entries()) {
+    if (!guestId || r.guestId === guestId) {
+      if (!map.has(id)) {
+        map.set(id, deserializeRecord(r));
+      }
+    }
+  }
+
+  const all = Array.from(map.values());
+  return all.filter(
+    (r) =>
+      r.status !== "synced" ||
+      (r.originalStatus && r.originalStatus !== "none" && r.originalStatus !== "synced")
+  );
 }
 
 export async function countShots(guestId: string): Promise<number> {
-  return tx("readonly", (s) => s.index("byGuest").count(guestId));
+  const shots = await listShots(guestId);
+  return shots.length;
 }
 
 export async function updateShot(shotId: string, patch: Partial<ShotRecord>): Promise<void> {
-  const db = await openDb();
+  if (inMemoryFallbackShots.has(shotId)) {
+    const mem = inMemoryFallbackShots.get(shotId)!;
+    inMemoryFallbackShots.set(shotId, { ...mem, ...patch });
+  }
+
   try {
-    await new Promise<void>((resolve, reject) => {
-      const t = db.transaction(STORE, "readwrite");
-      const s = t.objectStore(STORE);
-      const get = s.get(shotId);
-      get.onsuccess = () => {
-        if (get.result) s.put({ ...get.result, ...patch, shotId });
-      };
-      t.oncomplete = () => resolve();
-      t.onerror = () => reject(t.error);
-      t.onabort = () => reject(t.error ?? new Error("aborted"));
-    });
-  } finally {
-    db.close();
+    const db = await openDb();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const t = db.transaction(STORE, "readwrite");
+        const s = t.objectStore(STORE);
+        const get = s.get(shotId);
+        get.onsuccess = () => {
+          if (get.result) {
+            const updated = { ...get.result, ...patch, shotId };
+            if (patch.blob === null) {
+              updated.blob = null;
+              delete updated.imageBuffer;
+            }
+            if (patch.originalBlob === null) {
+              updated.originalBlob = null;
+              delete updated.originalBuffer;
+            }
+            s.put(updated);
+          }
+        };
+        t.oncomplete = () => resolve();
+        t.onerror = () => reject(t.error);
+        t.onabort = () => reject(t.error ?? new Error("aborted"));
+      });
+    } finally {
+      db.close();
+    }
+  } catch (err) {
+    console.warn("IndexedDB updateShot failed:", err);
   }
 }
 

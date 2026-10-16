@@ -34,6 +34,14 @@ const MAIN_HINT = /\b(main|wide)\b/i;
 const EXPLICIT_ULTRA_FACTOR = /\b(0\.[456])x?\b/i;
 const EXPLICIT_TELE_FACTOR = /\b([2-9](?:\.\d+)?)x\b/i;
 
+// Android & Samsung Camera2 HAL enumeration patterns:
+// ID 0: Primary Main Wide (1x)
+// ID 2: Ultra-Wide (0.5x)
+// ID 3: Telephoto (3x)
+const CAMERA2_ULTRA = /\b(?:camera2?|id)[\s:]+2\b|\bwide-angle\s*2\b/i;
+const CAMERA2_MAIN = /\b(?:camera2?|id)[\s:]+0\b/i;
+const CAMERA2_TELE = /\b(?:camera2?|id)[\s:]+3\b/i;
+
 export function classifyFacing(label: string): Facing {
   if (!label) return "unknown";
   if (FRONT.test(label)) return "front";
@@ -43,10 +51,10 @@ export function classifyFacing(label: string): Facing {
 
 export function classifyKind(label: string): LensKind {
   if (!label) return "unknown";
-  if (ULTRA.test(label)) return "ultrawide";
-  if (TELE.test(label)) return "tele";
+  if (ULTRA.test(label) || CAMERA2_ULTRA.test(label)) return "ultrawide";
+  if (TELE.test(label) || CAMERA2_TELE.test(label)) return "tele";
   if (VIRTUAL.test(label)) return "virtual";
-  if (MAIN.test(label.trim()) || MAIN_HINT.test(label)) return "main";
+  if (MAIN.test(label.trim()) || MAIN_HINT.test(label) || CAMERA2_MAIN.test(label)) return "main";
   return "unknown";
 }
 
@@ -66,9 +74,14 @@ export function parseExplicitZoom(label: string, kind: LensKind): number | undef
   }
   if (kind === "tele") {
     const m = label.match(EXPLICIT_TELE_FACTOR);
-    if (!m) return undefined;
-    const val = parseFloat(m[1]);
-    return Number.isFinite(val) && val > 1 ? val : undefined;
+    if (m) {
+      const val = parseFloat(m[1]);
+      if (Number.isFinite(val) && val > 1) return val;
+    }
+    if (CAMERA2_TELE.test(label)) {
+      return 3;
+    }
+    return undefined;
   }
   return undefined;
 }

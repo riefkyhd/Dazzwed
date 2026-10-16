@@ -159,3 +159,22 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - Anonymous aggregate counts (`filter_kept`, `filter_retaken`, `capture_mode`) are piggybacked directly onto standard photo upload payloads (`/api/photos/init`).
    - Counter increments run non-blockingly on the server (`increment_event_metric`), adding `0ms` of latency to the guest camera experience.
    - Zero PII is retained: No individual guest profiles, device fingerprints, or IP addresses are linked to metrics. Pre-consent tracking is strictly impossible because the camera cannot be entered without explicit consent submission.
+
+---
+
+## 6. Camera Hardware & Multi-Lens Architecture
+
+1. **Universal `0.5x / 1x / 2x / 3x` Multi-Lens Support (Samsung Galaxy S23 FE, Google Pixel, iPhone):**
+   - **Split Physical Sensors (Samsung Galaxy S23 FE):** Android Chrome exposes individual Camera2 physical sensors. Unveiled's camera engine maps:
+     - **`0.5x`:** Routes to the true optical Ultra-Wide sensor (`camera2 2`).
+     - **`1x`:** Routes to the Primary Wide sensor (`camera2 0`), enabling continuous autofocus and hardware torch flash.
+     - **`2x`:** Applies native browser zoom constraints or clean digital sensor crop on the primary sensor.
+     - **`3x`:** Seamlessly switches to the 3x optical telephoto lens (`camera2 3`) or hardware zoom.
+   - **Logical Multi-Cameras (Google Pixel):** Supports smooth native track zoom across `[0.5x, 8.0x]`, dynamically switching between sensor levels without restarting the camera stream.
+   - **Startup Self-Correction:** When launching the camera at 1x, the engine verifies sensor capabilities (e.g. continuous focus and torch support) to ensure the 1x viewfinder never accidentally opens the ultra-wide lens.
+
+2. **iOS Safari (iPhone 13 / 15) Capture Memory Protection:**
+   - **WebKit Canvas Ceiling Safeguard:** On iOS Safari, canvases larger than ~2560px can trigger silent memory allocation failures. Captures on iOS are clamped to a safe `2560px` longest edge (yielding 5.2 MP QHD print quality) with automatic fallback to data URL decoding if WebKit's native `canvas.toBlob()` returns null.
+   - **IndexedDB `ArrayBuffer` Serialization:** Raw `Blob` storage directly in IndexedDB triggers WebKit `DataCloneError` in certain Safari versions. Photos are stored as binary `ArrayBuffer` representations in IndexedDB and reconstructed upon retrieval.
+   - **Zero-Drop Photo Guarantee:** When a guest taps **"Keep Photo"**, the shot counter decrements optimistically, and the upload queue is fed immediately. If archival high-resolution rendering encounters a background timeout, the high-speed preview frame is automatically salvaged and uploaded so no captured memory is ever lost.
+

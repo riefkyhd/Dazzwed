@@ -18,10 +18,55 @@ function sourceSize(src: Source): { w: number; h: number } {
   return { w: src.width, h: src.height };
 }
 
+function dataUrlToBlob(dataUrl: string): Blob {
+  const parts = dataUrl.split(",");
+  const byteString = atob(parts[1] || "");
+  const mimeString = (parts[0] || "").split(":")[1]?.split(";")[0] || "image/jpeg";
+  const ab = new ArrayBuffer(byteString.length);
+  const ia = new Uint8Array(ab);
+  for (let i = 0; i < byteString.length; i++) {
+    ia[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([ab], { type: mimeString });
+}
+
 function toBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
-  return new Promise((resolve, reject) =>
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode failed"))), "image/jpeg", quality),
-  );
+  return new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob(
+        (b) => {
+          if (b && b.size > 0) {
+            resolve(b);
+            return;
+          }
+          // iOS Safari WebKit canvas toBlob null return fallback
+          try {
+            const dataUrl = canvas.toDataURL("image/jpeg", quality);
+            const blob = dataUrlToBlob(dataUrl);
+            if (blob && blob.size > 0) {
+              resolve(blob);
+              return;
+            }
+          } catch (e) {
+            console.warn("toBlob fallback dataURL failed:", e);
+          }
+          reject(new Error("encode failed"));
+        },
+        "image/jpeg",
+        quality
+      );
+    } catch (err) {
+      try {
+        const dataUrl = canvas.toDataURL("image/jpeg", quality);
+        const blob = dataUrlToBlob(dataUrl);
+        if (blob && blob.size > 0) {
+          resolve(blob);
+          return;
+        }
+      } catch {}
+      reject(err);
+    }
+  });
 }
 
 export interface RenderOptions {
@@ -101,7 +146,14 @@ export async function renderShot(
   // If none supplied, default to "3:4" (full sensor) or look's format if defined.
   const targetAspect: CameraAspect = aspect ?? (look?.aspectRatio as CameraAspect) ?? "3:4";
   const crop = cropForAspectAndZoom(w, h, targetAspect, zoom);
-  const out = fitLongestEdge(crop.sw, crop.sh, maxEdge);
+
+  // iOS Safari WebKit canvas memory protection: clamp maxEdge to 2560px
+  const isIOS =
+    typeof navigator !== "undefined" &&
+    (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+  const effectiveMaxEdge = isIOS ? Math.min(maxEdge, 2560) : maxEdge;
+  const out = fitLongestEdge(crop.sw, crop.sh, effectiveMaxEdge);
 
   const canvas = document.createElement("canvas");
   canvas.width = out.width;
@@ -216,10 +268,35 @@ export async function renderShot(
     drawInstantFrame(ctx2d, out.width, out.height, look, coupleNames);
   }
 
-  // Read back immediately in the same task
-  const blob = await toBlob(canvas, quality);
-  canvas.width = canvas.height = 0; // free memory
-  return blob;
+  // Read back immediately in the same task with defensive fallback
+  try {
+    const blob = await toBlob(canvas, quality);
+    canvas.width = canvas.height = 0; // free memory
+    return blob;
+  } catch (err) {
+    console.warn("Primary canvas encode failed, falling back to emergency 2D encode:", err);
+    canvas.width = canvas.height = 0;
+    const fbCanvas = document.createElement("canvas");
+    const fbOut = fitLongestEdge(crop.sw, crop.sh, Math.min(effectiveMaxEdge, 1920));
+    fbCanvas.width = fbOut.width;
+    fbCanvas.height = fbOut.height;
+    const fbCtx = fbCanvas.getContext("2d");
+    if (fbCtx) {
+      fbCtx.imageSmoothingQuality = "high";
+      if (mirror) {
+        fbCtx.save();
+        fbCtx.translate(fbOut.width, 0);
+        fbCtx.scale(-1, 1);
+        fbCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, fbOut.width, fbOut.height);
+        fbCtx.restore();
+      } else {
+        fbCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, fbOut.width, fbOut.height);
+      }
+    }
+    const fbBlob = await toBlob(fbCanvas, 0.85);
+    fbCanvas.width = fbCanvas.height = 0;
+    return fbBlob;
+  }
 }
 
 /**

@@ -1012,8 +1012,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             else if (isUser) shouldFireScreenFlash = true;
           }
         }
-
         let frozenSource: ImageBitmap | HTMLVideoElement = v;
+        let passedFrozenSourceToPreview = false;
 
         if (!shouldFireTorch && !shouldFireScreenFlash) {
           // --- Non-flash Instant Capture Pipeline (< 80ms) ---
@@ -1044,6 +1044,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           if (previewBmp && onPreviewReady) {
             diagnostics.recordMark("t3");
             onPreviewReady(previewBmp);
+          } else if (onPreviewReady && frozenSource instanceof ImageBitmap) {
+            diagnostics.recordMark("t3");
+            passedFrozenSourceToPreview = true;
+            onPreviewReady(frozenSource);
           }
 
           diagnostics.recordMark("t2");
@@ -1122,12 +1126,13 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             onPreviewReady(previewBmp);
           } else if (onPreviewReady && frozenSource instanceof ImageBitmap) {
             diagnostics.recordMark("t3");
+            passedFrozenSourceToPreview = true;
             onPreviewReady(frozenSource);
           }
         }
 
         if (abortCtrl.signal.aborted) {
-          if (frozenSource instanceof ImageBitmap) frozenSource.close();
+          if (frozenSource instanceof ImageBitmap && !passedFrozenSourceToPreview) frozenSource.close();
           throw new DOMException("Capture aborted", "AbortError");
         }
 
@@ -1135,41 +1140,66 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           // Yield so main thread paints ReviewModal and processes touch events
           await new Promise((r) => setTimeout(r, 40));
           if (abortCtrl.signal.aborted) {
-            if (frozenSource instanceof ImageBitmap) frozenSource.close();
+            if (frozenSource instanceof ImageBitmap && !passedFrozenSourceToPreview) frozenSource.close();
             throw new DOMException("Capture aborted", "AbortError");
           }
 
-          // Background archival photos rendered at tier high resolution (max 4096px, q0.92)
+          // Background archival photos rendered at tier high resolution (max 2560px on iOS, 3840px elsewhere)
+          const isIOS =
+            typeof navigator !== "undefined" &&
+            (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+          const safeMaxEdge = isIOS ? 2560 : 3840;
+
           const effectiveDigitalZoom = Math.max(1, digitalZoom);
           const swEV = exposureCompRange ? 0 : exposureCompValueRef.current;
-          const filteredBlob = await renderShot(frozenSource, {
-            zoom: effectiveDigitalZoom,
-            aspect: targetAspect,
-            applyFilter: true,
-            look: activeLook,
-            seed: shotSeed,
-            mirror: isMirrored,
-            maxEdge: 4096,
-            quality: 0.92,
-            exposureCompensation: swEV,
-          });
+          let filteredBlob: Blob;
+          try {
+            filteredBlob = await renderShot(frozenSource, {
+              zoom: effectiveDigitalZoom,
+              aspect: targetAspect,
+              applyFilter: true,
+              look: activeLook,
+              seed: shotSeed,
+              mirror: isMirrored,
+              maxEdge: safeMaxEdge,
+              quality: 0.92,
+              exposureCompensation: swEV,
+            });
+          } catch (err) {
+            console.warn("Archival filtered renderShot failed, falling back to clean render:", err);
+            filteredBlob = await renderShot(frozenSource, {
+              zoom: effectiveDigitalZoom,
+              aspect: targetAspect,
+              applyFilter: false,
+              mirror: isMirrored,
+              maxEdge: Math.min(safeMaxEdge, 1920),
+              quality: 0.85,
+            });
+          }
 
           await new Promise((r) => setTimeout(r, 20));
 
-          const originalBlob = await renderShot(frozenSource, {
-            zoom: effectiveDigitalZoom,
-            aspect: targetAspect,
-            applyFilter: false,
-            mirror: isMirrored,
-            maxEdge: 4096,
-            quality: 0.92,
-          });
+          let originalBlob: Blob;
+          try {
+            originalBlob = await renderShot(frozenSource, {
+              zoom: effectiveDigitalZoom,
+              aspect: targetAspect,
+              applyFilter: false,
+              mirror: isMirrored,
+              maxEdge: safeMaxEdge,
+              quality: 0.92,
+            });
+          } catch (err) {
+            console.warn("Archival original renderShot failed, reusing filtered:", err);
+            originalBlob = filteredBlob;
+          }
 
           diagnostics.recordMark("t5");
           return { filteredBlob, originalBlob };
         } finally {
           isCapturingRef.current = false;
-          if (frozenSource instanceof ImageBitmap) {
+          if (frozenSource instanceof ImageBitmap && !passedFrozenSourceToPreview) {
             frozenSource.close();
           }
         }

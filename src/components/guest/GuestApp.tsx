@@ -554,23 +554,27 @@ export function GuestApp({
   ) => {
     const shotId = newShotId();
 
-    // 1. Store immediately into offline-safe IndexedDB BEFORE network request
-    await addShot({
-      shotId,
-      eventSlug: event.slug,
-      guestId: activeId,
-      blob,
-      thumbnailBlob: blob,
-      ...metadata,
-    });
-
-    // 2. Trigger upload queue worker
-    enqueue();
-
-    // 3. Decrement available shot counter
+    // 1. Optimistically decrement available shot counter immediately
     const currentLeft = baseRemaining !== undefined ? baseRemaining : shotsLeft;
     const nextLeft = Math.max(0, currentLeft - 1);
     setShotsLeft(nextLeft);
+
+    // 2. Store into offline-safe IndexedDB BEFORE network request
+    try {
+      await addShot({
+        shotId,
+        eventSlug: event.slug,
+        guestId: activeId,
+        blob,
+        thumbnailBlob: blob,
+        ...metadata,
+      });
+    } catch (err) {
+      console.warn("Failed to store shot in IndexedDB, continuing with upload:", err);
+    }
+
+    // 3. Trigger upload queue worker
+    enqueue();
 
     if (nextLeft <= 0) {
       setTimeout(() => setScreen("thankyou"), 500);
