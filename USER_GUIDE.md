@@ -36,8 +36,10 @@
 
 ### Phase 2: Printing Table Cards & Signage (`/admin/qr`)
 - Navigate to `/admin/qr` to access the high-resolution printable assets.
-- **Vertical A4 Portrait Poster:** Click **"Print Vertical A4 Poster"**. Styled specifically with luxury gold corner filigree, the official Unveiled brand mark, and 3-step guest instructions for easel stands and entrance tables.
-- **Stationery / Card Export:** Download **PNG (1200px)** or **SVG (Vector)** to provide to your stationery printer for custom table cards.
+- **Download Poster (PNG):** Downloads the complete, high-resolution A4 Poster image (featuring the luxury cream paper background, smooth rounded double gold borders, official Unveiled brand emblem, couple names, framed QR code card, 3-step guest instructions, and private album footer note) ready to save to camera roll, transfer to USB, or print at a photo studio.
+- **Download Poster (SVG):** Downloads the complete scalable vector A4 poster file for large-format physical signage printing or easel stands.
+- **Print A4 Poster:** Optimized for direct single-page A4 printing (`210mm × 297mm`) from desktop or mobile browsers with zero dark margins, zero horizontal overflow, and clean page-break isolation.
+- **Bare QR Code Export:** Download standalone raw **QR PNG (1200px)** or **QR SVG (Vector)** if your stationery designer is creating custom wedding cards or bespoke paper suites.
 
 > [!WARNING]
 > **CRITICAL RULE: NEVER ROTATE TOKEN AFTER PRINTING PHYSICAL CARDS**

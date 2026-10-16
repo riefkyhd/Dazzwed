@@ -183,17 +183,17 @@ export function AdminGuideView() {
                 <span>
                   <strong>{lang === "en" ? "Vertical A4 Portrait Poster:" : "Poster Vertikal A4 Portrait:"}</strong>{" "}
                   {lang === "en"
-                    ? "Visit `/admin/qr` and click 'Print Vertical A4 Poster'. It formats with luxury gold filigree borders, the official Unveiled brand mark, and 3-step guest instructions."
-                    : "Buka `/admin/qr` dan klik 'Print Vertical A4 Poster'. Diformat dengan bingkai emas mewah, logo resmi Unveiled, dan panduan 3 langkah untuk tamu."}
+                    ? "Visit `/admin/qr` to print or export the complete A4 signage poster. Click 'Print A4 Poster' for direct 1-page printing with zero dark margins, or click 'Download Poster (PNG)' / 'Download Poster (SVG)' for high-resolution photo-studio files."
+                    : "Buka `/admin/qr` untuk mencetak atau mengunduh poster signage A4 lengkap. Klik 'Print A4 Poster' untuk cetak langsung 1 halaman tanpa margin gelap, atau klik 'Download Poster (PNG)' / 'Download Poster (SVG)' untuk file beresolusi tinggi siap cetak."}
                 </span>
               </div>
               <div className="flex items-start gap-2">
                 <span className="text-amber-400 font-bold shrink-0">✓</span>
                 <span>
-                  <strong>{lang === "en" ? "Export for Graphic Designers:" : "Ekspor untuk Desainer Grafis:"}</strong>{" "}
+                  <strong>{lang === "en" ? "Bare QR Export for Stationery Designers:" : "Ekspor QR Polos untuk Desainer Undangan:"}</strong>{" "}
                   {lang === "en"
-                    ? "Download PNG (1200px) or SVG (Vector) if your stationery designer is creating custom wedding cards."
-                    : "Unduh file PNG (1200px) atau SVG (Vektor) jika desainer undangan Anda ingin mendesain kartu custom."}
+                    ? "Download standalone raw QR PNG (1200px) or QR SVG (Vector) if your stationery designer is creating custom wedding cards or bespoke stationery suites."
+                    : "Unduh file QR polos PNG (1200px) atau SVG (Vektor) jika desainer undangan Anda ingin merancang kartu meja custom."}
                 </span>
               </div>
             </div>

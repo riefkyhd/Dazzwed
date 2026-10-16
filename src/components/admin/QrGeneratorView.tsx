@@ -17,12 +17,38 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
   const [baseUrl, setBaseUrl] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [qrSvg, setQrSvg] = useState<string>("");
+  const [emblemDataUrl, setEmblemDataUrl] = useState<string>("");
+  const [isGeneratingPng, setIsGeneratingPng] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
       setBaseUrl(window.location.origin);
     }
+  }, []);
+
+  // Pre-load official Unveiled brand emblem as base64 for self-contained SVG & PNG export
+  useEffect(() => {
+    let ignore = false;
+    async function loadEmblem() {
+      try {
+        const res = await fetch("/unveiled-transparent.png");
+        const blob = await res.blob();
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          if (!ignore && typeof reader.result === "string") {
+            setEmblemDataUrl(reader.result);
+          }
+        };
+        reader.readAsDataURL(blob);
+      } catch (err) {
+        console.error("Failed to load brand emblem:", err);
+      }
+    }
+    void loadEmblem();
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const tokenQuery = event.access_token ? `?t=${event.access_token}` : "";
@@ -64,7 +90,151 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
     };
   }, [guestUrl]);
 
-  function handleDownloadPng() {
+  // Builds a complete, standalone, vector A4 Poster SVG
+  function generatePosterSvg(): string {
+    const cleanGuestUrl = guestUrl.replace(/^https?:\/\//, "");
+    const escapeXml = (unsafe: string) =>
+      unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&apos;");
+
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1697" width="1200" height="1697">
+  <defs>
+    <filter id="poster-card-shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="12" stdDeviation="16" flood-color="#000000" flood-opacity="0.06" />
+    </filter>
+  </defs>
+
+  <!-- Background Warm Luxury Paper -->
+  <rect width="1200" height="1697" fill="#FDFBF7" />
+
+  <!-- Double Gold Borders (Smooth luxury rounded corners, no sharp outside L brackets) -->
+  <rect x="36" y="36" width="1128" height="1625" rx="28" fill="none" stroke="#D4AF37" stroke-width="3" stroke-opacity="0.45" />
+  <rect x="52" y="52" width="1096" height="1593" rx="20" fill="none" stroke="#D4AF37" stroke-width="1.5" stroke-opacity="0.3" />
+
+  <!-- Brand Emblem -->
+  ${emblemDataUrl ? `<image href="${emblemDataUrl}" x="520" y="110" width="160" height="160" preserveAspectRatio="xMidYMid meet" />` : ""}
+
+  <!-- Subtitle -->
+  <text x="600" y="335" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="600" fill="#8C7A5B" letter-spacing="6">${escapeXml(eventSubtitle.toUpperCase())}</text>
+
+  <!-- Couple Names -->
+  <text x="600" y="415" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="56" font-weight="normal" fill="#1A1816" letter-spacing="-0.5">${escapeXml(event.couple_names)}</text>
+
+  <!-- QR Card Box -->
+  <rect x="375" y="475" width="450" height="450" rx="28" fill="#FFFFFF" stroke="#EBE7DF" stroke-width="3" filter="url(#poster-card-shadow)" />
+
+  <!-- Inner corner marks around QR -->
+  <path d="M 395 495 L 395 515 M 395 495 L 415 495" fill="none" stroke="#D4AF37" stroke-width="2" stroke-opacity="0.6" />
+  <path d="M 805 495 L 805 515 M 805 495 L 785 495" fill="none" stroke="#D4AF37" stroke-width="2" stroke-opacity="0.6" />
+  <path d="M 395 905 L 395 885 M 395 905 L 415 905" fill="none" stroke="#D4AF37" stroke-width="2" stroke-opacity="0.6" />
+  <path d="M 805 905 L 805 885 M 805 905 L 785 905" fill="none" stroke="#D4AF37" stroke-width="2" stroke-opacity="0.6" />
+
+  <!-- QR Code -->
+  ${qrDataUrl ? `<image href="${qrDataUrl}" x="415" y="515" width="370" height="370" />` : ""}
+
+  <!-- Scan Instruction -->
+  <text x="600" y="980" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="28" font-weight="500" fill="#1A1816">Scan with your phone to start snapping</text>
+
+  <!-- Photos Quota -->
+  <text x="600" y="1020" text-anchor="middle" font-family="monospace, ui-monospace" font-size="20" fill="#8C7A5B" letter-spacing="1">${event.shots_per_guest} photos</text>
+
+  <!-- 3-Step Guide Container -->
+  <rect x="220" y="1070" width="760" height="230" rx="24" fill="#F4EFE6" fill-opacity="0.8" stroke="#E6DEC8" stroke-width="2" />
+
+  <!-- Vertical Dividers -->
+  <line x1="473" y1="1090" x2="473" y2="1280" stroke="#E6DEC8" stroke-width="1.5" />
+  <line x1="726" y1="1090" x2="726" y2="1280" stroke="#E6DEC8" stroke-width="1.5" />
+
+  <!-- Step 1 -->
+  <circle cx="346" cy="1130" r="22" fill="#D4AF37" />
+  <text x="346" y="1138" text-anchor="middle" font-family="monospace" font-size="18" font-weight="bold" fill="#FFFFFF">1</text>
+  <text x="346" y="1185" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#1A1816">Scan Code</text>
+  <text x="346" y="1225" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#6B655B">No app download needed</text>
+
+  <!-- Step 2 -->
+  <circle cx="600" cy="1130" r="22" fill="#D4AF37" />
+  <text x="600" y="1138" text-anchor="middle" font-family="monospace" font-size="18" font-weight="bold" fill="#FFFFFF">2</text>
+  <text x="600" y="1185" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#1A1816">Snap Photos</text>
+  <text x="600" y="1225" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#6B655B">Capture candid moments</text>
+
+  <!-- Step 3 -->
+  <circle cx="853" cy="1130" r="22" fill="#D4AF37" />
+  <text x="853" y="1138" text-anchor="middle" font-family="monospace" font-size="18" font-weight="bold" fill="#FFFFFF">3</text>
+  <text x="853" y="1185" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#1A1816">Auto-Saved</text>
+  <text x="853" y="1225" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#6B655B">Stored to album</text>
+
+  <!-- Bottom Section -->
+  <text x="600" y="1460" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="500" fill="#8C7A5B">Photos stored privately for the couple&apos;s album &#x2665;</text>
+  <text x="600" y="1500" text-anchor="middle" font-family="monospace, ui-monospace" font-size="17" fill="#A8A196">${escapeXml(cleanGuestUrl)}</text>
+</svg>`;
+  }
+
+  // 1. Download Complete A4 Poster as high-resolution PNG
+  async function handleDownloadPosterPng() {
+    if (!qrDataUrl) return;
+    setIsGeneratingPng(true);
+    try {
+      const svg = generatePosterSvg();
+      const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const img = new Image();
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => {
+          try {
+            const canvas = document.createElement("canvas");
+            canvas.width = 1754;
+            canvas.height = 2480;
+            const ctx = canvas.getContext("2d");
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, 1754, 2480);
+              canvas.toBlob((pngBlob) => {
+                if (pngBlob) {
+                  const pngUrl = URL.createObjectURL(pngBlob);
+                  const a = document.createElement("a");
+                  a.href = pngUrl;
+                  a.download = `unveiled-poster-${event.slug}.png`;
+                  a.click();
+                  URL.revokeObjectURL(pngUrl);
+                }
+                resolve();
+              }, "image/png");
+            } else {
+              resolve();
+            }
+          } catch (err) {
+            reject(err);
+          }
+        };
+        img.onerror = (e) => reject(e);
+        img.src = url;
+      });
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Failed to generate poster PNG:", err);
+    } finally {
+      setIsGeneratingPng(false);
+    }
+  }
+
+  // 2. Download Complete A4 Poster as vector SVG
+  function handleDownloadPosterSvg() {
+    const svg = generatePosterSvg();
+    const blob = new Blob([svg], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `unveiled-poster-${event.slug}.svg`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // 3. Standalone bare QR Code exports (for external stationary designers)
+  function handleDownloadBareQrPng() {
     if (!qrDataUrl) return;
     const a = document.createElement("a");
     a.href = qrDataUrl;
@@ -72,7 +242,7 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
     a.click();
   }
 
-  function handleDownloadSvg() {
+  function handleDownloadBareQrSvg() {
     if (!qrSvg) return;
     const blob = new Blob([qrSvg], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
@@ -118,42 +288,65 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:flex sm:items-center gap-2 sm:gap-3 pt-2">
+        {/* Primary Action Buttons: Complete Poster Downloads & Print */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-2">
           <button
-            onClick={handleDownloadPng}
-            disabled={!qrDataUrl}
-            className="w-full sm:w-auto px-3 sm:px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
+            onClick={handleDownloadPosterPng}
+            disabled={!qrDataUrl || isGeneratingPng}
+            className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-100 transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px] disabled:opacity-50"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-amber-400 shrink-0">
               <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
               <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
             </svg>
-            <span className="truncate">PNG (1200px)</span>
+            <span className="truncate">{isGeneratingPng ? "Preparing Poster…" : "Download Poster (PNG)"}</span>
           </button>
 
           <button
-            onClick={handleDownloadSvg}
-            disabled={!qrSvg}
-            className="w-full sm:w-auto px-3 sm:px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer min-h-[44px]"
+            onClick={handleDownloadPosterSvg}
+            disabled={!qrDataUrl}
+            className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-100 transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px] disabled:opacity-50"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-amber-400 shrink-0">
               <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
               <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
             </svg>
-            <span className="truncate">SVG (Vector)</span>
+            <span className="truncate">Download Poster (SVG)</span>
           </button>
 
           <button
             onClick={handlePrint}
-            className="col-span-2 w-full sm:w-auto sm:ml-auto px-5 py-2.5 rounded-xl bg-amber-400 text-black font-semibold text-xs hover:bg-amber-300 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-400/10 cursor-pointer min-h-[44px]"
+            className="w-full px-5 py-2.5 rounded-xl bg-amber-400 text-black font-semibold text-xs hover:bg-amber-300 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-400/10 cursor-pointer min-h-[44px]"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
               <path fillRule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0 1 13.25 8H6.75A1.75 1.75 0 0 1 5 6.25v-3.5Zm1.5 0v3.5c0 .138.112.25.25.25h6.5a.25.25 0 0 0 .25-.25v-3.5a.25.25 0 0 0-.25-.25h-6.5a.25.25 0 0 0-.25.25Z" clipRule="evenodd" />
               <path fillRule="evenodd" d="M2.5 7A1.5 1.5 0 0 0 1 8.5v5A1.5 1.5 0 0 0 2.5 15h1.75v-2.25a2.25 2.25 0 0 1 2.25-2.25h7a2.25 2.25 0 0 1 2.25 2.25V15h1.75a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 17.5 7h-15Zm12 2a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
               <path d="M5.75 12A.75.75 0 0 0 5 12.75v4.5c0 .966.784 1.75 1.75 1.75h6.5A1.75 1.75 0 0 0 15 17.25v-4.5a.75.75 0 0 0-.75-.75h-8.5Z" />
             </svg>
-            <span className="truncate">Print Vertical A4 Poster</span>
+            <span className="truncate">Print A4 Poster</span>
           </button>
+        </div>
+
+        {/* Secondary Utility Links: Standalone bare QR export for graphic designers */}
+        <div className="pt-3 flex flex-wrap items-center justify-between text-xs text-zinc-400 border-t border-zinc-800/60 mt-3">
+          <span className="text-[11px] text-zinc-400">Need just the bare QR code without poster graphics?</span>
+          <div className="flex items-center gap-3 mt-1.5 sm:mt-0 font-mono text-[11px]">
+            <button
+              onClick={handleDownloadBareQrPng}
+              disabled={!qrDataUrl}
+              className="text-amber-400 hover:text-amber-300 underline underline-offset-4 cursor-pointer disabled:opacity-50"
+            >
+              QR PNG (1200px)
+            </button>
+            <span className="text-zinc-600">•</span>
+            <button
+              onClick={handleDownloadBareQrSvg}
+              disabled={!qrSvg}
+              className="text-amber-400 hover:text-amber-300 underline underline-offset-4 cursor-pointer disabled:opacity-50"
+            >
+              QR SVG (Vector)
+            </button>
+          </div>
         </div>
       </div>
 
@@ -162,6 +355,7 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
         {/*
           Vertical A4 Poster: 210mm x 297mm (1 : 1.414 aspect ratio).
           On screen preview: generous breathing room, styled with warm paper cream (#FDFBF7) and gold luxury border.
+          Outside sharp L corners removed per user request for clean luxury rounded borders.
         */}
         <div
           ref={cardRef}
@@ -169,12 +363,6 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
         >
           {/* Inner Inset Border */}
           <div className="absolute inset-3 sm:inset-4 border border-[#D4AF37]/30 rounded-2xl pointer-events-none" />
-
-          {/* Decorative Corner Filigree / Brackets */}
-          <div className="absolute top-4 left-4 sm:top-5 sm:left-5 w-6 h-6 border-t-2 border-l-2 border-[#D4AF37] pointer-events-none" />
-          <div className="absolute top-4 right-4 sm:top-5 sm:right-5 w-6 h-6 border-t-2 border-r-2 border-[#D4AF37] pointer-events-none" />
-          <div className="absolute bottom-4 left-4 sm:bottom-5 sm:left-5 w-6 h-6 border-b-2 border-l-2 border-[#D4AF37] pointer-events-none" />
-          <div className="absolute bottom-4 right-4 sm:bottom-5 sm:right-5 w-6 h-6 border-b-2 border-r-2 border-[#D4AF37] pointer-events-none" />
 
           {/* Top Section: Standalone Unveiled Brand Emblem */}
           <div className="relative z-10 flex flex-col items-center mt-1 sm:mt-3">
@@ -268,13 +456,18 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
         </div>
       </div>
 
-      {/* Print Styles for Vertical A4 Portrait */}
+      {/* Print Styles for Single-Page A4 Portrait */}
       <style jsx global>{`
         @page {
           size: A4 portrait;
           margin: 0;
         }
         @media print {
+          *,
+          *::before,
+          *::after {
+            box-sizing: border-box !important;
+          }
           html,
           body {
             background: #fdfbf7 !important;
@@ -283,6 +476,9 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
             padding: 0 !important;
             width: 210mm !important;
             height: 297mm !important;
+            min-height: 297mm !important;
+            max-height: 297mm !important;
+            overflow: hidden !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -291,28 +487,47 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
           .print\\:hidden {
             display: none !important;
           }
-          main {
-            padding: 0 !important;
+          /* Neutralize all parent layout wrappers so dark background and margins are completely wiped */
+          div[class*="min-h-screen"],
+          main,
+          div[class*="max-w-"] {
+            background: #fdfbf7 !important;
+            background-color: #fdfbf7 !important;
             margin: 0 !important;
+            padding: 0 !important;
             width: 210mm !important;
             height: 297mm !important;
-            display: flex !important;
-            justify-content: center !important;
-            align-items: center !important;
+            min-height: 0 !important;
+            max-width: none !important;
+            box-shadow: none !important;
+            border: none !important;
+            overflow: hidden !important;
           }
           .print-card {
-            box-shadow: none !important;
-            border: 2px solid #d4af37 !important;
-            page-break-inside: avoid !important;
-            page-break-after: avoid !important;
-            page-break-before: avoid !important;
-            margin: auto !important;
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
             width: 210mm !important;
+            height: 297mm !important;
             min-height: 297mm !important;
             max-height: 297mm !important;
-            height: 297mm !important;
+            max-width: none !important;
+            margin: 0 !important;
             padding: 20mm 16mm !important;
+            border: 2px solid #d4af37 !important;
             border-radius: 0 !important;
+            box-shadow: none !important;
+            background: #fdfbf7 !important;
+            box-sizing: border-box !important;
+            page-break-inside: avoid !important;
+            page-break-before: avoid !important;
+            page-break-after: avoid !important;
+            overflow: hidden !important;
+            z-index: 999999 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: space-between !important;
+            align-items: center !important;
           }
         }
       `}</style>
