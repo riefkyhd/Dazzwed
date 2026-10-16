@@ -12,6 +12,7 @@ interface AdminNavbarProps {
 
 export function AdminNavbar({ userEmail }: AdminNavbarProps) {
   const pathname = usePathname();
+  const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showAccountMenu, setShowAccountMenu] = useState(false);
   const accountMenuRef = useRef<HTMLDivElement>(null);
@@ -37,11 +38,15 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
     };
   }, []);
 
-  // Auto close dropdowns on route changes
+  // Auto close dropdowns & clear optimistic path on route changes
   useEffect(() => {
     setShowAccountMenu(false);
     setShowMoreMenu(false);
+    setOptimisticPath(null);
   }, [pathname]);
+
+  const activePath = optimisticPath || pathname;
+
 
   // 5 Crisp Single-Line Desktop Nav Links (never wraps)
   const desktopPrimaryNav = [
@@ -160,8 +165,8 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
     },
   ];
 
-  const isMoreActive = moreItems.some((item) => pathname.startsWith(item.href));
-  const isGuideActive = pathname.startsWith("/admin/guide");
+  const isMoreActive = moreItems.some((item) => activePath.startsWith(item.href));
+  const isGuideActive = activePath.startsWith("/admin/guide");
   const username = userEmail ? userEmail.split("@")[0] : "admin";
   const userInitial = (userEmail ? userEmail.charAt(0) : "A").toUpperCase();
 
@@ -172,7 +177,12 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-4">
           {/* Left: Brand Identity */}
           <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
-            <Link href="/admin" className="flex items-center group">
+            <Link
+              href="/admin"
+              prefetch={true}
+              onClick={() => setOptimisticPath("/admin")}
+              className="flex items-center group"
+            >
               <div className="relative h-7 sm:h-8 w-[72px] sm:w-[82px] group-hover:opacity-90 transition-opacity">
                 <Image
                   src="/Unveiled_logo_horizontal_transparent.png"
@@ -193,13 +203,15 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
           <nav className="hidden lg:flex items-center gap-1">
             {desktopPrimaryNav.map((item) => {
               const isActive = item.exact
-                ? pathname === item.href
-                : item.matchPrefixes.some((p) => pathname.startsWith(p));
+                ? activePath === item.href
+                : item.matchPrefixes.some((p) => activePath.startsWith(p));
 
               return (
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={true}
+                  onClick={() => setOptimisticPath(item.href)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all ${
                     isActive
                       ? "bg-stone-800/80 text-amber-300 font-semibold shadow-sm"
@@ -217,6 +229,8 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
             {/* ? Guide Pill Button */}
             <Link
               href="/admin/guide"
+              prefetch={true}
+              onClick={() => setOptimisticPath("/admin/guide")}
               className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 whitespace-nowrap flex items-center gap-1.5 border ${
                 isGuideActive
                   ? "bg-stone-800/80 text-amber-300 border-amber-500/30 font-semibold shadow-sm"
@@ -228,6 +242,7 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
               </span>
               <span>Guide</span>
             </Link>
+
 
             {/* Account & System Dropdown Menu */}
             <div className="relative" ref={accountMenuRef}>
@@ -271,9 +286,13 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
                   <div className="py-1 space-y-0.5">
                     <Link
                       href="/admin/connect-drive"
-                      onClick={() => setShowAccountMenu(false)}
+                      prefetch={true}
+                      onClick={() => {
+                        setOptimisticPath("/admin/connect-drive");
+                        setShowAccountMenu(false);
+                      }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
-                        pathname.startsWith("/admin/connect-drive")
+                        activePath.startsWith("/admin/connect-drive")
                           ? "bg-zinc-800 text-amber-300 font-medium"
                           : "text-zinc-300 hover:text-white hover:bg-zinc-800/60"
                       }`}
@@ -291,9 +310,13 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
 
                     <Link
                       href="/admin/health"
-                      onClick={() => setShowAccountMenu(false)}
+                      prefetch={true}
+                      onClick={() => {
+                        setOptimisticPath("/admin/health");
+                        setShowAccountMenu(false);
+                      }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
-                        pathname.startsWith("/admin/health")
+                        activePath.startsWith("/admin/health")
                           ? "bg-zinc-800 text-amber-300 font-medium"
                           : "text-zinc-300 hover:text-white hover:bg-zinc-800/60"
                       }`}
@@ -351,6 +374,8 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
           <div className="flex lg:hidden items-center gap-2 shrink-0">
             <Link
               href="/admin/guide"
+              prefetch={true}
+              onClick={() => setOptimisticPath("/admin/guide")}
               className={`p-1.5 rounded-lg text-xs font-medium transition-all ${
                 isGuideActive
                   ? "bg-stone-800 text-amber-300 font-semibold"
@@ -382,14 +407,16 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
         style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}
       >
         {mobilePrimaryTabs.map((tab) => {
-          const isActive = tab.exact ? pathname === tab.href : pathname.startsWith(tab.href);
+          const isActive = tab.exact ? activePath === tab.href : activePath.startsWith(tab.href);
 
           return (
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={true}
               onClick={() => {
                 triggerHaptic([10]);
+                setOptimisticPath(tab.href);
                 setShowMoreMenu(false);
               }}
               className={`flex flex-col items-center justify-center flex-1 py-1.5 rounded-xl transition-all min-h-[48px] cursor-pointer ${
@@ -469,13 +496,15 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
 
             <div className="space-y-2">
               {moreItems.map((item) => {
-                const isActive = pathname.startsWith(item.href);
+                const isActive = activePath.startsWith(item.href);
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
+                    prefetch={true}
                     onClick={() => {
                       triggerHaptic([10]);
+                      setOptimisticPath(item.href);
                       setShowMoreMenu(false);
                     }}
                     className={`flex items-center gap-3 p-3 rounded-2xl border transition-all active:scale-[0.99] ${

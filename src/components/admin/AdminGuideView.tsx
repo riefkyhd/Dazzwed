@@ -403,6 +403,21 @@ export function AdminGuideView() {
                   : "Wawasan analitik langsung (/admin/health) dengan 0ms latensi tambahan pada kamera tamu dan 100% kepatuhan UU PDP. Pantau papan peringkat resep film terpopuler, funnel keterlibatan tamu (izin → pemotret aktif → rol tuntas), dan keandalan mesin kamera."}
               </p>
             </div>
+
+            {/* Control 8: Instant 0ms Navigation & Streaming Skeletons */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Instant 0ms Navigation & Dark-Room Skeletons" : "Navigasi Instan 0ms & Kerangka Kamar Gelap"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Every menu tab click switches URLs in 0ms with Next.js link prefetching and optimistic active tab highlighting. Tailored dark-room pulse skeletons render immediately across all admin routes and the guest camera entry while database queries execute in parallel, eliminating perceived loading latency and white-flash."
+                  : "Setiap klik tab menu berpindah URL dalam 0ms dengan prefetching Next.js dan penandaan tab aktif optimistik. Kerangka animasi kamar gelap langsung tampil di semua rute admin dan pintu masuk kamera tamu saat data diproses secara paralel, menghilangkan jeda muat dan kilatan layar putih."}
+              </p>
+            </div>
           </div>
         </div>
       )}

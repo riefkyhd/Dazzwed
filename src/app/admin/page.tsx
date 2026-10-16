@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { DashboardView } from "@/components/admin/DashboardView";
 
+import { getAdaptiveStorageGuard } from "@/lib/drive/health";
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
@@ -26,17 +28,29 @@ export default async function AdminDashboardPage() {
     );
   }
 
-  // 2. Fetch guests count
-  const { count: guestsCount } = await sb
-    .from("guests")
-    .select("*", { count: "exact", head: true })
-    .eq("event_id", event.id);
-
-  // 3. Fetch photos metrics including tiers and dimensions
-  const { data: allPhotos } = await sb
-    .from("photos")
-    .select("id, status, size_bytes, tier, source")
-    .eq("event_id", event.id);
+  // 2. Fetch guests count, all photos metrics, storage guard, and recent photos concurrently in parallel
+  const [
+    { count: guestsCount },
+    { data: allPhotos },
+    storageGuard,
+    { data: recentRaw },
+  ] = await Promise.all([
+    sb
+      .from("guests")
+      .select("*", { count: "exact", head: true })
+      .eq("event_id", event.id),
+    sb
+      .from("photos")
+      .select("id, status, size_bytes, tier, source")
+      .eq("event_id", event.id),
+    getAdaptiveStorageGuard(),
+    sb
+      .from("photos")
+      .select("id, shot_id, status, size_bytes, created_at, guest_id, tier, source, guests(display_name)")
+      .eq("event_id", event.id)
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
 
   const confirmedPhotos = (allPhotos || []).filter((p) => p.status === "confirmed");
   const confirmedCount = confirmedPhotos.length;
@@ -55,18 +69,6 @@ export default async function AdminDashboardPage() {
     standard: confirmedPhotos.filter((p) => p.tier === "standard").length,
     lite: confirmedPhotos.filter((p) => p.tier === "lite").length,
   };
-
-  // Live storage guard quota inspection
-  const { getAdaptiveStorageGuard } = await import("@/lib/drive/health");
-  const storageGuard = await getAdaptiveStorageGuard();
-
-  // 4. Fetch recent photos with guest display names
-  const { data: recentRaw } = await sb
-    .from("photos")
-    .select("id, shot_id, status, size_bytes, created_at, guest_id, tier, source, guests(display_name)")
-    .eq("event_id", event.id)
-    .order("created_at", { ascending: false })
-    .limit(5);
 
   interface RawPhotoItem {
     id: string;

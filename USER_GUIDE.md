@@ -203,3 +203,32 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Clean Unmount Progressive Loading (`AdminPhotoLightbox`):** The instant low-resolution thumbnail base layer (=s800) automatically unmounts as soon as the HD lightbox image (=s1600) finishes decoding. This completely eliminates double images, subpixel edge bleed, and ghosting outlines.
    - **Unified Container Spacing:** Top navigation (`AdminNavbar`) and main admin views (`PhotosManagementView`, `DashboardView`, etc.) are standardized to `max-w-7xl mx-auto px-4 sm:px-6 lg:px-8` for pixel-perfect edge alignment on widescreen displays.
 
+---
+
+## 8. Instant 0ms Navigation Architecture & Streaming Dark-Room Skeletons
+
+1. **Next.js App Router Prefetching & Route-Level `loading.tsx` Boundaries:**
+   - Next.js App Router routes with dynamic server queries (`force-dynamic`) normally block client navigation until the server responds unless a `loading.tsx` boundary is defined.
+   - Every admin route (`/admin`, `/admin/photos`, `/admin/guests`, `/admin/health`, `/admin/qr`, `/admin/look-lab`, `/admin/settings`, `/admin/guide`, `/admin/connect-drive`) and the guest camera entry (`/e/[slug]`) is equipped with a dedicated `loading.tsx` boundary.
+   - All links in `AdminNavbar` specify `<Link prefetch={true}>`, allowing Next.js to pre-cache the static layout shells and transition between pages in `0ms` on click.
+
+2. **Optimistic Active Tab Feedback (`optimisticPath`):**
+   - In traditional SPAs, tab navigation suffers perceived lag while waiting for the router URL to update (`usePathname()`).
+   - `AdminNavbar` maintains an `optimisticPath` state that updates the gold active indicator pill instantaneously on click (`onClick={() => setOptimisticPath(target)}`), resetting automatically once Next.js router synchronization completes.
+
+3. **Tailored Dark-Room Skeleton Component Library (`src/components/ui/Skeleton.tsx`):**
+   - Built with Unveiled's warm dark-room palette (`bg-stone-900/80`, `border-stone-800/60`, warm amber pulses):
+     - `KpiCardSkeleton`: Summary stat metrics with title, count, and footer status placeholders.
+     - `GalleryGridSkeleton`: Responsive 2-to-4 column contact-sheet grid of `aspect-[3/4]` card skeletons.
+     - `TableSkeleton`: Configurable row and column table skeleton for guest rolls and event logs.
+     - `ChartPanelSkeleton`: Analytical leaderboard and funnel cards for `/admin/health`.
+     - `FormCardSkeleton`: Multi-row input form skeletons for settings, QR configuration, and drive sync.
+
+4. **Concurrent Query Parallelization (`Promise.all`):**
+   - Independent server queries across `/admin`, `/admin/photos`, `/admin/health`, and `/e/[slug]` are executed concurrently in `Promise.all` batches instead of sequential waterfalls.
+   - For example, in `/admin/health`, Storage Guard, photo roll stats, event metrics, guest counts, and client telemetry queries run in parallel, cutting data streaming completion time in half.
+
+5. **Guest Mobile Camera Landing Skeleton (`/e/[slug]/loading.tsx`):**
+   - Mobile-first, dark-room camera viewport placeholder (`100dvh`, `bg-black`, `aspect-[3/4]` viewfinder outline, gold corner framing marks, shutter button pulse) displayed instantaneously when wedding guests scan table QR cards on congested ballroom Wi-Fi, completely eliminating white-screen flashes.
+
+

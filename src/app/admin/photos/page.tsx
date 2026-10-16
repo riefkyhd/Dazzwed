@@ -24,27 +24,31 @@ export default async function AdminPhotosPage() {
     return <div className="p-8 text-center text-zinc-400">Event not found.</div>;
   }
 
-  // 2. Fetch guests (omit non-existent roll_code column, compute dynamically)
-  const { data: guestsData } = await sb
-    .from("guests")
-    .select("id, display_name, drive_folder_id, created_at, last_seen_at")
-    .eq("event_id", event.id)
-    .order("created_at", { ascending: false });
+  // 2. Fetch guests and photos concurrently in parallel
+  const [
+    { data: guestsData },
+    pResult,
+  ] = await Promise.all([
+    sb
+      .from("guests")
+      .select("id, display_name, drive_folder_id, created_at, last_seen_at")
+      .eq("event_id", event.id)
+      .order("created_at", { ascending: false }),
+    sb
+      .from("photos")
+      .select("id, guest_id, shot_id, drive_file_id, original_drive_file_id, size_bytes, status, created_at, source, tier, look_id, preset_id")
+      .eq("event_id", event.id)
+      .order("created_at", { ascending: false }),
+  ]);
 
   const guests = (guestsData || []).map((g) => ({
     ...g,
     roll_code: computeRollCodeFromGuestId(g.id),
   }));
 
-  // 3. Fetch photos (with fail-safe fallback if preset_id is pending migration)
+  // Fail-safe fallback if preset_id is pending migration
   let photos: any[] = [];
-  const { data: pData, error: pErr } = await sb
-    .from("photos")
-    .select("id, guest_id, shot_id, drive_file_id, original_drive_file_id, size_bytes, status, created_at, source, tier, look_id, preset_id")
-    .eq("event_id", event.id)
-    .order("created_at", { ascending: false });
-
-  if (pErr) {
+  if (pResult.error) {
     const { data: fallbackPhotos } = await sb
       .from("photos")
       .select("id, guest_id, shot_id, drive_file_id, original_drive_file_id, size_bytes, status, created_at, source, tier, look_id")
@@ -52,7 +56,7 @@ export default async function AdminPhotosPage() {
       .order("created_at", { ascending: false });
     photos = fallbackPhotos || [];
   } else {
-    photos = pData || [];
+    photos = pResult.data || [];
   }
 
   return (

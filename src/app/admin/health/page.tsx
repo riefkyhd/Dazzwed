@@ -23,24 +23,44 @@ export default async function AdminHealthPage() {
     return <div className="p-8 text-center text-zinc-400">Event not found.</div>;
   }
 
-  // 2. Fetch Storage Guard
-  const storageGuard = await getAdaptiveStorageGuard();
+  // 2. Concurrently fetch Storage Guard, photos, event_metrics, guests, and client_events
+  const [
+    storageGuard,
+    pResult,
+    { data: metricsRaw },
+    { data: guestsRaw },
+    { data: rawEvents },
+  ] = await Promise.all([
+    getAdaptiveStorageGuard(),
+    sb
+      .from("photos")
+      .select("id, guest_id, status, preset_id, look_id")
+      .eq("event_id", event.id),
+    sb
+      .from("event_metrics")
+      .select("metric_type, metric_key, count")
+      .eq("event_id", event.id),
+    sb
+      .from("guests")
+      .select("id")
+      .eq("event_id", event.id),
+    sb
+      .from("client_events")
+      .select("id, type, message, route, browser, os, device_class, created_at")
+      .order("created_at", { ascending: false })
+      .limit(50),
+  ]);
 
-  // 3. Queue metrics & photos breakdown (fail-safe for schema migration)
+  // Fail-safe for photos schema migration
   let photos: any[] = [];
-  const { data: pData, error: pErr } = await sb
-    .from("photos")
-    .select("id, guest_id, status, preset_id, look_id")
-    .eq("event_id", event.id);
-
-  if (pErr) {
+  if (pResult.error) {
     const { data: fallbackPhotos } = await sb
       .from("photos")
       .select("id, guest_id, status, look_id")
       .eq("event_id", event.id);
     photos = fallbackPhotos || [];
   } else {
-    photos = pData || [];
+    photos = pResult.data || [];
   }
 
   const all = photos || [];
@@ -49,17 +69,6 @@ export default async function AdminHealthPage() {
   const pending = all.filter((p) => p.status === "pending").length;
   const total = all.length;
   const failureRatePercent = total > 0 ? (failed / total) * 100 : 0;
-
-  // 4. Product Analytics from event_metrics and guests
-  const { data: metricsRaw } = await sb
-    .from("event_metrics")
-    .select("metric_type, metric_key, count")
-    .eq("event_id", event.id);
-
-  const { data: guestsRaw } = await sb
-    .from("guests")
-    .select("id")
-    .eq("event_id", event.id);
 
   const metrics = metricsRaw || [];
   const guests = guestsRaw || [];
@@ -143,13 +152,7 @@ export default async function AdminHealthPage() {
   const takePhotoPercent = totalCaptureModes > 0 ? (takePhotoCount / totalCaptureModes) * 100 : 0;
   const videoFramePercent = totalCaptureModes > 0 ? (videoFrameCount / totalCaptureModes) * 100 : (all.length > 0 ? 100 : 0);
 
-  // 5. Client events from client_events table
-  const { data: rawEvents } = await sb
-    .from("client_events")
-    .select("id, type, message, route, browser, os, device_class, created_at")
-    .order("created_at", { ascending: false })
-    .limit(50);
-
+  // 5. Client events aggregated from parallel fetch
   const events = rawEvents || [];
   const errorsCount = events.filter((e) => e.type === "error").length;
   const unhandledRejectionsCount = events.filter((e) => e.type === "unhandledrejection").length;

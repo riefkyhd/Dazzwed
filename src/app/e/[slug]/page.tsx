@@ -17,13 +17,18 @@ interface PageProps {
 }
 
 export async function generateMetadata({ params, searchParams }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const [{ slug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams ? searchParams : Promise.resolve(undefined),
+  ]);
   const candidateToken = resolvedSearchParams?.t || resolvedSearchParams?.token || null;
-  const event = await getEventBySlug(slug);
+
+  const [event, cookieStore] = await Promise.all([
+    getEventBySlug(slug),
+    cookies(),
+  ]);
   if (!event) return { title: "Disposable Cam" };
 
-  const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(guestCookieName(slug))?.value;
   const hasValidSessionCookie = Boolean(sessionCookie && z.string().uuid().safeParse(sessionCookie).success);
   const tokenValid = validateEventToken(candidateToken, event.access_token);
@@ -44,18 +49,22 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 }
 
 export default async function GuestPage({ params, searchParams }: PageProps) {
-  const { slug } = await params;
-  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const [{ slug }, resolvedSearchParams] = await Promise.all([
+    params,
+    searchParams ? searchParams : Promise.resolve(undefined),
+  ]);
   const initialRestoreCode = resolvedSearchParams?.restore || null;
   const candidateToken = resolvedSearchParams?.t || resolvedSearchParams?.token || null;
 
-  const event = await getEventBySlug(slug);
+  const [event, cookieStore] = await Promise.all([
+    getEventBySlug(slug),
+    cookies(),
+  ]);
 
   if (!event) {
     notFound();
   }
 
-  const cookieStore = await cookies();
   const sessionCookie = cookieStore.get(guestCookieName(slug))?.value;
   const hasValidSessionCookie = Boolean(sessionCookie && z.string().uuid().safeParse(sessionCookie).success);
   const tokenValid = validateEventToken(candidateToken, event.access_token);
