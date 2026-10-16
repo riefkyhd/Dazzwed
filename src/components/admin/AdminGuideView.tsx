@@ -418,6 +418,21 @@ export function AdminGuideView() {
                   : "Setiap klik tab menu berpindah URL dalam 0ms dengan prefetching Next.js dan penandaan tab aktif optimistik. Kerangka animasi kamar gelap langsung tampil di semua rute admin dan pintu masuk kamera tamu saat data diproses secara paralel, menghilangkan jeda muat dan kilatan layar putih."}
               </p>
             </div>
+
+            {/* Control 9: Calibrated Editorial & Fine-Art Film Recipes */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-rose-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Editorial & Fine-Art Film Emulations" : "Emulasi Film Editorial & Seni Halus"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Hosts can select from 20 calibrated recipes in /admin/settings or let guests dial on camera: Editorial Flash (high-fashion Vogue direct flash with pure obsidian blacks), Airy Romantic 400H (Fuji Pro 400H pastel mint greens and ethereal bridal lace bloom), Warm Vintage Heritage (destination golden-amber warmth, honey skin, and chocolate shadows), Retro 90s Flash (compact point-and-shoot xenon flash falloff with chartreuse and mustard pop), Classic Chrome (documentary Kodachrome 64 teal sky), and Reala Ace 100 (4th-layer cyan faithful fidelity)."
+                  : "Tuan rumah dapat memilih dari 20 resep terkalibrasi di /admin/settings atau membiarkan tamu memilih di kamera: Editorial Flash (kilat langsung mode Vogue dengan hitam obsidian pekat), Airy Romantic 400H (hijau mint pastel Fuji Pro 400H dan pendaran renda gaun pengantin), Warm Vintage Heritage (kehangatan emas destinasi, kulit madu, dan bayangan cokelat), Retro 90s Flash (jatuhnya kilat xenon kamera saku 90-an dengan warna chartreuse dan mustard), Classic Chrome (langit teal Kodachrome 64 dokumenter), dan Reala Ace 100 (ketelitian warna alami lapisan sian ke-4)."}
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -511,8 +526,8 @@ export function AdminGuideView() {
             </h4>
             <p className="text-xs text-zinc-300 leading-relaxed">
               {lang === "en"
-                ? "This is an authentic analog film feature! Consumer point-and-shoot emulsions (Disposable 400, Digicam CCD Flash, Rangefinder 35, Warm Portrait 400, Tungsten 800T, Panchromatic B&W 400, Mono Street 400, Super 8mm, Vivid 100) emulate vintage compact cameras with a quartz LCD databack stamped onto the negative. Professional SLR, documentary, and motion picture recipes (Classic Chrome, Reala Ace 100, Classic Neg 400, Golden 200, Instant Square, Cinema 250D, Neutral) and untouched RAW sensor originals do not burn date stamps by design."
-                : "Ini adalah fitur autentik kamera analog! Emulsi kamera saku konsumen (Disposable 400, Digicam CCD Flash, Rangefinder 35, Warm Portrait 400, Tungsten 800T, Panchromatic B&W 400, Mono Street 400, Super 8mm, Vivid 100) menyimulasikan cap tanggal quartz LCD khas kamera saku 90-an/2000-an. Resep SLR profesional, dokumenter, dan sinema (Classic Chrome, Reala Ace 100, Classic Neg 400, Golden 200, Instant Square, Cinema 250D, Neutral), serta hasil tangkapan sensor RAW asli tidak menyematkan cap tanggal."}
+                ? "This is an authentic analog film feature! Consumer point-and-shoot emulsions (Disposable 400, Digicam CCD Flash, Retro 90s Flash, Rangefinder 35, Warm Portrait 400, Tungsten 800T, Panchromatic B&W 400, Mono Street 400, Super 8mm, Vivid 100) emulate vintage compact cameras with a quartz LCD databack stamped onto the negative. Professional SLR, documentary, fine-art, and motion picture recipes (Editorial Flash, Airy Romantic 400H, Warm Vintage Heritage, Classic Chrome, Reala Ace 100, Classic Neg 400, Golden 200, Instant Square, Cinema 250D, Neutral) and untouched RAW sensor originals do not burn date stamps by design."
+                : "Ini adalah fitur autentik kamera analog! Emulsi kamera saku konsumen (Disposable 400, Digicam CCD Flash, Retro 90s Flash, Rangefinder 35, Warm Portrait 400, Tungsten 800T, Panchromatic B&W 400, Mono Street 400, Super 8mm, Vivid 100) menyimulasikan cap tanggal quartz LCD khas kamera saku 90-an/2000-an. Resep SLR profesional, dokumenter, seni rupa, dan sinema (Editorial Flash, Airy Romantic 400H, Warm Vintage Heritage, Classic Chrome, Reala Ace 100, Classic Neg 400, Golden 200, Instant Square, Cinema 250D, Neutral), serta hasil tangkapan sensor RAW asli tidak menyematkan cap tanggal."}
             </p>
           </div>
 

@@ -18,7 +18,20 @@ function gaussianWeight(hue: number, center: number, sigma: number): number {
 }
 
 export function generateFilmHueTable(
-  type: "disposable" | "ccd" | "instant" | "golden" | "neutral" | "classic-neg" | "cpm35" | "classic-chrome" | "reala-ace"
+  type:
+    | "disposable"
+    | "ccd"
+    | "instant"
+    | "golden"
+    | "neutral"
+    | "classic-neg"
+    | "cpm35"
+    | "classic-chrome"
+    | "reala-ace"
+    | "editorial-flash"
+    | "airy-romantic"
+    | "warm-vintage"
+    | "retro-90s"
 ): HueNode[] {
   const nodes: HueNode[] = [];
   for (let i = 0; i < 24; i++) {
@@ -117,6 +130,41 @@ export function generateFilmHueTable(
         dHue = 4;
         dChroma = 1.12;
       }
+    } else if (type === "editorial-flash") {
+      // Subdued chromatic saturation (~0.85), pure porcelain skin, muted background foliage
+      const foliageW = gaussianWeight(hue, 115, 24);
+      const yellowW = gaussianWeight(hue, 60, 20);
+      const skinW = gaussianWeight(hue, 35, 20);
+      dHue = 2.0 * foliageW - 2.0 * yellowW;
+      dChroma = 1.0 - 0.22 * foliageW - 0.15 * yellowW + 0.02 * skinW;
+      dLightness = -0.03 * foliageW + 0.01 * skinW;
+    } else if (type === "airy-romantic") {
+      // Fuji Pro 400H 4th cyan layer: mint/sage foliage (+10 deg toward cyan), pastel desaturation, porcelain peach skin
+      const foliageW = gaussianWeight(hue, 110, 26);
+      const skyW = gaussianWeight(hue, 220, 26);
+      const skinW = gaussianWeight(hue, 30, 20);
+      const yellowW = gaussianWeight(hue, 60, 20);
+      dHue = 10.0 * foliageW - 8.0 * skyW - 4.0 * yellowW;
+      dChroma = 1.0 - 0.18 * foliageW - 0.05 * skyW - 0.14 * yellowW + 0.02 * skinW;
+      dLightness = 0.03 * foliageW + 0.01 * skyW + 0.03 * skinW;
+    } else if (type === "warm-vintage") {
+      // Axioo / Iluminen warm golden heritage: olive foliage (+9 deg warm), honey-caramel skin, rich crimson red
+      const foliageW = gaussianWeight(hue, 110, 26);
+      const skinW = gaussianWeight(hue, 25, 22);
+      const redW = gaussianWeight(hue, 0, 24);
+      const blueW = gaussianWeight(hue, 220, 24);
+      dHue = 9.0 * foliageW + 2.0 * skinW + 3.0 * redW - 6.0 * blueW;
+      dChroma = 1.0 - 0.14 * foliageW + 0.10 * skinW + 0.12 * redW - 0.06 * blueW;
+      dLightness = -0.03 * foliageW + 0.02 * skinW;
+    } else if (type === "retro-90s") {
+      // 90s point-and-shoot flash: punchy chartreuse/lime greens (-8 deg toward yellow), mustard yellow (+2 deg, 1.15 chroma), juicy flash reds
+      const greenW = gaussianWeight(hue, 105, 26);
+      const yellowW = gaussianWeight(hue, 55, 22);
+      const redW = gaussianWeight(hue, 0, 26);
+      const blueW = gaussianWeight(hue, 210, 24);
+      dHue = -8.0 * greenW + 2.0 * yellowW - 8.0 * blueW;
+      dChroma = 1.0 + 0.08 * greenW + 0.14 * yellowW + 0.12 * redW + 0.06 * blueW;
+      dLightness = 0.01 * yellowW;
     }
 
     nodes.push({ hue, dHue, dChroma, dLightness });
@@ -1450,9 +1498,312 @@ export const KODAK_EKTAR_LOOK: LookRecipe = {
   dust: { density: 0.01, scratches: 0.01 },
 };
 
+/**
+ * 17. Editorial Modern Flash (Vogue / High-Fashion Direct Flash Editorial)
+ */
+export const EDITORIAL_MODERN_FLASH_LOOK: LookRecipe = {
+  id: "editorial-flash",
+  name: "Editorial Flash",
+  version: 2,
+  aspectRatio: "3:2",
+  intensity: 1.0,
+  whiteProtect: true,
+  lens: {
+    radialBlur: { r0: 0.0, r1: 0.0003 },
+    chromaticAberration: 0.0001,
+    distortion: 0.002,
+    vignette: { strength: 0.16, radius: 0.82, softness: 0.55, curvature: 4.0 },
+    bloom: { threshold: 0.92, strength: 0.06, radius: 0.006 },
+    halation: { threshold: 1.0, strength: 0.0, radius: 0.0 },
+  },
+  response: {
+    exposureEV: 0.08,
+    dyeMatrix: [
+      1.05, -0.03, -0.02,
+      -0.02, 1.04, -0.02,
+      -0.01, -0.02, 1.03,
+    ],
+    curveR: { contrast: 1.22, pivot: 0.42, toe: 0.00, shoulder: 0.82, type: "hard" },
+    curveG: { contrast: 1.22, pivot: 0.42, toe: 0.00, shoulder: 0.82, type: "hard" },
+    curveB: { contrast: 1.22, pivot: 0.42, toe: 0.00, shoulder: 0.82, type: "hard" },
+    localContrast: 0.08,
+    effectiveLines: 2800,
+    flashFalloff: { strength: 0.48, radius: 0.44, centerX: 0.5, centerY: 0.5 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("editorial-flash"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.88 },
+    saturation: 0.86,
+    brightSatCurve: { shadowBoost: 0.06, highlightDesat: 0.30 },
+    highlightWarmth: 0.00,
+    shadowTint: [0.0, 0.0, 0.0],
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: { amount: 0.045, size: 0.0008, roughness: 0.25, chroma: 0.10, exposureSensitivity: 0.40 },
+    lightLeak: { probability: 0.0, strength: 0.0 },
+    dust: { density: 0.0, scratches: 0.0 },
+  },
+  dateStamp: { enabled: false },
+  frame: { type: "none" },
+  reference: {
+    referenceId: "editorial-modern-flash-vogue",
+    referenceNotes: "High-contrast high-fashion editorial direct flash; deep neutral graphite shadows, porcelain skin, hard specular shoulder, and zero warm highlight cast.",
+  },
+  // Backward compatibility
+  exposureEV: 0.08,
+  curve: { contrast: 1.22, pivot: 0.42, toe: 0.00, shoulder: 0.82 },
+  lift: [0, 0, 0],
+  gamma: [1, 1, 1],
+  gain: [1.02, 1.01, 1.00],
+  matrix: [1.05, -0.03, -0.02, -0.02, 1.04, -0.02, -0.01, -0.02, 1.03],
+  saturation: 0.86,
+  splitTone: { shadowHue: 240, shadowSat: 0.02, highlightHue: 0, highlightSat: 0.0, balance: 0.0 },
+  softFocus: { amount: 0.0, radius: 0.0 },
+  sharpen: 0.12,
+  bloom: { threshold: 0.92, strength: 0.06, radius: 0.006 },
+  halation: { threshold: 1.0, strength: 0.0, radius: 0.0 },
+  grain: { amount: 0.045, size: 0.0008, roughness: 0.25, chroma: 0.10 },
+  vignette: { strength: 0.16, radius: 0.82, softness: 0.55 },
+  flashFalloff: { strength: 0.48, radius: 0.44 },
+  lightLeak: { probability: 0, strength: 0 },
+  dust: { density: 0, scratches: 0 },
+};
+
+/**
+ * 18. Airy Romantic Wedding (Fuji Pro 400H / Overexposed Portra 400 - Jose Villa Fine-Art)
+ */
+export const AIRY_ROMANTIC_LOOK: LookRecipe = {
+  id: "airy-romantic",
+  name: "Airy Romantic 400H",
+  version: 2,
+  aspectRatio: "3:2",
+  intensity: 1.0,
+  whiteProtect: true,
+  lens: {
+    radialBlur: { r0: 0.0004, r1: 0.0016 },
+    chromaticAberration: 0.0002,
+    distortion: 0.004,
+    vignette: { strength: 0.08, radius: 0.90, softness: 0.80, curvature: 4.0 },
+    bloom: { threshold: 0.80, strength: 0.26, radius: 0.022 },
+    halation: { threshold: 0.85, strength: 0.10, radius: 0.016, tint: [1.0, 0.85, 0.75] },
+  },
+  response: {
+    exposureEV: 0.18,
+    dyeMatrix: [
+      1.01,  0.00, -0.01,
+     -0.01,  1.03, -0.02,
+      0.00, -0.02,  1.02,
+    ],
+    curveR: { contrast: 0.98, pivot: 0.50, toe: 0.045, shoulder: 0.78, type: "soft" },
+    curveG: { contrast: 0.98, pivot: 0.50, toe: 0.050, shoulder: 0.78, type: "soft" },
+    curveB: { contrast: 0.97, pivot: 0.50, toe: 0.048, shoulder: 0.79, type: "soft" },
+    localContrast: -0.14,
+    effectiveLines: 2000,
+    flashFalloff: { strength: 0.0, radius: 0.60 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("airy-romantic"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.92 },
+    saturation: 0.94,
+    brightSatCurve: { shadowBoost: 0.02, highlightDesat: 0.22 },
+    highlightWarmth: 0.02,
+    shadowTint: [0.002, 0.008, 0.006],
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: { amount: 0.065, size: 0.0011, roughness: 0.35, chroma: 0.08, exposureSensitivity: 0.25 },
+    lightLeak: { probability: 0.0, strength: 0.0 },
+    dust: { density: 0.0, scratches: 0.0 },
+  },
+  dateStamp: { enabled: false },
+  frame: { type: "none" },
+  reference: {
+    referenceId: "airy-romantic-pro-400h",
+    referenceNotes: "Fine-art medium format Fuji Pro 400H aesthetic pushed +1.5 stops; lifted matte toe, mint/sage foliage, ethereal lace bloom, and creamy porcelain-peach skin.",
+  },
+  // Backward compatibility
+  exposureEV: 0.18,
+  curve: { contrast: 0.98, pivot: 0.50, toe: 0.048, shoulder: 0.78 },
+  lift: [0.002, 0.008, 0.006],
+  gamma: [1.02, 1.02, 1.01],
+  gain: [1.01, 1.02, 1.02],
+  matrix: [1.01, 0.00, -0.01, -0.01, 1.03, -0.02, 0.00, -0.02, 1.02],
+  saturation: 0.94,
+  splitTone: { shadowHue: 165, shadowSat: 0.03, highlightHue: 40, highlightSat: 0.02, balance: 0.2 },
+  softFocus: { amount: 0.06, radius: 0.002 },
+  sharpen: 0.0,
+  bloom: { threshold: 0.80, strength: 0.26, radius: 0.022 },
+  halation: { threshold: 0.85, strength: 0.10, radius: 0.016, tint: [1.0, 0.85, 0.75] },
+  grain: { amount: 0.065, size: 0.0011, roughness: 0.35, chroma: 0.08 },
+  vignette: { strength: 0.08, radius: 0.90, softness: 0.80 },
+  flashFalloff: { strength: 0.0, radius: 0.60 },
+  lightLeak: { probability: 0, strength: 0 },
+  dust: { density: 0, scratches: 0 },
+};
+
+/**
+ * 19. Warm Vintage Heritage (Axioo / Iluminen Destination Wedding Portraiture)
+ */
+export const WARM_VINTAGE_LOOK: LookRecipe = {
+  id: "warm-vintage",
+  name: "Warm Vintage Heritage",
+  version: 2,
+  aspectRatio: "3:2",
+  intensity: 1.0,
+  whiteProtect: true,
+  lens: {
+    radialBlur: { r0: 0.0002, r1: 0.0012 },
+    chromaticAberration: 0.0003,
+    distortion: 0.0,
+    vignette: { strength: 0.18, radius: 0.80, softness: 0.65, curvature: 4.0 },
+    bloom: { threshold: 0.80, strength: 0.16, radius: 0.015 },
+    halation: { threshold: 0.84, strength: 0.18, radius: 0.016, tint: [1.0, 0.48, 0.12] },
+  },
+  response: {
+    exposureEV: 0.06,
+    dyeMatrix: [
+      1.04,  0.01, -0.02,
+     -0.01,  1.02, -0.01,
+     -0.02, -0.02,  0.97,
+    ],
+    curveR: { contrast: 1.12, pivot: 0.46, toe: 0.025, shoulder: 0.84, type: "soft" },
+    curveG: { contrast: 1.11, pivot: 0.46, toe: 0.022, shoulder: 0.84, type: "soft" },
+    curveB: { contrast: 1.10, pivot: 0.46, toe: 0.018, shoulder: 0.82, type: "soft" },
+    localContrast: -0.06,
+    effectiveLines: 2200,
+    flashFalloff: { strength: 0.10, radius: 0.65 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("warm-vintage"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.88 },
+    saturation: 1.06,
+    brightSatCurve: { shadowBoost: 0.12, highlightDesat: 0.28 },
+    highlightWarmth: 0.24,
+    shadowTint: [0.012, 0.008, 0.002],
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: { amount: 0.095, size: 0.0014, roughness: 0.48, chroma: 0.14, exposureSensitivity: 0.50 },
+    lightLeak: { probability: 0.06, strength: 0.16, palette: ["#ff9922", "#ff6600", "#ffcc44"] },
+    dust: { density: 0.04, scratches: 0.0 },
+  },
+  dateStamp: { enabled: false },
+  frame: { type: "none" },
+  reference: {
+    referenceId: "warm-vintage-nostalgia-axioo",
+    referenceNotes: "Destination wedding heritage warm film aesthetic; rich honey skin tones, chocolate shadows, candlelit halation, and olive foliage.",
+  },
+  // Backward compatibility
+  exposureEV: 0.06,
+  curve: { contrast: 1.12, pivot: 0.46, toe: 0.022, shoulder: 0.84 },
+  lift: [0.012, 0.008, 0.002],
+  gamma: [1.02, 1.00, 0.98],
+  gain: [1.04, 1.01, 0.96],
+  matrix: [1.04, 0.01, -0.02, -0.01, 1.02, -0.01, -0.02, -0.02, 0.97],
+  saturation: 1.06,
+  splitTone: { shadowHue: 28, shadowSat: 0.06, highlightHue: 44, highlightSat: 0.07, balance: 0.15 },
+  softFocus: { amount: 0.07, radius: 0.0016 },
+  sharpen: 0.0,
+  bloom: { threshold: 0.80, strength: 0.16, radius: 0.015 },
+  halation: { threshold: 0.84, strength: 0.18, radius: 0.016, tint: [1.0, 0.48, 0.12] },
+  grain: { amount: 0.095, size: 0.0014, roughness: 0.48, chroma: 0.14 },
+  vignette: { strength: 0.18, radius: 0.80, softness: 0.65 },
+  flashFalloff: { strength: 0.10, radius: 0.65 },
+  lightLeak: { probability: 0.06, strength: 0.16, palette: ["#ff9922", "#ff6600", "#ffcc44"] },
+  dust: { density: 0.04, scratches: 0.0 },
+};
+
+/**
+ * 20. Retro 90s Flash (Point-and-Shoot Couch Flash / Kodak Gold 200)
+ */
+export const RETRO_90S_FLASH_LOOK: LookRecipe = {
+  id: "retro-90s-flash",
+  name: "Retro 90s Flash",
+  version: 2,
+  aspectRatio: "3:2",
+  intensity: 1.0,
+  whiteProtect: true,
+  lens: {
+    radialBlur: { r0: 0.0003, r1: 0.0016 },
+    chromaticAberration: 0.0005,
+    distortion: 0.014,
+    vignette: { strength: 0.22, radius: 0.78, softness: 0.58, curvature: 4.0 },
+    bloom: { threshold: 0.83, strength: 0.14, radius: 0.012 },
+    halation: { threshold: 0.86, strength: 0.14, radius: 0.014, tint: [1.0, 0.40, 0.15] },
+  },
+  response: {
+    exposureEV: 0.06,
+    dyeMatrix: [
+      1.03, -0.01, -0.01,
+     -0.01,  1.02, -0.01,
+     -0.01, -0.01,  1.01,
+    ],
+    curveR: { contrast: 1.16, pivot: 0.44, toe: 0.032, shoulder: 0.83, type: "hard" },
+    curveG: { contrast: 1.15, pivot: 0.44, toe: 0.038, shoulder: 0.83, type: "hard" },
+    curveB: { contrast: 1.17, pivot: 0.44, toe: 0.035, shoulder: 0.81, type: "hard" },
+    localContrast: -0.08,
+    effectiveLines: 1200,
+    flashFalloff: { strength: 0.44, radius: 0.48, centerX: 0.5, centerY: 0.5 },
+  },
+  color: {
+    hueTable: generateFilmHueTable("retro-90s"),
+    skinProtection: { enabled: true, minHue: 20, maxHue: 55, strength: 0.82 },
+    saturation: 1.12,
+    brightSatCurve: { shadowBoost: 0.16, highlightDesat: 0.24 },
+    highlightWarmth: 0.14,
+    shadowTint: [0.008, 0.004, 0.012],
+    whiteProtect: true,
+  },
+  emulsion: {
+    grain: { amount: 0.15, size: 0.0017, roughness: 0.58, chroma: 0.22, exposureSensitivity: 0.60 },
+    lightLeak: {
+      probability: 0.15,
+      strength: 0.24,
+      palette: ["#ff6600", "#ffaa00", "#ff1133"],
+    },
+    dust: { density: 0.12, scratches: 0.08 },
+  },
+  dateStamp: {
+    enabled: true,
+    format: "DD MM 'YY",
+    color: "#ff7700",
+    glow: true,
+    size: 0.026,
+    position: "br",
+  },
+  frame: { type: "none" },
+  reference: {
+    referenceId: "retro-90s-point-and-shoot-flash",
+    referenceNotes: "Authentic 90s compact point-and-shoot xenon flash aesthetic; sharp falloff, lifted violet-tinted darks, chartreuse greens, rich grain, and orange quartz date stamp.",
+  },
+  // Backward compatibility
+  exposureEV: 0.06,
+  curve: { contrast: 1.16, pivot: 0.44, toe: 0.035, shoulder: 0.83 },
+  lift: [0.008, 0.004, 0.012],
+  gamma: [1.0, 1.0, 1.0],
+  gain: [1.03, 1.01, 0.98],
+  matrix: [1.03, -0.01, -0.01, -0.01, 1.02, -0.01, -0.01, -0.01, 1.01],
+  saturation: 1.12,
+  splitTone: { shadowHue: 260, shadowSat: 0.05, highlightHue: 48, highlightSat: 0.06, balance: 0.1 },
+  softFocus: { amount: 0.0, radius: 0.0 },
+  sharpen: 0.08,
+  bloom: { threshold: 0.83, strength: 0.14, radius: 0.012 },
+  halation: { threshold: 0.86, strength: 0.14, radius: 0.014, tint: [1.0, 0.40, 0.15] },
+  grain: { amount: 0.15, size: 0.0017, roughness: 0.58, chroma: 0.22 },
+  vignette: { strength: 0.22, radius: 0.78, softness: 0.58 },
+  flashFalloff: { strength: 0.44, radius: 0.48 },
+  lightLeak: { probability: 0.15, strength: 0.24, palette: ["#ff6600", "#ffaa00", "#ff1133"] },
+  dust: { density: 0.12, scratches: 0.08 },
+};
+
 export const BUILTIN_LOOKS: LookRecipe[] = [
   CPM35_LOOK,
   PORTRA_400_LOOK,
+  EDITORIAL_MODERN_FLASH_LOOK,
+  AIRY_ROMANTIC_LOOK,
+  WARM_VINTAGE_LOOK,
+  RETRO_90S_FLASH_LOOK,
   CLASSIC_CHROME_LOOK,
   REALA_ACE_LOOK,
   CINESTILL_800T_LOOK,
@@ -1470,6 +1821,27 @@ export const BUILTIN_LOOKS: LookRecipe[] = [
 ];
 
 const LOOK_ALIAS_MAP: Record<string, LookRecipe> = {
+  editorialflash: EDITORIAL_MODERN_FLASH_LOOK,
+  editorial: EDITORIAL_MODERN_FLASH_LOOK,
+  vogue: EDITORIAL_MODERN_FLASH_LOOK,
+  modernflash: EDITORIAL_MODERN_FLASH_LOOK,
+  editorialmodernflash: EDITORIAL_MODERN_FLASH_LOOK,
+  airyromantic: AIRY_ROMANTIC_LOOK,
+  airyromantic400h: AIRY_ROMANTIC_LOOK,
+  airy: AIRY_ROMANTIC_LOOK,
+  pro400h: AIRY_ROMANTIC_LOOK,
+  fujipro400h: AIRY_ROMANTIC_LOOK,
+  josevilla: AIRY_ROMANTIC_LOOK,
+  warmvintage: WARM_VINTAGE_LOOK,
+  warmvintageheritage: WARM_VINTAGE_LOOK,
+  vintageheritage: WARM_VINTAGE_LOOK,
+  axioo: WARM_VINTAGE_LOOK,
+  iluminen: WARM_VINTAGE_LOOK,
+  retro90sflash: RETRO_90S_FLASH_LOOK,
+  retro90s: RETRO_90S_FLASH_LOOK,
+  pointandshoot: RETRO_90S_FLASH_LOOK,
+  couchflash: RETRO_90S_FLASH_LOOK,
+  olympusmju: RETRO_90S_FLASH_LOOK,
   rangefinder35: CPM35_LOOK,
   dazzcpm35: CPM35_LOOK,
   dazzcpm35cube: CPM35_LOOK,

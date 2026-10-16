@@ -16,6 +16,10 @@ import {
   TRI_X_400_LOOK,
   CLASSIC_CHROME_LOOK,
   REALA_ACE_LOOK,
+  EDITORIAL_MODERN_FLASH_LOOK,
+  AIRY_ROMANTIC_LOOK,
+  WARM_VINTAGE_LOOK,
+  RETRO_90S_FLASH_LOOK,
   getLookById,
 } from "../src/lib/imaging/looks/presets";
 
@@ -268,6 +272,91 @@ describe("Look Engine v2 Color & Math Engine", () => {
       // Aliases resolve to the same look
       expect(getLookById("fuji-reala-ace").id).toBe("reala-ace");
       expect(getLookById("reala").id).toBe("reala-ace");
+    });
+
+    it("Editorial Modern Flash produces high-fashion punch, obsidian blacks, and stark flash falloff", () => {
+      const look = EDITORIAL_MODERN_FLASH_LOOK;
+      expect(look.id).toBe("editorial-flash");
+
+      // High contrast and zero toe (pure obsidian blacks)
+      expect(look.response.curveR.contrast).toBeGreaterThanOrEqual(1.20);
+      expect(look.response.curveR.toe).toBe(0.00);
+      expect(look.response.curveR.type).toBe("hard");
+
+      // Subdued high-fashion saturation
+      expect(look.color.saturation).toBeLessThan(0.90);
+      expect(look.color.whiteProtect).toBe(true);
+
+      // Severe direct flash falloff
+      expect(look.response.flashFalloff.strength).toBeGreaterThanOrEqual(0.40);
+      expect(look.response.flashFalloff.radius).toBeLessThan(0.50);
+
+      // Aliases
+      expect(getLookById("vogue").id).toBe("editorial-flash");
+      expect(getLookById("editorial").id).toBe("editorial-flash");
+    });
+
+    it("Airy Romantic 400H produces fine-art lifted matte shadows and bridal lace bloom", () => {
+      const look = AIRY_ROMANTIC_LOOK;
+      expect(look.id).toBe("airy-romantic");
+
+      // Lifted matte black toe & gentle contrast
+      expect(look.response.curveR.toe).toBeGreaterThanOrEqual(0.040);
+      expect(look.response.curveR.contrast).toBeLessThanOrEqual(1.00);
+
+      // Highlight lace bloom
+      expect(look.lens.bloom.strength).toBeGreaterThanOrEqual(0.20);
+      expect(look.lens.bloom.radius).toBeGreaterThanOrEqual(0.020);
+
+      // Mint/sage foliage shift toward cyan (+10 deg)
+      const foliageNode = evaluateHueTable(110, look.color.hueTable);
+      expect(foliageNode.dHue).toBeGreaterThan(5.0);
+
+      // Aliases
+      expect(getLookById("airy").id).toBe("airy-romantic");
+      expect(getLookById("pro-400h").id).toBe("airy-romantic");
+    });
+
+    it("Warm Vintage Heritage produces destination golden warmth, honey skin, and chocolate shadows", () => {
+      const look = WARM_VINTAGE_LOOK;
+      expect(look.id).toBe("warm-vintage");
+
+      // Golden highlight warmth
+      expect(look.color.highlightWarmth).toBeGreaterThanOrEqual(0.20);
+
+      // Chocolate-warm shadow lift
+      expect(look.color.shadowTint[0]).toBeGreaterThan(0.010);
+      expect(look.color.shadowTint[2]).toBeLessThan(look.color.shadowTint[0]);
+
+      // Warm olive foliage shift
+      const foliageNode = evaluateHueTable(110, look.color.hueTable);
+      expect(foliageNode.dHue).toBeGreaterThan(6.0);
+
+      // Aliases
+      expect(getLookById("axioo").id).toBe("warm-vintage");
+      expect(getLookById("iluminen").id).toBe("warm-vintage");
+      expect(getLookById("warm-vintage").id).toBe("warm-vintage");
+    });
+
+    it("Retro 90s Flash produces point-and-shoot xenon falloff, chartreuse pop, and quartz date stamp", () => {
+      const look = RETRO_90S_FLASH_LOOK;
+      expect(look.id).toBe("retro-90s-flash");
+
+      // Xenon flash falloff
+      expect(look.response.flashFalloff.strength).toBeGreaterThanOrEqual(0.40);
+
+      // Punchy saturated primaries
+      expect(look.color.saturation).toBeGreaterThanOrEqual(1.10);
+
+      // Tactile organic 35mm grain
+      expect(look.emulsion.grain.amount).toBeGreaterThanOrEqual(0.14);
+
+      // Quartz date stamp enabled
+      expect(look.dateStamp.enabled).toBe(true);
+
+      // Aliases
+      expect(getLookById("point-and-shoot").id).toBe("retro-90s-flash");
+      expect(getLookById("retro-90s").id).toBe("retro-90s-flash");
     });
 
     it("enforces Hurter-Driffield asymmetric grain response curve mathematically", () => {

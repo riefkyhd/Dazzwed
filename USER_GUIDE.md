@@ -190,8 +190,8 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 ## 7. Editorial Admin Gallery & Analog Emulation Science
 
 1. **Authentic Quartz Databack Emulation vs. Professional Emulsions:**
-   - **Consumer Point-and-Shoot Cameras:** Emulsions that emulate retro 90s/00s compact analog cameras (`disposable-400`, `ccd-flash`, `cpm-35`, `portra-400`, `cinestill-800t`, `tri-x-400`, `ilford-hp5-plus`, `super-8mm-vintage`, `kodak-ektar-100`) include authentic quartz LCD databacks (`dateStamp.enabled: true`) burned onto the negative.
-   - **Professional SLR, Instant & Cinema Formats:** Professional editorial and documentary emulsions (`classic-chrome`, `reala-ace`, `classic-neg`, `golden-200`, `instant-film` polaroid, `fuji-eterna-250d` motion picture, `neutral`) do not burn databacks (`dateStamp.enabled: false`) by design, mirroring authentic professional analog equipment.
+   - **Consumer Point-and-Shoot Cameras:** Emulsions that emulate retro 90s/00s compact analog cameras (`disposable-400`, `ccd-flash`, `retro-90s-flash`, `cpm-35`, `portra-400`, `cinestill-800t`, `tri-x-400`, `ilford-hp5-plus`, `super-8mm-vintage`, `kodak-ektar-100`) include authentic quartz LCD databacks (`dateStamp.enabled: true`) burned onto the negative.
+   - **Professional SLR, Editorial, Fine-Art & Cinema Formats:** Professional editorial and documentary emulsions (`editorial-flash`, `airy-romantic`, `warm-vintage`, `classic-chrome`, `reala-ace`, `classic-neg`, `golden-200`, `instant-film` polaroid, `fuji-eterna-250d` motion picture, `neutral`) do not burn databacks (`dateStamp.enabled: false`) by design, mirroring authentic professional analog equipment.
    - **Untouched RAW Originals:** Clean original sensor captures (`mode === "original"`) never contain databacks, preserving pristine digital negatives.
 
 2. **High-Concurrency Google Drive Token Caching & Resilient Gallery Loading:**
@@ -206,6 +206,12 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 4. **Fujifilm Color Science Emulations: Classic Chrome & Reala Ace 100:**
    - **Classic Chrome (`classic-chrome`):** Homage to Kodachrome 64 and mid-century documentary reportage. Features subdued global saturation (~84%), steep crushed shadow toe (`toe: 0.012`), sculpted micro-contrast (`localContrast: 0.08`), signature cyan-teal sky rotation (-15° at 225°), olive/army foliage greens, deep terracotta/brick reds, and cool slate shadow tints.
    - **Reala Ace 100 (`reala-ace`):** Fujicolor Super HG Reala 100 simulation utilizing digital 4th cyan-layer emulsion mechanics. Eliminates fluorescent and mixed lighting yellow-green casts, preserving delicate tonal graduation, open clean shadows (`toe: 0.026`), extended highlight shoulder rolloff (`shoulder: 0.89`), luminous porcelain/peach portrait skin tones, and ultra-fine RMS 4 grain.
+
+5. **Editorial & Fine-Art Wedding Emulations (Flash, Airy 400H, Vintage Heritage & Retro 90s):**
+   - **Editorial Flash (`editorial-flash`, dial: `VOG`):** High-fashion Vogue/GQ wedding editorial aesthetic (Juergen Teller / Helmut Newton). Features hard direct flash falloff (`strength: 0.48, radius: 0.44`), high contrast punch (`contrast: 1.22`), pure obsidian blacks (`toe: 0.00`), hard specular shoulder (`0.82`), porcelain/alabaster skin tones, and subdued global saturation (`0.86`) with strict neutral white preservation.
+   - **Airy Romantic 400H (`airy-romantic`, dial: `AIRY`):** Fine-art medium format wedding look (Fuji Pro 400H + Contax 645 Zeiss 80mm f/2 pushed +1.5 stops, Jose Villa style). Features lifted matte black toe (`toe: 0.048`), gentle contrast (`contrast: 0.98`), ethereal highlight lace bloom (`strength: 0.26, radius: 0.022`), pastel mint/sage foliage (+10° toward cyan), and luminous porcelain-peach skin.
+   - **Warm Vintage Heritage (`warm-vintage`, dial: `VNTG`):** Destination wedding heritage portraiture (Axioo / Iluminen aesthetic under warm tungsten chandeliers and golden ambient light). Features rich golden-amber highlight warmth (`0.24`), chocolate-espresso warm shadow lift (`shadowTint: [0.012, 0.008, 0.002]`), warm honey skin, olive-cypress foliage, and red-gold candlelit halation glow (`0.18`).
+   - **Retro 90s Flash (`retro-90s-flash`, dial: `90S`):** Authentic 1990s compact point-and-shoot 35mm flash (Olympus Stylus Epic / Yashica T4 / Kodak Gold 200). Features small-bulb xenon flash falloff (`strength: 0.44`), lifted hazy shadows with violet-blue chemical undertone (`shadowTint: [0.008, 0.004, 0.012]`), punchy chartreuse/lime greens (-8°) and mustard yellows, tactile 35mm grain (`amount: 0.15`), and glowing quartz date stamp.
 
 ---
 

@@ -21,6 +21,14 @@ function getLookChipLabel(look: LookRecipe): string {
       return "35MM";
     case "portra-400":
       return "PORT";
+    case "editorial-flash":
+      return "VOG";
+    case "airy-romantic":
+      return "AIRY";
+    case "warm-vintage":
+      return "VNTG";
+    case "retro-90s-flash":
+      return "90S";
     case "cinestill-800t":
       return "800T";
     case "fuji-eterna-250d":
