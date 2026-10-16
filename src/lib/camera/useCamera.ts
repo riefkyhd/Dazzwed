@@ -1067,11 +1067,9 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           // 1. Snapshot video and canvas synchronously BEFORE freezing RAF loop
           const { previewBmp, snapCanvas } = await takeFrameSnapshots();
           snapCanvasFallback = snapCanvas;
-          if (snapCanvas && !isCanvasBlankOrBlack(snapCanvas)) {
-            frozenSource = snapCanvas;
-          } else {
-            frozenSource = v;
-          }
+          // Prefer live video stream for full sensor resolution (2560px on iOS, 3840px on Android);
+          // if video texture extraction produces black, archival pass will automatically recover from snapCanvasFallback
+          frozenSource = v;
 
           // 2. Freeze viewfinder immediately
           isFrozenRef.current = true;
@@ -1101,11 +1099,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
                 const snap = await takeFrameSnapshots();
                 previewBmp = snap.previewBmp;
                 snapCanvasFallback = snap.snapCanvas;
-                if (snap.snapCanvas && !isCanvasBlankOrBlack(snap.snapCanvas)) {
-                  frozenSource = snap.snapCanvas;
-                } else {
-                  frozenSource = v;
-                }
+                frozenSource = v;
               },
               { maxStabilizeMs: 260 }
             );
@@ -1117,11 +1111,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               const snap = await takeFrameSnapshots();
               previewBmp = snap.previewBmp;
               snapCanvasFallback = snap.snapCanvas;
-              if (snap.snapCanvas && !isCanvasBlankOrBlack(snap.snapCanvas)) {
-                frozenSource = snap.snapCanvas;
-              } else {
-                frozenSource = v;
-              }
+              frozenSource = v;
             } finally {
               callbacks?.onScreenFlash?.(false);
             }
@@ -1164,7 +1154,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
           const effectiveDigitalZoom = Math.max(1, digitalZoom);
           const swEV = exposureCompRange ? 0 : exposureCompValueRef.current;
-          const isFromSnapCanvas = frozenSource === snapCanvasFallback;
+          const isFromSnapCanvas = (frozenSource as unknown) === snapCanvasFallback;
           let filteredBlob: Blob;
           try {
             filteredBlob = await renderShot(frozenSource, {
