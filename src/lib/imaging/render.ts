@@ -196,6 +196,34 @@ export async function renderShot(
 
   // If clean original requested, draw directly without filter
   if (!applyFilter) {
+    if (src instanceof HTMLVideoElement) {
+      try {
+        const { pipeline: p, canvas: glCanvas } = getSharedCapturePipeline();
+        if (glCanvas.width !== out.width || glCanvas.height !== out.height) {
+          glCanvas.width = out.width;
+          glCanvas.height = out.height;
+        }
+        const renderedRaw = p.render(src, look, {
+          width: out.width,
+          height: out.height,
+          isCapture: true,
+          intensity: 0,
+          cropRect: {
+            x: crop.sx / w,
+            y: crop.sy / h,
+            width: crop.sw / w,
+            height: crop.sh / h,
+          },
+          mirror,
+        });
+        if (renderedRaw && !isCanvasBlankOrBlack(glCanvas)) {
+          return await toBlob(glCanvas, quality);
+        }
+      } catch (e) {
+        console.warn("Raw WebGL capture failed, attempting 2D fallback:", e);
+      }
+    }
+
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("no 2d context");
     ctx.imageSmoothingQuality = "high";
@@ -214,9 +242,13 @@ export async function renderShot(
   }
 
   // Intermediate crop canvas if digital zoom applied, video source, or mirroring needed
+  const isVideo = src instanceof HTMLVideoElement;
   let sourceToRender: TexImageSource = src;
   let interCanvas: HTMLCanvasElement | null = null;
-  if (src instanceof HTMLVideoElement || zoom > 1 || crop.sw !== w || crop.sh !== h || mirror) {
+
+  // For HTMLVideoElement, NEVER draw to a 2D canvas on iOS WebKit (it produces black frames).
+  // Instead, pass the video directly to WebGL and let the shader handle normalized cropRect and mirror.
+  if (!isVideo && (zoom > 1 || crop.sw !== w || crop.sh !== h || mirror)) {
     interCanvas = document.createElement("canvas");
     interCanvas.width = out.width;
     interCanvas.height = out.height;
@@ -249,6 +281,15 @@ export async function renderShot(
       glCanvas.width = out.width;
       glCanvas.height = out.height;
     }
+    const normCropRect = isVideo
+      ? {
+          x: crop.sx / w,
+          y: crop.sy / h,
+          width: crop.sw / w,
+          height: crop.sh / h,
+        }
+      : undefined;
+
     rendered = p.render(sourceToRender, look, {
       width: out.width,
       height: out.height,
@@ -258,6 +299,8 @@ export async function renderShot(
       intensity: targetIntensity,
       lut: loadedLut,
       exposureCompensation,
+      cropRect: normCropRect,
+      mirror: isVideo ? mirror : false,
     });
     if (rendered) processedCanvas = glCanvas;
   } catch (err) {
@@ -272,9 +315,9 @@ export async function renderShot(
   if (rendered && processedCanvas) {
     ctx2d.drawImage(processedCanvas, 0, 0);
 
-    // Black-Frame Sanity Check: If composited WebGL canvas is blank or solid black (e.g. iOS WebKit unpreserved buffer),
-    // immediately re-composite using the 2D CPU LookRecipe fallback so black photos are never produced.
-    if (isCanvasBlankOrBlack(canvas)) {
+    // Black-Frame Sanity Check: If composited WebGL canvas is blank or solid black,
+    // only attempt 2D CPU fallback if src is NOT HTMLVideoElement (2D canvas can't draw WebKit video)
+    if (isCanvasBlankOrBlack(canvas) && !isVideo) {
       console.warn("Rendered WebGL canvas was blank/black, falling back to 2D CPU LookRecipe pipeline");
       if (mirror) {
         ctx2d.save();

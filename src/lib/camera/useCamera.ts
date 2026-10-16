@@ -1017,21 +1017,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
         const takeFrameSnapshots = async (): Promise<{
           previewBmp: ImageBitmap | null;
-          sourceCanvas: HTMLCanvasElement;
         }> => {
-          const vw = v.videoWidth || 1920;
-          const vh = v.videoHeight || 1080;
-          const sourceCanvas = document.createElement("canvas");
-          sourceCanvas.width = vw;
-          sourceCanvas.height = vh;
-          const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
-          if (ctx) {
-            ctx.drawImage(v, 0, 0, vw, vh);
-            if (isCanvasBlankOrBlack(sourceCanvas)) {
-              ctx.drawImage(v, 0, 0, vw, vh);
-            }
-          }
-
           let previewBmp: ImageBitmap | null = null;
           // 1. Try reading the active WebGL preview canvas if valid and non-black
           if (c && c.width > 0 && c.height > 0 && !isCanvasBlankOrBlack(c)) {
@@ -1043,24 +1029,26 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             }
           }
 
-          // 2. If WebGL preview was blank or failed, generate preview from the 2D sourceCanvas
-          if (!previewBmp && ctx) {
+          // 2. If WebGL preview was blank or failed, attempt createImageBitmap directly from video
+          if (!previewBmp && typeof createImageBitmap === "function") {
             try {
+              const vw = v.videoWidth || 1920;
+              const vh = v.videoHeight || 1080;
               const crop = cropForAspectAndZoom(vw, vh, targetAspect, 1);
-              previewBmp = await createImageBitmap(sourceCanvas, crop.sx, crop.sy, crop.sw, crop.sh);
+              previewBmp = await createImageBitmap(v, crop.sx, crop.sy, crop.sw, crop.sh);
             } catch {
               // fallback
             }
           }
 
-          return { previewBmp, sourceCanvas };
+          return { previewBmp };
         };
 
         if (!shouldFireTorch && !shouldFireScreenFlash) {
           // --- Non-flash Instant Capture Pipeline (< 80ms) ---
           // 1. Snapshot video and canvas synchronously BEFORE freezing RAF loop
-          const { previewBmp, sourceCanvas } = await takeFrameSnapshots();
-          frozenSource = sourceCanvas;
+          const { previewBmp } = await takeFrameSnapshots();
+          frozenSource = v;
 
           // 2. Freeze viewfinder immediately
           isFrozenRef.current = true;
@@ -1089,7 +1077,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               async () => {
                 const snap = await takeFrameSnapshots();
                 previewBmp = snap.previewBmp;
-                frozenSource = snap.sourceCanvas;
+                frozenSource = v;
               },
               { maxStabilizeMs: 260 }
             );
@@ -1100,7 +1088,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               await new Promise((r) => setTimeout(r, 260));
               const snap = await takeFrameSnapshots();
               previewBmp = snap.previewBmp;
-              frozenSource = snap.sourceCanvas;
+              frozenSource = v;
             } finally {
               callbacks?.onScreenFlash?.(false);
             }

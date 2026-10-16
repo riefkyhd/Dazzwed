@@ -483,8 +483,8 @@ export function AdminGuideView() {
             </h4>
             <p className="text-xs text-zinc-300 leading-relaxed">
               {lang === "en"
-                ? "On iOS WebKit, high-resolution canvases risk hitting memory allocation thresholds. Unveiled safeguards Safari captures by clamping render dimensions to a safe 2560px edge, using fallback encoding, storing photos via binary ArrayBuffer in IndexedDB to eliminate WebKit DataCloneError, and optimistically reserving the shot so the counter always decrements and photos sync reliably."
-                : "Pada iOS WebKit, kanvas resolusi tinggi rentan terkena batas memori Safari. Unveiled mengamankan pengambilan foto dengan membatasi dimensi kanvas ke batas aman 2560px, enkoder cadangan, menyimpan foto sebagai ArrayBuffer biner di IndexedDB untuk menghilangkan galat DataCloneError WebKit, serta reservasi bidikan optimistik agar hitungan foto selalu berkurang dan tersimpan aman."}
+                ? "On iOS WebKit, high-resolution canvases risk hitting memory allocation thresholds and 2D canvas video extraction can produce black frames. Unveiled safeguards Safari captures by clamping render dimensions to a safe 2560px edge, binding the video directly to GPU WebGL shaders to bypass 2D canvas video limits, auto-recovering from the verified review preview if a black frame is ever detected, and storing photos via binary ArrayBuffer in IndexedDB to eliminate WebKit DataCloneError."
+                : "Pada iOS WebKit, kanvas resolusi tinggi rentan terkena batas memori Safari dan ekstraksi video 2D canvas dapat menghasilkan frame hitam. Unveiled mengamankan pengambilan foto dengan membatasi dimensi kanvas ke batas aman 2560px, mengikat video langsung ke shader GPU WebGL untuk melewati kelemahan 2D canvas, memulihkan otomatis dari pratinjau review jika frame hitam terdeteksi, serta menyimpan foto sebagai ArrayBuffer biner di IndexedDB."}
             </p>
           </div>
 

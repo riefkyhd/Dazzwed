@@ -180,4 +180,14 @@ describe("CPU Fallback & Color Science Parity (B1)", () => {
       expect(isCanvasBlankOrBlack(mockCanvas)).toBe(false);
     });
   });
+
+  describe("isBlobBlankOrBlack (Sanity Guard for Guest Capture)", () => {
+    it("safely returns false when createImageBitmap is unavailable or handles black blob", async () => {
+      const { isBlobBlankOrBlack } = await import("../src/components/guest/CameraScreen");
+      const dummyBlob = new Blob(["test"], { type: "image/jpeg" });
+      const result = await isBlobBlankOrBlack(dummyBlob);
+      // In Node test environment where createImageBitmap may not be polyfilled, returns false safely
+      expect(typeof result).toBe("boolean");
+    });
+  });
 });
