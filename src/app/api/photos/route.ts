@@ -35,6 +35,8 @@ export async function POST(req: Request) {
     const guestIdRaw = formData.get("guestId");
     const eventSlugRaw = formData.get("eventSlug");
     const shotIdRaw = formData.get("shotId");
+    const presetIdRaw = formData.get("presetId") || formData.get("lookId");
+    const captureSourceRaw = formData.get("captureSource");
 
     // 1. Basic field validation
     if (!file || !(file instanceof Blob)) {
@@ -213,15 +215,53 @@ export async function POST(req: Request) {
       });
 
       // 8. Mark reservation as confirmed in database
-      await sb
+      const cleanPresetId = typeof presetIdRaw === "string" && presetIdRaw.trim().length > 0
+        ? presetIdRaw.trim().slice(0, 64)
+        : "disposable-400";
+      const cleanSource = captureSourceRaw === "takePhoto" ? "takePhoto" : "videoFrame";
+
+      const { error: updateErr } = await sb
         .from("photos")
         .update({
           status: "confirmed",
           drive_file_id: uploadRes.driveFileId,
           size_bytes: uploadRes.sizeBytes,
+          preset_id: cleanPresetId,
           updated_at: new Date().toISOString(),
         })
         .eq("shot_id", shotId);
+
+      if (updateErr) {
+        await sb
+          .from("photos")
+          .update({
+            status: "confirmed",
+            drive_file_id: uploadRes.driveFileId,
+            size_bytes: uploadRes.sizeBytes,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("shot_id", shotId);
+      }
+
+      // Non-blocking zero-PII aggregate counter increments
+      void Promise.allSettled([
+        Promise.resolve(
+          sb.rpc("increment_event_metric", {
+            p_event_id: event.id,
+            p_metric_type: "filter_kept",
+            p_metric_key: cleanPresetId,
+            p_delta: 1,
+          })
+        ),
+        Promise.resolve(
+          sb.rpc("increment_event_metric", {
+            p_event_id: event.id,
+            p_metric_type: "capture_mode",
+            p_metric_key: cleanSource,
+            p_delta: 1,
+          })
+        ),
+      ]).catch(() => {});
 
       return NextResponse.json({
         ok: true,

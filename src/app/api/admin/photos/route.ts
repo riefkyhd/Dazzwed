@@ -28,16 +28,30 @@ export async function GET(req: Request) {
   // 2. Fetch photos
   let photosQuery = sb
     .from("photos")
-    .select("id, guest_id, shot_id, drive_file_id, size_bytes, status, created_at, updated_at")
+    .select("id, guest_id, shot_id, drive_file_id, original_drive_file_id, preset_id, look_id, size_bytes, status, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (statusFilter && statusFilter !== "all") {
     photosQuery = photosQuery.eq("status", statusFilter);
   }
 
-  const { data: photos, error: photosErr } = await photosQuery;
+  let { data: photos, error: photosErr } = await photosQuery;
   if (photosErr) {
-    return NextResponse.json({ error: photosErr.message }, { status: 500 });
+    let fallbackQuery = sb
+      .from("photos")
+      .select("id, guest_id, shot_id, drive_file_id, original_drive_file_id, look_id, size_bytes, status, created_at, updated_at")
+      .order("created_at", { ascending: false });
+    if (statusFilter && statusFilter !== "all") {
+      fallbackQuery = fallbackQuery.eq("status", statusFilter);
+    }
+    const fallbackRes = await fallbackQuery;
+    if (fallbackRes.error) {
+      return NextResponse.json({ error: fallbackRes.error.message }, { status: 500 });
+    }
+    photos = (fallbackRes.data || []).map((p: any) => ({
+      ...p,
+      preset_id: p.look_id || null,
+    })) as typeof photos;
   }
 
   // 3. Compute metrics

@@ -3,6 +3,30 @@
 import React, { useState } from "react";
 import type { DriveHealthResult, StorageGuardResult } from "@/lib/drive/health";
 
+export interface ProductAnalyticsStats {
+  recipeLeaderboard: Array<{
+    id: string;
+    name: string;
+    keptCount: number;
+    retakeCount: number;
+    sharePercent: number;
+  }>;
+  funnel: {
+    totalGuestsConsented: number;
+    guestsShotAtLeastOnce: number;
+    guestsCompletedRoll: number;
+    totalKept: number;
+    totalRetakes: number;
+    keepToRetakeRatio: string;
+  };
+  reliability: {
+    takePhotoCount: number;
+    videoFrameCount: number;
+    takePhotoPercent: number;
+    videoFramePercent: number;
+  };
+}
+
 export interface HealthTelemetryProps {
   storageGuard: StorageGuardResult;
   queueMetrics: {
@@ -12,6 +36,7 @@ export interface HealthTelemetryProps {
     totalPhotos: number;
     failureRatePercent: number;
   };
+  productAnalytics?: ProductAnalyticsStats;
   clientEventStats: {
     totalEvents: number;
     errorsCount: number;
@@ -36,6 +61,7 @@ export interface HealthTelemetryProps {
 export function HealthView({
   storageGuard,
   queueMetrics,
+  productAnalytics,
   clientEventStats,
 }: HealthTelemetryProps) {
   const [driveHealth, setDriveHealth] = useState<DriveHealthResult | null>(null);
@@ -147,6 +173,154 @@ export function HealthView({
           </div>
         </div>
       </div>
+
+      {/* Product & Filter Usage Analytics (Zero-Overhead) */}
+      {productAnalytics && (
+        <div className="space-y-6">
+          <div className="border-b border-zinc-800/80 pb-2">
+            <h2 className="text-base font-serif font-bold text-white flex items-center gap-2">
+              <span>Film Recipes & Guest Engagement Insights</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
+                0-Overhead UU PDP Safe
+              </span>
+            </h2>
+            <p className="text-xs text-zinc-400 mt-0.5">
+              Anonymous aggregate metrics tracking filter preferences, retake ratios, and camera hardware execution.
+            </p>
+          </div>
+
+          {/* Funnel Overview Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+            <div className="bg-zinc-950/70 p-4 rounded-xl border border-zinc-800">
+              <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-1">Consented Guests</div>
+              <div className="text-xl font-bold font-mono text-amber-300">
+                {productAnalytics.funnel.totalGuestsConsented}
+              </div>
+              <div className="text-[10px] text-zinc-500 mt-0.5">Passed consent gate</div>
+            </div>
+
+            <div className="bg-zinc-950/70 p-4 rounded-xl border border-zinc-800">
+              <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-1">Active Shooters</div>
+              <div className="text-xl font-bold font-mono text-emerald-400">
+                {productAnalytics.funnel.guestsShotAtLeastOnce}
+              </div>
+              <div className="text-[10px] text-zinc-500 mt-0.5">
+                {productAnalytics.funnel.totalGuestsConsented > 0
+                  ? `${((productAnalytics.funnel.guestsShotAtLeastOnce / productAnalytics.funnel.totalGuestsConsented) * 100).toFixed(0)}% conversion`
+                  : "0% conversion"}
+              </div>
+            </div>
+
+            <div className="bg-zinc-950/70 p-4 rounded-xl border border-zinc-800">
+              <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-1">Roll Finishers</div>
+              <div className="text-xl font-bold font-mono text-purple-400">
+                {productAnalytics.funnel.guestsCompletedRoll}
+              </div>
+              <div className="text-[10px] text-zinc-500 mt-0.5">Finished all shots</div>
+            </div>
+
+            <div className="bg-zinc-950/70 p-4 rounded-xl border border-zinc-800">
+              <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider mb-1">Keep-to-Retake</div>
+              <div className="text-xl font-bold font-mono text-sky-400">
+                {productAnalytics.funnel.keepToRetakeRatio}
+              </div>
+              <div className="text-[10px] text-zinc-500 mt-0.5">
+                {productAnalytics.funnel.totalKept} kept &bull; {productAnalytics.funnel.totalRetakes} retakes
+              </div>
+            </div>
+          </div>
+
+          {/* Leaderboard & Hardware Reliability Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Film Recipe Leaderboard */}
+            <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-amber-400">
+                  Most Popular Film Recipes
+                </h3>
+                <span className="text-[10px] text-zinc-500 font-mono">Kept / Retakes (% Share)</span>
+              </div>
+
+              {productAnalytics.recipeLeaderboard.length === 0 ? (
+                <p className="text-xs text-zinc-500 font-mono py-4">No shots captured yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {productAnalytics.recipeLeaderboard.map((item, idx) => (
+                    <div key={item.id} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs font-mono">
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-400/80 font-bold w-4 text-center">#{idx + 1}</span>
+                          <span className="text-zinc-200 font-semibold">{item.name}</span>
+                        </div>
+                        <div className="text-zinc-400 text-[11px]">
+                          <span className="text-emerald-400 font-bold">{item.keptCount} kept</span>
+                          {item.retakeCount > 0 && (
+                            <span className="text-zinc-500 ml-1.5">({item.retakeCount} retakes)</span>
+                          )}
+                          <span className="text-amber-300 font-semibold ml-2">
+                            {item.sharePercent.toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                      <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden">
+                        <div
+                          className="bg-amber-400 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(100, Math.max(4, item.sharePercent))}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Hardware Capture Engine Reliability */}
+            <div className="bg-zinc-950 p-5 rounded-2xl border border-zinc-800 space-y-4">
+              <h3 className="text-xs font-bold font-mono uppercase tracking-wider text-amber-400">
+                Camera Capture Engine Reliability
+              </h3>
+
+              <div className="space-y-4">
+                <div className="bg-zinc-900/60 p-3.5 rounded-xl border border-zinc-800/80 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-zinc-300 font-medium">Native ImageCapture (Hardware Stills)</span>
+                    <span className="text-zinc-400 font-bold">
+                      {productAnalytics.reliability.takePhotoCount} ({productAnalytics.reliability.takePhotoPercent.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-sky-400 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, productAnalytics.reliability.takePhotoPercent)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-zinc-500">
+                    Highest optical resolution directly from device sensor pipeline.
+                  </p>
+                </div>
+
+                <div className="bg-zinc-900/60 p-3.5 rounded-xl border border-zinc-800/80 space-y-2">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-zinc-300 font-medium">Direct Video Frame Capture (Fallback)</span>
+                    <span className="text-zinc-400 font-bold">
+                      {productAnalytics.reliability.videoFrameCount} ({productAnalytics.reliability.videoFramePercent.toFixed(1)}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-purple-400 h-full rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min(100, productAnalytics.reliability.videoFramePercent)}%` }}
+                    />
+                  </div>
+                  <p className="text-[10px] text-zinc-500">
+                    Zero-lag stream rasterization ensuring universal compatibility across iOS Safari & Android browsers.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Browsers & Devices Breakdown */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

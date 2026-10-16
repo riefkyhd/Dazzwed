@@ -25,16 +25,28 @@ export default async function AdminPhotosPage() {
   // 2. Fetch guests
   const { data: guests } = await sb
     .from("guests")
-    .select("id, display_name, drive_folder_id, created_at, last_seen_at")
+    .select("id, display_name, drive_folder_id, roll_code, created_at, last_seen_at")
     .eq("event_id", event.id)
     .order("created_at", { ascending: false });
 
-  // 3. Fetch photos
-  const { data: photos } = await sb
+  // 3. Fetch photos (with fail-safe fallback if preset_id is pending migration)
+  let photos: any[] = [];
+  const { data: pData, error: pErr } = await sb
     .from("photos")
-    .select("id, guest_id, shot_id, drive_file_id, size_bytes, status, created_at, source, tier, look_id")
+    .select("id, guest_id, shot_id, drive_file_id, original_drive_file_id, size_bytes, status, created_at, source, tier, look_id, preset_id")
     .eq("event_id", event.id)
     .order("created_at", { ascending: false });
+
+  if (pErr) {
+    const { data: fallbackPhotos } = await sb
+      .from("photos")
+      .select("id, guest_id, shot_id, drive_file_id, original_drive_file_id, size_bytes, status, created_at, source, tier, look_id")
+      .eq("event_id", event.id)
+      .order("created_at", { ascending: false });
+    photos = fallbackPhotos || [];
+  } else {
+    photos = pData || [];
+  }
 
   return (
     <PhotosManagementView
@@ -44,12 +56,14 @@ export default async function AdminPhotosPage() {
         guest_id: string;
         shot_id: string;
         drive_file_id: string | null;
+        original_drive_file_id?: string | null;
         size_bytes: number | null;
         status: "pending" | "confirmed" | "failed" | "hidden";
         created_at: string;
         source?: string;
         tier?: string;
         look_id?: string;
+        preset_id?: string | null;
       }>) || []}
       rootFolderId={event.drive_root_folder_id}
       shotsPerGuest={event.shots_per_guest}

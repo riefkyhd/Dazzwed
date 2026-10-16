@@ -234,6 +234,9 @@ class UploadQueue {
           source: item.source || "inapp",
           lookId: item.lookId || "disposable-400",
           lookVersion: item.lookVersion || 1,
+          presetId: item.presetId || item.lookId || "disposable-400",
+          captureSource: item.captureSource || "videoFrame",
+          retakenPresetIds: item.retakenPresetIds,
         }),
       });
 

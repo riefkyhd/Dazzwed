@@ -33,7 +33,15 @@ interface CameraScreenProps {
   guestId?: string | null;
   rollCode?: string | null;
   lang: Lang;
-  onShotCaptured: (filteredBlob: Blob, originalBlob?: Blob) => Promise<void>;
+  onShotCaptured: (
+    filteredBlob: Blob,
+    originalBlob?: Blob,
+    meta?: {
+      presetId?: string;
+      captureSource?: "takePhoto" | "videoFrame";
+      retakenPresetIds?: string[];
+    }
+  ) => Promise<void>;
   onNativePhoto: (file: File, quickThumb?: string) => void;
   allowedLookIds?: string[];
   defaultLookId?: string;
@@ -245,6 +253,7 @@ export function CameraScreen({
   const isExecutingCaptureRef = useRef(false);
   const captureSessionCounterRef = useRef<number>(0);
   const activeSessionIdRef = useRef<number | null>(null);
+  const retakenPresetsRef = useRef<string[]>([]);
 
   const showToast = useCallback((msg: string, duration = 3000) => {
     setCaptureToast(msg);
@@ -393,7 +402,13 @@ export function CameraScreen({
     try {
       const { filteredBlob, originalBlob } = await session.blobsPromise;
       if (filteredBlob && filteredBlob.size > 0) {
-        void onShotCaptured(filteredBlob, originalBlob);
+        const retaken = [...retakenPresetsRef.current];
+        retakenPresetsRef.current = [];
+        void onShotCaptured(filteredBlob, originalBlob, {
+          presetId: activeLook.id,
+          captureSource: "videoFrame",
+          retakenPresetIds: retaken,
+        });
 
         // Trigger first-time photo save sync indicator tooltip (Part 4)
         if (!hasTriggeredSyncTipRef.current) {
@@ -420,9 +435,15 @@ export function CameraScreen({
       console.error("Failed to persist shot in background:", e);
       showToast(t(lang, "keepFailed"));
     }
-  }, [activeReview, unfreezeViewfinder, onShotCaptured, showToast, lang]);
+  }, [activeReview, unfreezeViewfinder, onShotCaptured, showToast, lang, activeLook.id]);
 
   const handleRetakePhoto = useCallback(() => {
+    if (activeLook?.id) {
+      retakenPresetsRef.current.push(activeLook.id);
+      if (retakenPresetsRef.current.length > 50) {
+        retakenPresetsRef.current.shift();
+      }
+    }
     activeSessionIdRef.current = null;
     unfreezeViewfinder();
     if (activeReview?.abortCapture) {
@@ -436,7 +457,7 @@ export function CameraScreen({
       }
     }
     setActiveReview(null);
-  }, [unfreezeViewfinder, activeReview]);
+  }, [unfreezeViewfinder, activeReview, activeLook?.id]);
 
   // Viewfinder gestures & exposure
   const handleExposureChange = (deltaEV: number) => {

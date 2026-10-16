@@ -545,6 +545,10 @@ export function GuestApp({
       source?: "inapp" | "native";
       tier?: "original" | "high" | "standard" | "lite";
       filtered?: boolean;
+      lookId?: string;
+      presetId?: string;
+      captureSource?: "takePhoto" | "videoFrame";
+      retakenPresetIds?: string[];
     },
     baseRemaining?: number
   ) => {
@@ -575,13 +579,25 @@ export function GuestApp({
     }
   };
 
-  const handleShotCaptured = async (filteredBlob: Blob, originalBlob?: Blob) => {
+  const handleShotCaptured = async (
+    filteredBlob: Blob,
+    originalBlob?: Blob,
+    meta?: {
+      presetId?: string;
+      captureSource?: "takePhoto" | "videoFrame";
+      retakenPresetIds?: string[];
+    }
+  ) => {
     if (!guestId || shotsLeft <= 0) return;
     await recordShot(filteredBlob, guestId, {
       originalBlob,
       source: "inapp",
       tier: "high",
       filtered: true,
+      lookId: meta?.presetId || "disposable-400",
+      presetId: meta?.presetId || "disposable-400",
+      captureSource: meta?.captureSource || "videoFrame",
+      retakenPresetIds: meta?.retakenPresetIds || [],
     });
   };
 

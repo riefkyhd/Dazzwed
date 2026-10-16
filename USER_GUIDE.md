@@ -83,6 +83,8 @@
 | **Guest Camera Preview** | `/admin` | Directly opens the guest camera link with the active access token (`?t=<token>`). | Use to test or preview the camera experience from the host view. |
 | **Shots Per Guest** | `/admin/settings` | Configures the number of shots on each guest's roll (e.g. 15 or 30). Updates in real time on active phones (with automatic roll extension toasts and auto-reopening the camera for guests who completed their roll). | Adjust anytime before or during the wedding. |
 | **Reset All Guest Sessions** | `/admin/settings` | Grants all guests another 15-shot roll without deleting previous photos. | Use during after-parties or when resetting test phones before the wedding. |
+| **Editorial Gallery & Lightbox** | `/admin/photos` | High-definition Retina streaming gallery from Google Drive with zero external CDN costs. Toggle between contact-sheet grid and rolls table, filter by guest roll or film recipe, and open full-screen lightbox with a Film Graded vs. RAW Original comparison toggle and 1-click HD downloads. | Review all wedding captures, download favorites, or inspect RAW originals. |
+| **Product & Filter Usage Analytics** | `/admin/health` | Audit-safe, zero-PII aggregate insights tracking film recipe popularity, keep-to-retake ratios, guest shooting funnel, and camera hardware capture reliability (`takePhoto` vs `videoFrame`). | Monitor guest engagement and film recipe trends with 0ms added camera latency. |
 
 ### Admin Navigation Layout (Clean Top Bar + Utility Dropdown)
 The admin navigation uses a streamlined 5-link primary bar with an account popover:
@@ -153,3 +155,7 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
      - **Completed roll (shot 15):** The footer action on the celebratory **Thank You** screen (`ThankYouScreen`).
    - Calling deletion triggers `POST /api/guests/delete`, which permanently purges all guest photos and folders from Google Drive and Supabase, and wipes all local browser state (`localStorage`, `sessionStorage`, `IndexedDB`).
    - Local-only data clearing ("Clear Data on This Phone Only") is strictly prevented inside the camera to close the 15-shot reset loophole while ensuring authentic legal erasure compliance.
+3. **Zero-Overhead, Zero-PII Product Analytics:**
+   - Anonymous aggregate counts (`filter_kept`, `filter_retaken`, `capture_mode`) are piggybacked directly onto standard photo upload payloads (`/api/photos/init`).
+   - Counter increments run non-blockingly on the server (`increment_event_metric`), adding `0ms` of latency to the guest camera experience.
+   - Zero PII is retained: No individual guest profiles, device fingerprints, or IP addresses are linked to metrics. Pre-consent tracking is strictly impossible because the camera cannot be entered without explicit consent submission.

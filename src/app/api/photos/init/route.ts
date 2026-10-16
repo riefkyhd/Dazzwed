@@ -35,6 +35,9 @@ export async function POST(req: Request) {
       isOriginal?: boolean;
       lookId?: string;
       lookVersion?: number;
+      presetId?: string;
+      captureSource?: "takePhoto" | "videoFrame";
+      retakenPresetIds?: string[];
       turnstileToken?: string;
     } | null;
 
@@ -53,6 +56,9 @@ export async function POST(req: Request) {
       isOriginal = false,
       lookId = "disposable-400",
       lookVersion = 1,
+      presetId,
+      captureSource,
+      retakenPresetIds,
     } = body;
 
     const slugParsed = z.string().min(2).max(63).safeParse(eventSlug);
@@ -282,8 +288,13 @@ export async function POST(req: Request) {
     }
 
     if (!isOriginal) {
+      const cleanPresetId = typeof presetId === "string" && presetId.trim().length > 0
+        ? presetId.trim().slice(0, 64)
+        : (typeof lookId === "string" ? lookId.slice(0, 64) : "disposable-400");
+      const cleanSource = captureSource === "takePhoto" ? "takePhoto" : "videoFrame";
+
       // Update photo record with dimensions & tier for the primary filtered photo
-      await sb
+      const { error: updateErr } = await sb
         .from("photos")
         .update({
           width: width || null,
@@ -293,8 +304,64 @@ export async function POST(req: Request) {
           filtered: true,
           look_id: lookId,
           look_version: lookVersion,
+          preset_id: cleanPresetId,
         })
         .eq("shot_id", shotIdParsed.data);
+
+      if (updateErr) {
+        await sb
+          .from("photos")
+          .update({
+            width: width || null,
+            height: height || null,
+            source,
+            tier: source === "native" ? "original" : "high",
+            filtered: true,
+            look_id: lookId,
+            look_version: lookVersion,
+          })
+          .eq("shot_id", shotIdParsed.data);
+      }
+
+      // Non-blocking zero-PII aggregate counter increments (Promise.allSettled fire-and-forget)
+      const metricPromises: Promise<unknown>[] = [
+        Promise.resolve(
+          sb.rpc("increment_event_metric", {
+            p_event_id: event.id,
+            p_metric_type: "filter_kept",
+            p_metric_key: cleanPresetId,
+            p_delta: 1,
+          })
+        ),
+        Promise.resolve(
+          sb.rpc("increment_event_metric", {
+            p_event_id: event.id,
+            p_metric_type: "capture_mode",
+            p_metric_key: cleanSource,
+            p_delta: 1,
+          })
+        ),
+      ];
+
+      if (Array.isArray(retakenPresetIds)) {
+        for (const retakenId of retakenPresetIds) {
+          if (typeof retakenId === "string" && retakenId.trim().length > 0) {
+            metricPromises.push(
+              Promise.resolve(
+                sb.rpc("increment_event_metric", {
+                  p_event_id: event.id,
+                  p_metric_type: "filter_retaken",
+                  p_metric_key: retakenId.trim().slice(0, 64),
+                  p_delta: 1,
+                })
+              )
+            );
+          }
+        }
+      }
+
+      // Fire-and-forget: 0ms added to guest camera upload response
+      void Promise.allSettled(metricPromises).catch(() => {});
     }
 
     return NextResponse.json({

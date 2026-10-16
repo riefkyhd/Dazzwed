@@ -21,6 +21,9 @@ export interface ShotRecord {
   filtered?: boolean;
   lookId?: string;
   lookVersion?: number;
+  presetId?: string;
+  captureSource?: "takePhoto" | "videoFrame";
+  retakenPresetIds?: string[];
   createdAt: number;
   status: ShotStatus;
   originalStatus?: OriginalStatus;

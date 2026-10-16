@@ -20,7 +20,7 @@ export function AdminGuideView() {
               Host Manual & Best Practices
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
-              v2.4
+              v2.5
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-1">
@@ -371,6 +371,36 @@ export function AdminGuideView() {
                 {lang === "en"
                   ? "The 'Guest Camera' button on the dashboard automatically includes the current cryptographic token (?t=<token>) so hosts can directly test and experience what guests see."
                   : "Tombol 'Guest Camera' pada dasbor secara otomatis menyertakan token kriptografis aktif (?t=<token>) agar tuan rumah dapat langsung menguji tampilan kamera tamu."}
+              </p>
+            </div>
+
+            {/* Control 6: In-App Editorial Gallery & Lightbox */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "In-App Editorial Gallery & Lightbox" : "Galeri Editorial & Lightbox Admin"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Browse wedding photos in Retina clarity directly in the admin panel (/admin/photos). Switch between contact-sheet Editorial Gallery and Guest Rolls Table, filter by guest roll or film recipe, and open the full-screen lightbox to compare film graded shots against clean RAW sensor originals."
+                  : "Jelajahi foto pernikahan dengan kejernihan Retina langsung di panel admin (/admin/photos). Beralih antara Galeri Editorial kontak-sheet dan Tabel Rol Tamu, filter berdasarkan rol tamu atau resep film, dan buka lightbox layar penuh untuk membandingkan hasil film analog dengan foto asli sensor kamera."}
+              </p>
+            </div>
+
+            {/* Control 7: Zero-Overhead Product & Filter Analytics */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Zero-Overhead Product & Filter Analytics" : "Analitik Resep Film & Keterlibatan Tamu"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Live aggregate insights (/admin/health) with 0ms added guest latency and 100% UU PDP compliance. View the film recipes leaderboard (kept vs. retakes), guest shooting conversion funnel (consents → active shooters → completed rolls), and camera capture engine reliability."
+                  : "Wawasan analitik langsung (/admin/health) dengan 0ms latensi tambahan pada kamera tamu dan 100% kepatuhan UU PDP. Pantau papan peringkat resep film terpopuler, funnel keterlibatan tamu (izin → pemotret aktif → rol tuntas), dan keandalan mesin kamera."}
               </p>
             </div>
           </div>
