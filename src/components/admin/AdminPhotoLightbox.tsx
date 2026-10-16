@@ -92,6 +92,7 @@ export function AdminPhotoLightbox({
   const [mounted, setMounted] = useState(false);
   const [mode, setMode] = useState<"filtered" | "original">("filtered");
   const [hdLoaded, setHdLoaded] = useState(false);
+  const [hasError, setHasError] = useState(false);
 
   // Touch tracking for mobile swipe gestures
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -111,6 +112,7 @@ export function AdminPhotoLightbox({
   useEffect(() => {
     setMode("filtered");
     setHdLoaded(false);
+    setHasError(false);
   }, [currentIndex]);
 
   // 3. Preload neighbors (currentIndex - 1 and currentIndex + 1)
@@ -262,27 +264,41 @@ export function AdminPhotoLightbox({
           </svg>
         </button>
 
-        {/* Progressive Photo Stage (Thumb Base + HD Top) */}
-        <div className="relative max-h-full max-w-full flex items-center justify-center pointer-events-none">
-          {/* Base Layer: Instant cached thumbnail (=s800) */}
-          <img
-            src={`/api/admin/photos/${currentFileId}?size=grid`}
-            alt="Base thumbnail"
-            aria-hidden="true"
-            className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl filter blur-[0.5px]"
-          />
+        {/* Progressive Photo Stage (Thumb Base + HD Top) or Error State */}
+        {hasError ? (
+          <div className="flex flex-col items-center justify-center p-8 rounded-2xl bg-stone-900/90 border border-stone-800 text-center max-w-sm pointer-events-auto shadow-2xl">
+            <div className="w-14 h-14 rounded-full bg-stone-800/80 flex items-center justify-center mb-3 text-amber-400">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-stone-200">File Removed from Google Drive</p>
+            <p className="text-xs text-stone-400 mt-1">This photo was moved or deleted from the event Drive folder.</p>
+          </div>
+        ) : (
+          <div className="relative max-h-full max-w-full flex items-center justify-center pointer-events-none">
+            {/* Base Layer: Instant cached thumbnail (=s800) */}
+            <img
+              src={`/api/admin/photos/${currentFileId}?size=grid`}
+              alt=""
+              aria-hidden="true"
+              onError={() => setHasError(true)}
+              className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl filter blur-[0.5px]"
+            />
 
-          {/* Top Layer: HD Lightbox image (=s1600) */}
-          <img
-            key={`${currentFileId}-${mode}`}
-            src={`/api/admin/photos/${currentFileId}?size=lightbox`}
-            alt={guestName ? `Photo by ${guestName}` : "Wedding photo"}
-            onLoad={() => setHdLoaded(true)}
-            className={`absolute inset-0 m-auto max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${
-              hdLoaded ? "opacity-100" : "opacity-0"
-            }`}
-          />
-        </div>
+            {/* Top Layer: HD Lightbox image (=s1600) */}
+            <img
+              key={`${currentFileId}-${mode}`}
+              src={`/api/admin/photos/${currentFileId}?size=lightbox`}
+              alt={guestName ? `Photo by ${guestName}` : "Wedding photo"}
+              onLoad={() => setHdLoaded(true)}
+              onError={() => setHasError(true)}
+              className={`absolute inset-0 m-auto max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl transition-opacity duration-200 ${
+                hdLoaded ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          </div>
+        )}
 
         {/* Desktop Side Chevron: Next */}
         <button

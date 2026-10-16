@@ -563,25 +563,6 @@ export function CameraScreen({
         }`}
       />
 
-      {/* Off-screen video element feeding WebGL canvas (avoid display:none which suspends decoding in mobile Chrome) */}
-      <video
-        ref={videoRef}
-        playsInline
-        muted
-        autoPlay
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          width: "1px",
-          height: "1px",
-          opacity: 0,
-          pointerEvents: "none",
-          zIndex: -999,
-        }}
-        aria-hidden="true"
-      />
-
       {/* Central Viewfinder Container anchored to calculated geometry */}
       <div
         data-viewfinder
@@ -594,8 +575,27 @@ export function CameraScreen({
           transition: "width 380ms cubic-bezier(0.32, 0.72, 0, 1), height 380ms cubic-bezier(0.32, 0.72, 0, 1), top 380ms cubic-bezier(0.32, 0.72, 0, 1), left 380ms cubic-bezier(0.32, 0.72, 0, 1)",
           willChange: "width, height, top, left",
         }}
-        className="overflow-hidden bg-black flex items-center justify-center rounded-sm shadow-2xl z-0"
+        className="overflow-hidden bg-black flex items-center justify-center rounded-sm shadow-2xl z-0 relative"
       >
+        {/* Under-canvas video element kept actively decoded by iOS Safari WebKit */}
+        <video
+          ref={videoRef}
+          playsInline
+          muted
+          autoPlay
+          style={{
+            position: "absolute",
+            inset: 0,
+            width: "100%",
+            height: "100%",
+            objectFit: "cover",
+            opacity: 0.001,
+            pointerEvents: "none",
+            zIndex: 0,
+          }}
+          aria-hidden="true"
+        />
+
         {/* WebGL Canvas with persistent baseline dimensions and Apple spring scale */}
         <canvas
           ref={canvasRef}
@@ -605,8 +605,9 @@ export function CameraScreen({
             transform: `scale(${cameraAspect === "16:9" ? 1.3333 : 1.0}) translateZ(0)`,
             transition: "transform 380ms cubic-bezier(0.32, 0.72, 0, 1)",
             willChange: "transform",
+            zIndex: 1,
           }}
-          className={`pointer-events-none transform-gpu flex-shrink-0 ${
+          className={`relative pointer-events-none transform-gpu flex-shrink-0 ${
             error || isYieldedToOtherTab ? "filter blur-md opacity-40 transition-all duration-300" : ""
           }`}
         />

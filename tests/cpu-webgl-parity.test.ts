@@ -146,4 +146,38 @@ describe("CPU Fallback & Color Science Parity (B1)", () => {
       });
     }).not.toThrow();
   });
+
+  describe("isCanvasBlankOrBlack (Sanity Guard for iOS WebKit)", () => {
+    it("identifies completely black or transparent canvas as blank/black", async () => {
+      const { isCanvasBlankOrBlack } = await import("../src/lib/imaging/render");
+
+      const mockCanvas = {
+        width: 100,
+        height: 100,
+        getContext: () => ({
+          getImageData: () => ({
+            data: new Uint8ClampedArray([0, 0, 0, 255]), // solid black
+          }),
+        }),
+      } as unknown as HTMLCanvasElement;
+
+      expect(isCanvasBlankOrBlack(mockCanvas)).toBe(true);
+    });
+
+    it("identifies canvas with illuminated pixels as valid (not blank)", async () => {
+      const { isCanvasBlankOrBlack } = await import("../src/lib/imaging/render");
+
+      const mockCanvas = {
+        width: 100,
+        height: 100,
+        getContext: () => ({
+          getImageData: () => ({
+            data: new Uint8ClampedArray([120, 140, 200, 255]), // colored pixel
+          }),
+        }),
+      } as unknown as HTMLCanvasElement;
+
+      expect(isCanvasBlankOrBlack(mockCanvas)).toBe(false);
+    });
+  });
 });

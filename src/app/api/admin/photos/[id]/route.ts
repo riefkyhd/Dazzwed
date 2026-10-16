@@ -129,7 +129,20 @@ export async function GET(
     headers.set("Cache-Control", "private, max-age=31536000, immutable");
     const webStream = Readable.toWeb(fallbackStream.data as unknown as Readable);
     return new Response(webStream as unknown as ReadableStream, { headers });
-  } catch (err) {
+  } catch (err: any) {
+    const isNotFound =
+      err?.status === 404 ||
+      err?.code === 404 ||
+      err?.response?.status === 404 ||
+      (typeof err?.message === "string" && (err.message.includes("File not found") || err.message.includes("404")));
+
+    if (isNotFound) {
+      return NextResponse.json(
+        { error: "File removed from Google Drive", code: "DRIVE_FILE_NOT_FOUND" },
+        { status: 404, headers: { "Cache-Control": "no-store" } }
+      );
+    }
+
     console.error("Error in /api/admin/photos/[id]:", err);
     return NextResponse.json({ error: "Failed to stream photo" }, { status: 500 });
   }

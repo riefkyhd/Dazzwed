@@ -3,6 +3,8 @@ import { requireAdmin } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { PhotosManagementView } from "@/components/admin/PhotosManagementView";
 
+import { computeRollCodeFromGuestId } from "@/lib/guest/session";
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminPhotosPage() {
@@ -22,12 +24,17 @@ export default async function AdminPhotosPage() {
     return <div className="p-8 text-center text-zinc-400">Event not found.</div>;
   }
 
-  // 2. Fetch guests
-  const { data: guests } = await sb
+  // 2. Fetch guests (omit non-existent roll_code column, compute dynamically)
+  const { data: guestsData } = await sb
     .from("guests")
-    .select("id, display_name, drive_folder_id, roll_code, created_at, last_seen_at")
+    .select("id, display_name, drive_folder_id, created_at, last_seen_at")
     .eq("event_id", event.id)
     .order("created_at", { ascending: false });
+
+  const guests = (guestsData || []).map((g) => ({
+    ...g,
+    roll_code: computeRollCodeFromGuestId(g.id),
+  }));
 
   // 3. Fetch photos (with fail-safe fallback if preset_id is pending migration)
   let photos: any[] = [];

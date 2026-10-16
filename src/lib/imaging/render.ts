@@ -10,7 +10,42 @@ import { preloadCubeLUT, type ParsedCubeLUT } from "./looks/cube-lut";
 import { applyLookToCanvas2D } from "./looks/cpu-fallback";
 import { drawEmulsionExtras, drawDateStamp, drawInstantFrame } from "./looks/stamp-and-frame";
 
-type Source = HTMLVideoElement | ImageBitmap | HTMLImageElement;
+export type Source = HTMLVideoElement | ImageBitmap | HTMLImageElement | HTMLCanvasElement;
+
+/**
+ * Fast sanity check on an HTMLCanvasElement: samples center and 4 distributed points.
+ * Returns true if all sampled pixels are completely transparent (a===0) or solid black [0,0,0,255],
+ * indicating unrendered WebGL buffers or suspended video frames on iOS WebKit.
+ */
+export function isCanvasBlankOrBlack(canvas: HTMLCanvasElement): boolean {
+  try {
+    const ctx = canvas.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return true;
+    const w = canvas.width;
+    const h = canvas.height;
+    if (w <= 0 || h <= 0) return true;
+
+    const points = [
+      [Math.floor(w * 0.5), Math.floor(h * 0.5)],
+      [Math.floor(w * 0.2), Math.floor(h * 0.2)],
+      [Math.floor(w * 0.8), Math.floor(h * 0.2)],
+      [Math.floor(w * 0.2), Math.floor(h * 0.8)],
+      [Math.floor(w * 0.8), Math.floor(h * 0.8)],
+    ];
+
+    let allBlankOrSolidBlack = true;
+    for (const [x, y] of points) {
+      const pixel = ctx.getImageData(x, y, 1, 1).data;
+      if (pixel[3] > 0 && (pixel[0] > 0 || pixel[1] > 0 || pixel[2] > 0)) {
+        allBlankOrSolidBlack = false;
+        break;
+      }
+    }
+    return allBlankOrSolidBlack;
+  } catch {
+    return false;
+  }
+}
 
 function sourceSize(src: Source): { w: number; h: number } {
   if (src instanceof HTMLVideoElement) return { w: src.videoWidth, h: src.videoHeight };
@@ -103,7 +138,7 @@ export function getSharedCapturePipeline(): { pipeline: LookEnginePipeline; canv
     sharedGlCanvas.height = 1440;
   }
   if (!sharedCapturePipeline) {
-    sharedCapturePipeline = new LookEnginePipeline(sharedGlCanvas);
+    sharedCapturePipeline = new LookEnginePipeline(sharedGlCanvas, { preserveDrawingBuffer: true });
   }
   return { pipeline: sharedCapturePipeline, canvas: sharedGlCanvas };
 }
@@ -236,6 +271,27 @@ export async function renderShot(
 
   if (rendered && processedCanvas) {
     ctx2d.drawImage(processedCanvas, 0, 0);
+
+    // Black-Frame Sanity Check: If composited WebGL canvas is blank or solid black (e.g. iOS WebKit unpreserved buffer),
+    // immediately re-composite using the 2D CPU LookRecipe fallback so black photos are never produced.
+    if (isCanvasBlankOrBlack(canvas)) {
+      console.warn("Rendered WebGL canvas was blank/black, falling back to 2D CPU LookRecipe pipeline");
+      if (mirror) {
+        ctx2d.save();
+        ctx2d.translate(out.width, 0);
+        ctx2d.scale(-1, 1);
+        ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+        ctx2d.restore();
+      } else {
+        ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
+      }
+      applyLookToCanvas2D(ctx2d, out.width, out.height, look, {
+        isNativeCamera: sourceType === "native",
+        intensity: targetIntensity,
+        seed,
+        lut: loadedLut,
+      });
+    }
   } else {
     // Fallback 2D if WebGL unavailable — uses the exact same LookRecipe color science
     if (mirror) {

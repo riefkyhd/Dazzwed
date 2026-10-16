@@ -17,7 +17,7 @@ import {
 } from "./caps";
 import { CameraError, openStream, type CameraErrorKind } from "./constraints";
 import { pickDefaultLens, pickerLenses, toLens, type Lens } from "./lenses";
-import { renderShot, prewarmCapturePipeline } from "@/lib/imaging/render";
+import { renderShot, prewarmCapturePipeline, isCanvasBlankOrBlack } from "@/lib/imaging/render";
 import { cropForAspectAndZoom, fitLongestEdge, type CameraAspect } from "@/lib/imaging/geometry";
 import type { LookRecipe } from "@/lib/imaging/looks/types";
 import { CPM35_LOOK, getLookById } from "@/lib/imaging/looks/presets";
@@ -1012,42 +1012,63 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             else if (isUser) shouldFireScreenFlash = true;
           }
         }
-        let frozenSource: ImageBitmap | HTMLVideoElement = v;
+        let frozenSource: ImageBitmap | HTMLVideoElement | HTMLCanvasElement = v;
         let passedFrozenSourceToPreview = false;
+
+        const takeFrameSnapshots = async (): Promise<{
+          previewBmp: ImageBitmap | null;
+          sourceCanvas: HTMLCanvasElement;
+        }> => {
+          const vw = v.videoWidth || 1920;
+          const vh = v.videoHeight || 1080;
+          const sourceCanvas = document.createElement("canvas");
+          sourceCanvas.width = vw;
+          sourceCanvas.height = vh;
+          const ctx = sourceCanvas.getContext("2d", { willReadFrequently: true });
+          if (ctx) {
+            ctx.drawImage(v, 0, 0, vw, vh);
+            if (isCanvasBlankOrBlack(sourceCanvas)) {
+              ctx.drawImage(v, 0, 0, vw, vh);
+            }
+          }
+
+          let previewBmp: ImageBitmap | null = null;
+          // 1. Try reading the active WebGL preview canvas if valid and non-black
+          if (c && c.width > 0 && c.height > 0 && !isCanvasBlankOrBlack(c)) {
+            try {
+              const crop = cropForAspectAndZoom(c.width, c.height, targetAspect, 1);
+              previewBmp = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
+            } catch {
+              previewBmp = await createImageBitmap(c).catch(() => null);
+            }
+          }
+
+          // 2. If WebGL preview was blank or failed, generate preview from the 2D sourceCanvas
+          if (!previewBmp && ctx) {
+            try {
+              const crop = cropForAspectAndZoom(vw, vh, targetAspect, 1);
+              previewBmp = await createImageBitmap(sourceCanvas, crop.sx, crop.sy, crop.sw, crop.sh);
+            } catch {
+              // fallback
+            }
+          }
+
+          return { previewBmp, sourceCanvas };
+        };
 
         if (!shouldFireTorch && !shouldFireScreenFlash) {
           // --- Non-flash Instant Capture Pipeline (< 80ms) ---
-          callbacks?.onShutterSnap?.();
+          // 1. Snapshot video and canvas synchronously BEFORE freezing RAF loop
+          const { previewBmp, sourceCanvas } = await takeFrameSnapshots();
+          frozenSource = sourceCanvas;
 
-          // 1. Freeze viewfinder immediately
+          // 2. Freeze viewfinder immediately
           isFrozenRef.current = true;
-
-          // 2. Dual snapshot at exact same instant t=0 (instant preview bitmap and archival frame source)
-          let previewBmp: ImageBitmap | null = null;
-          try {
-            let bmpC: ImageBitmap | null = null;
-            if (c) {
-              try {
-                const crop = cropForAspectAndZoom(c.width, c.height, targetAspect, 1);
-                bmpC = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
-              } catch {
-                bmpC = await createImageBitmap(c).catch(() => null);
-              }
-            }
-            const bmpV = typeof createImageBitmap === "function" ? await createImageBitmap(v).catch(() => null) : null;
-            previewBmp = bmpC;
-            if (bmpV) frozenSource = bmpV;
-          } catch (e) {
-            console.warn("Dual capture snapshot failed:", e);
-          }
+          callbacks?.onShutterSnap?.();
 
           if (previewBmp && onPreviewReady) {
             diagnostics.recordMark("t3");
             onPreviewReady(previewBmp);
-          } else if (onPreviewReady && frozenSource instanceof ImageBitmap) {
-            diagnostics.recordMark("t3");
-            passedFrozenSourceToPreview = true;
-            onPreviewReady(frozenSource);
           }
 
           diagnostics.recordMark("t2");
@@ -1055,7 +1076,6 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           // 3. Yield to main thread so ReviewModal mounts, paints, and records t4 (< 100ms budget)
           await new Promise((r) => setTimeout(r, 60));
           if (abortCtrl.signal.aborted) {
-            if (frozenSource instanceof ImageBitmap) frozenSource.close();
             throw new DOMException("Capture aborted", "AbortError");
           }
         } else {
@@ -1067,22 +1087,9 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             await pulseTorch(
               track,
               async () => {
-                try {
-                  let bmpC: ImageBitmap | null = null;
-                  if (c) {
-                    try {
-                      const crop = cropForAspectAndZoom(c.width, c.height, targetAspect, 1);
-                      bmpC = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
-                    } catch {
-                      bmpC = await createImageBitmap(c).catch(() => null);
-                    }
-                  }
-                  const bmpV = typeof createImageBitmap === "function" ? await createImageBitmap(v).catch(() => null) : null;
-                  previewBmp = bmpC;
-                  if (bmpV) frozenSource = bmpV;
-                } catch {
-                  frozenSource = v;
-                }
+                const snap = await takeFrameSnapshots();
+                previewBmp = snap.previewBmp;
+                frozenSource = snap.sourceCanvas;
               },
               { maxStabilizeMs: 260 }
             );
@@ -1091,22 +1098,9 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             callbacks?.onScreenFlash?.(true);
             try {
               await new Promise((r) => setTimeout(r, 260));
-              try {
-                let bmpC: ImageBitmap | null = null;
-                if (c) {
-                  try {
-                    const crop = cropForAspectAndZoom(c.width, c.height, targetAspect, 1);
-                    bmpC = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
-                  } catch {
-                    bmpC = await createImageBitmap(c).catch(() => null);
-                  }
-                }
-                const bmpV = typeof createImageBitmap === "function" ? await createImageBitmap(v).catch(() => null) : null;
-                previewBmp = bmpC;
-                if (bmpV) frozenSource = bmpV;
-              } catch {
-                frozenSource = v;
-              }
+              const snap = await takeFrameSnapshots();
+              previewBmp = snap.previewBmp;
+              frozenSource = snap.sourceCanvas;
             } finally {
               callbacks?.onScreenFlash?.(false);
             }
@@ -1124,10 +1118,6 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           if (previewBmp && onPreviewReady) {
             diagnostics.recordMark("t3");
             onPreviewReady(previewBmp);
-          } else if (onPreviewReady && frozenSource instanceof ImageBitmap) {
-            diagnostics.recordMark("t3");
-            passedFrozenSourceToPreview = true;
-            onPreviewReady(frozenSource);
           }
         }
 

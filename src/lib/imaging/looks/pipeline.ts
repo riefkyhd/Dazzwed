@@ -660,7 +660,10 @@ export class LookEnginePipeline {
   private cachedHueNodes = new Float32Array(24 * 4);
   private lastUploadedLookId: string | null = null;
 
-  constructor(private canvas: HTMLCanvasElement | OffscreenCanvas) {
+  constructor(
+    private canvas: HTMLCanvasElement | OffscreenCanvas,
+    private options?: { preserveDrawingBuffer?: boolean }
+  ) {
     this.canvas.addEventListener("webglcontextlost", this.handleContextLost as EventListener, false);
     this.canvas.addEventListener("webglcontextrestored", this.handleContextRestored as EventListener, false);
     this.initWebGL();
@@ -682,13 +685,14 @@ export class LookEnginePipeline {
   };
 
   private initWebGL() {
+    const shouldPreserve = this.options?.preserveDrawingBuffer ?? false;
     const attribs: WebGLContextAttributes = {
       alpha: false,
       premultipliedAlpha: false,
       antialias: false,
       depth: false,
       stencil: false,
-      preserveDrawingBuffer: false,
+      preserveDrawingBuffer: shouldPreserve,
       powerPreference: "high-performance",
       desynchronized: false,
     };
@@ -700,7 +704,7 @@ export class LookEnginePipeline {
         antialias: false,
         depth: false,
         stencil: false,
-        preserveDrawingBuffer: false,
+        preserveDrawingBuffer: shouldPreserve,
         powerPreference: "high-performance",
       }) as WebGL2RenderingContext | null;
     }

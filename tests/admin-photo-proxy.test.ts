@@ -136,4 +136,28 @@ describe("GET /api/admin/photos/[id] Image Proxy", () => {
     expect(res.headers.get("Content-Disposition")).toContain("attachment; filename=");
     expect(res.headers.get("Cache-Control")).toBe("private, max-age=31536000, immutable");
   });
+
+  it("returns 404 with Cache-Control: no-store when file was deleted from Google Drive", async () => {
+    vi.mocked(getAdminUser).mockResolvedValue({ id: "admin-1", email: "admin@example.com" } as any);
+    vi.mocked(resolveDriveTokens).mockResolvedValue({ refreshToken: "mock-refresh-token", rootFolderId: "root-123" });
+
+    const notFoundError = new Error("File not found: 1sTj6--CL46M0h5vqiFadozmafaQsBW3k");
+    (notFoundError as any).status = 404;
+
+    const mockDrive = {
+      files: {
+        get: vi.fn().mockRejectedValue(notFoundError),
+      },
+    };
+    vi.mocked(getDriveClient).mockReturnValue(mockDrive as any);
+
+    const req = new Request("http://localhost/api/admin/photos/drive-deleted-123");
+    const res = await GET(req, { params: Promise.resolve({ id: "drive-deleted-123" }) });
+
+    expect(res.status).toBe(404);
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
+    const json = await res.json();
+    expect(json.code).toBe("DRIVE_FILE_NOT_FOUND");
+    expect(json.error).toBe("File removed from Google Drive");
+  });
 });
