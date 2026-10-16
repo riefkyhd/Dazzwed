@@ -406,7 +406,7 @@ export function CameraScreen({
         retakenPresetsRef.current = [];
         void onShotCaptured(filteredBlob, originalBlob, {
           presetId: activeLook.id,
-          captureSource: "videoFrame",
+          captureSource: typeof window !== "undefined" && "ImageCapture" in window ? "takePhoto" : "videoFrame",
           retakenPresetIds: retaken,
         });
 

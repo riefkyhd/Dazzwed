@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback } from "react";
 import { computeRollCodeFromGuestId } from "@/lib/guest/session";
+import { AdminPhotoLightbox } from "./AdminPhotoLightbox";
 
 export interface GuestItem {
   id: string;
@@ -50,7 +51,6 @@ export function PhotosManagementView({
   const [visibleLimit, setVisibleLimit] = useState<number>(24);
 
   const [activeLightboxIndex, setActiveLightboxIndex] = useState<number | null>(null);
-  const [lightboxMode, setLightboxMode] = useState<"filtered" | "original">("filtered");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
@@ -113,32 +113,6 @@ export function PhotosManagementView({
   const visiblePhotos = useMemo(() => {
     return filteredPhotos.slice(0, visibleLimit);
   }, [filteredPhotos, visibleLimit]);
-
-  // Active lightbox photo object
-  const activePhoto: PhotoItem | null =
-    activeLightboxIndex !== null && filteredPhotos[activeLightboxIndex]
-      ? filteredPhotos[activeLightboxIndex]
-      : null;
-
-  // Keyboard navigation for Lightbox
-  useEffect(() => {
-    if (activeLightboxIndex === null) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setActiveLightboxIndex(null);
-      } else if (e.key === "ArrowLeft") {
-        setActiveLightboxIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : filteredPhotos.length - 1));
-        setLightboxMode("filtered");
-      } else if (e.key === "ArrowRight") {
-        setActiveLightboxIndex((prev) => (prev !== null && prev < filteredPhotos.length - 1 ? prev + 1 : 0));
-        setLightboxMode("filtered");
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [activeLightboxIndex, filteredPhotos.length]);
 
   const handleHide = useCallback(async (photoId: string) => {
     setActionLoading(photoId);
@@ -204,8 +178,8 @@ export function PhotosManagementView({
   }, [activeLightboxIndex]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-      {/* Header */}
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+      {/* Header Bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-stone-800">
         <div>
           <span className="text-xs font-mono uppercase tracking-widest text-amber-400">Wedding Archive</span>
@@ -267,100 +241,123 @@ export function PhotosManagementView({
         </div>
       )}
 
-      {/* Filter and Control Bar */}
-      <div className="bg-stone-900/60 border border-stone-800/80 p-3.5 rounded-2xl mb-6 flex flex-wrap items-center justify-between gap-3 text-xs">
-        <div className="flex flex-wrap items-center gap-2.5">
-          {/* Guest Filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-stone-400 font-mono">Roll:</span>
-            <select
-              value={guestFilter}
-              onChange={(e) => {
-                setGuestFilter(e.target.value);
-                setVisibleLimit(24);
-              }}
-              className="bg-stone-950 border border-stone-800 rounded-lg px-2.5 py-1.5 text-stone-200 text-xs focus:outline-none focus:border-amber-400 cursor-pointer"
-            >
-              <option value="all">All Rolls ({guestsWithStats.length})</option>
-              {guestsWithStats.map((g) => (
-                <option key={g.id} value={g.id}>
-                  Roll {g.roll_code} {g.display_name ? `(${g.display_name})` : ""} — {g.totalShots} shots
-                </option>
-              ))}
-            </select>
+      {/* COMPACT, NON-WRAPPING CONTROL BAR */}
+      <div className="bg-stone-900/60 border border-stone-800/80 p-3 rounded-2xl mb-6 space-y-3">
+        {/* Top Row: Guest Dropdown, Sort, Status, and Stats */}
+        <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Guest / Roll Selector */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-stone-400 font-mono text-xs">Roll:</span>
+              <select
+                value={guestFilter}
+                onChange={(e) => {
+                  setGuestFilter(e.target.value);
+                  setVisibleLimit(24);
+                }}
+                className="bg-stone-950 border border-stone-800 rounded-lg px-2.5 py-1.5 text-stone-200 text-xs focus:outline-none focus:border-amber-400 cursor-pointer max-w-[200px] truncate"
+              >
+                <option value="all">All Rolls ({guestsWithStats.length})</option>
+                {guestsWithStats.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    Roll {g.roll_code} {g.display_name ? `(${g.display_name})` : ""} — {g.totalShots} shots
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Sort Toggle */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-stone-400 font-mono text-xs">Sort:</span>
+              <select
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value as "desc" | "asc")}
+                className="bg-stone-950 border border-stone-800 rounded-lg px-2.5 py-1.5 text-stone-200 text-xs focus:outline-none focus:border-amber-400 cursor-pointer"
+              >
+                <option value="desc">Newest</option>
+                <option value="asc">Oldest</option>
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-stone-400 font-mono text-xs">Status:</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => {
+                  setStatusFilter(e.target.value as any);
+                  setVisibleLimit(24);
+                }}
+                className="bg-stone-950 border border-stone-800 rounded-lg px-2.5 py-1.5 text-stone-200 text-xs focus:outline-none focus:border-amber-400 cursor-pointer"
+              >
+                <option value="all">All ({photos.length})</option>
+                <option value="confirmed">Confirmed</option>
+                <option value="hidden">Hidden</option>
+                <option value="failed">Failed</option>
+              </select>
+            </div>
           </div>
 
-          {/* Film Recipe Filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-stone-400 font-mono">Recipe:</span>
-            <select
-              value={presetFilter}
-              onChange={(e) => {
-                setPresetFilter(e.target.value);
-                setVisibleLimit(24);
-              }}
-              className="bg-stone-950 border border-stone-800 rounded-lg px-2.5 py-1.5 text-stone-200 text-xs focus:outline-none focus:border-amber-400 cursor-pointer"
-            >
-              <option value="all">All Recipes</option>
-              {availablePresets.map((recipe) => (
-                <option key={recipe} value={recipe}>
-                  {recipe}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-stone-400 font-mono">Status:</span>
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as any);
-                setVisibleLimit(24);
-              }}
-              className="bg-stone-950 border border-stone-800 rounded-lg px-2.5 py-1.5 text-stone-200 text-xs focus:outline-none focus:border-amber-400 cursor-pointer"
-            >
-              <option value="all">All ({photos.length})</option>
-              <option value="confirmed">Confirmed</option>
-              <option value="hidden">Hidden</option>
-              <option value="failed">Failed</option>
-            </select>
-          </div>
-
-          {/* Sort Order */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-stone-400 font-mono">Sort:</span>
-            <select
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as "desc" | "asc")}
-              className="bg-stone-950 border border-stone-800 rounded-lg px-2.5 py-1.5 text-stone-200 text-xs focus:outline-none focus:border-amber-400 cursor-pointer"
-            >
-              <option value="desc">Newest First</option>
-              <option value="asc">Oldest First</option>
-            </select>
+          <div className="text-stone-400 font-mono text-xs">
+            Showing <span className="text-amber-300 font-semibold">{visiblePhotos.length}</span> of {filteredPhotos.length}
           </div>
         </div>
 
-        <div className="text-stone-400 font-mono text-xs">
-          Showing <span className="text-amber-300 font-semibold">{visiblePhotos.length}</span> of {filteredPhotos.length} photos
+        {/* Bottom Row: Film Recipe Pills (Single-line horizontal scroll row, never wraps) */}
+        <div className="pt-2 border-t border-stone-800/60 flex items-center gap-2">
+          <span className="text-[11px] font-mono text-stone-500 uppercase shrink-0">Recipe:</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setPresetFilter("all");
+                setVisibleLimit(24);
+              }}
+              className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                presetFilter === "all"
+                  ? "bg-amber-400 text-black font-semibold shadow"
+                  : "bg-stone-950 border border-stone-800 text-stone-400 hover:text-stone-200"
+              }`}
+            >
+              All Looks
+            </button>
+            {availablePresets.map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                onClick={() => {
+                  setPresetFilter(preset);
+                  setVisibleLimit(24);
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                  presetFilter === preset
+                    ? "bg-amber-400 text-black font-semibold shadow"
+                    : "bg-stone-950 border border-stone-800 text-stone-400 hover:text-stone-200"
+                }`}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* VIEW MODE 1: EDITORIAL GALLERY */}
+      {/* VIEW MODE 1: RETINA EDITORIAL GALLERY */}
       {viewMode === "editorial" && (
         <div>
           {filteredPhotos.length === 0 ? (
             <div className="p-16 text-center rounded-2xl bg-stone-950 border border-stone-800 text-stone-400">
               <p className="text-sm font-serif">No photos match the selected filters.</p>
-              <p className="text-xs text-stone-500 font-mono mt-1">Try clearing or switching your filters above.</p>
+              <p className="text-xs text-stone-500 font-mono mt-1">Try switching your roll or recipe filters above.</p>
             </div>
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4">
+              {/* Responsive Contact-Sheet Grid: 2 cols on mobile, 3 on sm, 4 on lg */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 sm:gap-4">
                 {visiblePhotos.map((photo, index) => {
                   const meta = guestMetaMap.get(photo.guest_id);
                   const rollCode = meta?.rollCode || "ROLL";
+                  const guestName = meta?.name || null;
                   const recipe = photo.preset_id || photo.look_id || "disposable-400";
                   const isLoaded = loadedImages[photo.id];
                   const hasDriveId = !!photo.drive_file_id;
@@ -371,10 +368,9 @@ export function PhotosManagementView({
                       onClick={() => {
                         if (hasDriveId) {
                           setActiveLightboxIndex(index);
-                          setLightboxMode("filtered");
                         }
                       }}
-                      className="group relative aspect-[4/5] rounded-xl overflow-hidden bg-stone-900 border border-stone-800/80 hover:border-amber-400/60 transition-all cursor-pointer shadow-md hover:shadow-xl hover:shadow-black/50"
+                      className="aspect-[3/4] relative overflow-hidden rounded-xl bg-stone-900 border border-stone-800/80 group cursor-pointer shadow-md hover:border-amber-400/60 transition-all"
                     >
                       {/* Image Preview with Retina streaming */}
                       {hasDriveId ? (
@@ -386,8 +382,9 @@ export function PhotosManagementView({
                           )}
                           <img
                             src={`/api/admin/photos/${photo.drive_file_id}?size=grid`}
-                            alt={`Shot by Roll ${rollCode}`}
+                            alt={guestName ? `Shot by ${guestName}` : `Shot by Roll ${rollCode}`}
                             loading="lazy"
+                            decoding="async"
                             onLoad={() => setLoadedImages((prev) => ({ ...prev, [photo.id]: true }))}
                             className={`w-full h-full object-cover transition-transform duration-500 group-hover:scale-105 ${
                               isLoaded ? "opacity-100" : "opacity-0"
@@ -416,28 +413,25 @@ export function PhotosManagementView({
                         </div>
                       )}
 
-                      {/* Film graded overlay on hover */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity p-2.5 flex flex-col justify-between">
+                      {/* Compact Bottom Gradient Overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-2.5 flex flex-col justify-between pointer-events-none">
                         <div className="flex items-center justify-between gap-1">
-                          <span className="px-1.5 py-0.5 rounded bg-black/60 text-amber-300 font-mono text-[10px] backdrop-blur-sm">
+                          <span className="px-1.5 py-0.5 rounded bg-black/70 text-amber-300 font-mono text-[10px] backdrop-blur-sm">
                             Roll {rollCode}
                           </span>
                           {photo.original_drive_file_id && (
-                            <span className="px-1 py-0.5 rounded bg-black/60 text-stone-300 font-mono text-[9px] backdrop-blur-sm" title="RAW Original Available">
+                            <span className="px-1 py-0.5 rounded bg-black/70 text-stone-300 font-mono text-[9px] backdrop-blur-sm" title="RAW Original Available">
                               RAW
                             </span>
                           )}
                         </div>
 
-                        <div>
-                          <div className="text-[10px] text-amber-200 font-medium truncate">
-                            {recipe}
+                        <div className="min-w-0">
+                          <div className="text-[11px] text-white font-medium truncate">
+                            {guestName || `Shot #${photo.shot_id.slice(0, 6)}`}
                           </div>
-                          <div className="text-[9px] text-stone-400 font-mono mt-0.5">
-                            {new Date(photo.created_at).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                          <div className="text-[10px] text-amber-300/80 font-mono truncate">
+                            {recipe}
                           </div>
                         </div>
                       </div>
@@ -446,7 +440,7 @@ export function PhotosManagementView({
                 })}
               </div>
 
-              {/* Load More Button */}
+              {/* Load More Button (Batches of 24) */}
               {visibleLimit < filteredPhotos.length && (
                 <div className="text-center mt-10">
                   <button
@@ -478,63 +472,75 @@ export function PhotosManagementView({
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="border-b border-stone-800 text-stone-400 font-mono uppercase tracking-wider">
-                      <th className="py-2.5 px-3">Roll Code</th>
-                      <th className="py-2.5 px-3">Guest Name</th>
-                      <th className="py-2.5 px-3">Shots Taken</th>
-                      <th className="py-2.5 px-3">Confirmed in Drive</th>
-                      <th className="py-2.5 px-3">Last Active</th>
-                      <th className="py-2.5 px-3 text-right">Drive Subfolder</th>
+                      <th className="py-2 px-3">Roll Code</th>
+                      <th className="py-2 px-3">Guest Name</th>
+                      <th className="py-2 px-3">Shots Taken</th>
+                      <th className="py-2 px-3">Quota</th>
+                      <th className="py-2 px-3">Last Seen</th>
+                      <th className="py-2 px-3">Drive Folder</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-stone-900 font-mono">
-                    {guestsWithStats.map((guest) => (
-                      <tr key={guest.id} className="hover:bg-stone-900/50 transition-colors">
-                        <td className="py-3 px-3 text-amber-300 font-semibold">
-                          Roll {guest.roll_code}
-                        </td>
-                        <td className="py-3 px-3 font-sans font-medium text-stone-200">
-                          {guest.display_name || <span className="text-stone-500 italic">Anonymous</span>}
-                        </td>
-                        <td className="py-3 px-3 text-stone-300">
-                          {guest.totalShots} / {shotsPerGuest}
-                        </td>
-                        <td className="py-3 px-3 text-emerald-400">
-                          {guest.confirmedShots}
-                        </td>
-                        <td className="py-3 px-3 text-stone-500">
-                          {new Date(guest.last_seen_at).toLocaleDateString([], {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          {guest.drive_folder_id ? (
-                            <a
-                              href={`https://drive.google.com/drive/folders/${guest.drive_folder_id}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-amber-400 hover:underline font-medium"
+                    {guestsWithStats.map((guest) => {
+                      const completed = (guest.totalShots || 0) >= shotsPerGuest;
+                      return (
+                        <tr key={guest.id} className="hover:bg-stone-900/50 transition-colors">
+                          <td className="py-3 px-3 text-amber-300 font-bold">
+                            Roll {guest.roll_code}
+                          </td>
+                          <td className="py-3 px-3 text-stone-200 font-sans">
+                            {guest.display_name || <span className="text-stone-500 italic">Guest</span>}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-semibold ${
+                                completed
+                                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                  : "bg-stone-800 text-stone-300"
+                              }`}
                             >
-                              Open Folder &rarr;
-                            </a>
-                          ) : (
-                            <span className="text-stone-600">Pending upload</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                              {guest.totalShots || 0} / {shotsPerGuest} shots
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-stone-400">
+                            {completed ? "Completed Roll" : `${shotsPerGuest - (guest.totalShots || 0)} left`}
+                          </td>
+                          <td className="py-3 px-3 text-stone-500">
+                            {new Date(guest.last_seen_at).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="py-3 px-3">
+                            {guest.drive_folder_id ? (
+                              <a
+                                href={`https://drive.google.com/drive/folders/${guest.drive_folder_id}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-amber-400 hover:underline flex items-center gap-1"
+                              >
+                                <span>Folder</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3">
+                                  <path fillRule="evenodd" d="M4.22 11.78a.75.75 0 0 1 0-1.06L9.44 5.5H5.75a.75.75 0 0 1 0-1.5h5.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V6.56l-5.22 5.22a.75.75 0 0 1-1.06 0Z" clipRule="evenodd" />
+                                </svg>
+                              </a>
+                            ) : (
+                              <span className="text-stone-600">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
             )}
           </div>
 
-          {/* Photos Table */}
+          {/* Detailed Photos Table */}
           <div className="p-6 rounded-2xl bg-stone-950 border border-stone-800">
             <h2 className="text-base font-bold text-white mb-4">
-              All Photo Records ({photos.length})
+              All Photos ({filteredPhotos.length})
             </h2>
 
             <div className="overflow-x-auto">
@@ -542,8 +548,8 @@ export function PhotosManagementView({
                 <thead>
                   <tr className="border-b border-stone-800 text-stone-400 font-mono uppercase tracking-wider">
                     <th className="py-2.5 px-3">Shot ID</th>
-                    <th className="py-2.5 px-3">Roll</th>
-                    <th className="py-2.5 px-3">Recipe / Look</th>
+                    <th className="py-2.5 px-3">Guest Roll</th>
+                    <th className="py-2.5 px-3">Recipe</th>
                     <th className="py-2.5 px-3">Status</th>
                     <th className="py-2.5 px-3">Size</th>
                     <th className="py-2.5 px-3">Drive File</th>
@@ -645,164 +651,15 @@ export function PhotosManagementView({
         </div>
       )}
 
-      {/* EDITORIAL FULL-SCREEN LIGHTBOX MODAL */}
-      {activePhoto && (
-        <div className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex flex-col select-none">
-          {/* Top Bar */}
-          <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-stone-800/80 bg-stone-950/80">
-            {/* Left metadata */}
-            <div className="flex items-center gap-3">
-              <span className="px-2.5 py-1 rounded-lg bg-amber-400 text-black font-mono font-bold text-xs">
-                Roll {guestMetaMap.get(activePhoto.guest_id)?.rollCode || "ROLL"}
-              </span>
-              <div>
-                <div className="text-white font-medium text-xs flex items-center gap-2">
-                  <span>{activePhoto.preset_id || activePhoto.look_id || "disposable-400"}</span>
-                  <span className="text-stone-500">•</span>
-                  <span className="text-stone-400 font-mono">
-                    Photo {activeLightboxIndex! + 1} of {filteredPhotos.length}
-                  </span>
-                </div>
-                <div className="text-[11px] text-stone-500 font-mono">
-                  {new Date(activePhoto.created_at).toLocaleString([], {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                  {guestMetaMap.get(activePhoto.guest_id)?.name && ` • ${guestMetaMap.get(activePhoto.guest_id)?.name}`}
-                </div>
-              </div>
-            </div>
-
-            {/* Center: Graded vs Original Comparison Toggle */}
-            <div className="flex items-center bg-stone-900 border border-stone-800 p-0.5 rounded-xl text-xs">
-              <button
-                onClick={() => setLightboxMode("filtered")}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                  lightboxMode === "filtered"
-                    ? "bg-amber-400 text-black font-semibold shadow"
-                    : "text-stone-400 hover:text-stone-200"
-                }`}
-              >
-                Film Graded
-              </button>
-              <button
-                onClick={() => {
-                  if (activePhoto.original_drive_file_id) {
-                    setLightboxMode("original");
-                  }
-                }}
-                disabled={!activePhoto.original_drive_file_id}
-                title={activePhoto.original_drive_file_id ? "View clean RAW sensor capture" : "Clean original was not retained for this shot"}
-                className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
-                  !activePhoto.original_drive_file_id
-                    ? "text-stone-600 cursor-not-allowed"
-                    : lightboxMode === "original"
-                      ? "bg-amber-400 text-black font-semibold shadow cursor-pointer"
-                      : "text-stone-400 hover:text-stone-200 cursor-pointer"
-                }`}
-              >
-                RAW Original {activePhoto.original_drive_file_id ? "" : "(N/A)"}
-              </button>
-            </div>
-
-            {/* Right actions */}
-            <div className="flex items-center gap-2">
-              {/* 1-Click HD Download */}
-              <a
-                href={`/api/admin/photos/${
-                  lightboxMode === "original"
-                    ? activePhoto.original_drive_file_id || activePhoto.drive_file_id
-                    : activePhoto.drive_file_id
-                }?download=1`}
-                download
-                className="px-3 py-1.5 rounded-xl bg-stone-900 border border-stone-800 text-stone-200 hover:text-amber-300 hover:border-amber-400/50 font-medium text-xs flex items-center gap-1.5 transition-all cursor-pointer"
-                title="Download High-Resolution Master"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                  <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
-                  <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
-                </svg>
-                <span>Download HD</span>
-              </a>
-
-              {/* Hide / Unhide */}
-              {activePhoto.status === "hidden" ? (
-                <button
-                  onClick={() => void handleUnhide(activePhoto.id)}
-                  disabled={actionLoading === activePhoto.id}
-                  className="px-3 py-1.5 rounded-xl bg-stone-900 border border-stone-800 text-stone-200 text-xs hover:bg-stone-800 cursor-pointer"
-                >
-                  Unhide
-                </button>
-              ) : (
-                <button
-                  onClick={() => void handleHide(activePhoto.id)}
-                  disabled={actionLoading === activePhoto.id}
-                  className="px-3 py-1.5 rounded-xl bg-stone-900 border border-stone-800 text-stone-300 text-xs hover:bg-stone-800 cursor-pointer"
-                >
-                  Hide
-                </button>
-              )}
-
-              {/* Close Button */}
-              <button
-                onClick={() => setActiveLightboxIndex(null)}
-                className="w-8 h-8 rounded-xl bg-stone-900 hover:bg-stone-800 text-stone-400 hover:text-white flex items-center justify-center transition-all cursor-pointer text-base ml-1"
-                title="Close (Esc)"
-              >
-                &times;
-              </button>
-            </div>
-          </div>
-
-          {/* Central Image Viewer */}
-          <div className="flex-1 relative flex items-center justify-center p-4 sm:p-8 overflow-hidden">
-            {/* Previous Photo Arrow */}
-            <button
-              onClick={() => {
-                setActiveLightboxIndex((prev) => (prev !== null && prev > 0 ? prev - 1 : filteredPhotos.length - 1));
-                setLightboxMode("filtered");
-              }}
-              className="absolute left-4 z-20 w-11 h-11 rounded-full bg-black/60 border border-stone-800 hover:border-amber-400 text-stone-300 hover:text-amber-300 flex items-center justify-center backdrop-blur-sm transition-all cursor-pointer"
-              title="Previous Photo (←)"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
-              </svg>
-            </button>
-
-            {/* Image Preview Container */}
-            <div className="relative max-w-full max-h-full flex items-center justify-center">
-              <img
-                key={`${activePhoto.id}-${lightboxMode}`}
-                src={`/api/admin/photos/${
-                  lightboxMode === "original"
-                    ? activePhoto.original_drive_file_id || activePhoto.drive_file_id
-                    : activePhoto.drive_file_id
-                }?size=lightbox`}
-                alt="Editorial Preview"
-                className="max-h-[82vh] max-w-[90vw] object-contain rounded-lg shadow-2xl transition-all duration-300"
-              />
-            </div>
-
-            {/* Next Photo Arrow */}
-            <button
-              onClick={() => {
-                setActiveLightboxIndex((prev) => (prev !== null && prev < filteredPhotos.length - 1 ? prev + 1 : 0));
-                setLightboxMode("filtered");
-              }}
-              className="absolute right-4 z-20 w-11 h-11 rounded-full bg-black/60 border border-stone-800 hover:border-amber-400 text-stone-300 hover:text-amber-300 flex items-center justify-center backdrop-blur-sm transition-all cursor-pointer"
-              title="Next Photo (→)"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
+      {/* BULLETPROOF STANDALONE LIGHTBOX MODAL */}
+      <AdminPhotoLightbox
+        photos={filteredPhotos}
+        currentIndex={activeLightboxIndex ?? 0}
+        isOpen={activeLightboxIndex !== null}
+        onClose={() => setActiveLightboxIndex(null)}
+        onNavigate={(index) => setActiveLightboxIndex(index)}
+        guestMetaMap={guestMetaMap}
+      />
     </div>
   );
 }

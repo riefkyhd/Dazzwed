@@ -20,7 +20,7 @@ export function AdminGuideView() {
               Host Manual & Best Practices
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
-              v2.5
+              v2.6
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-1">
@@ -384,8 +384,8 @@ export function AdminGuideView() {
               </div>
               <p className="text-xs text-zinc-300 leading-relaxed">
                 {lang === "en"
-                  ? "Browse wedding photos in Retina clarity directly in the admin panel (/admin/photos). Switch between contact-sheet Editorial Gallery and Guest Rolls Table, filter by guest roll or film recipe, and open the full-screen lightbox to compare film graded shots against clean RAW sensor originals."
-                  : "Jelajahi foto pernikahan dengan kejernihan Retina langsung di panel admin (/admin/photos). Beralih antara Galeri Editorial kontak-sheet dan Tabel Rol Tamu, filter berdasarkan rol tamu atau resep film, dan buka lightbox layar penuh untuk membandingkan hasil film analog dengan foto asli sensor kamera."}
+                  ? "Browse wedding photos in Retina clarity directly in the admin panel (/admin/photos and /admin/guests). Switch between contact-sheet Editorial Gallery and Guest Rolls Table, filter with sleek horizontal recipe pills and guest dropdowns, and open the full-screen React Portal lightbox with touch swipe navigation, background scroll-lock, and Film Graded vs. RAW Sensor Original comparison."
+                  : "Jelajahi foto pernikahan dengan kejernihan Retina langsung di panel admin (/admin/photos dan /admin/guests). Beralih antara Galeri Editorial kontak-sheet dan Tabel Rol Tamu, filter dengan deretan pil resep film horizontal yang rapi, dan buka lightbox React Portal layar penuh dengan gestur geser (swipe), penguncian scroll latar belakang, serta perbandingan tampilan Film Graded vs Sensor RAW Asli."}
               </p>
             </div>
 

@@ -83,12 +83,12 @@
 | **Guest Camera Preview** | `/admin` | Directly opens the guest camera link with the active access token (`?t=<token>`). | Use to test or preview the camera experience from the host view. |
 | **Shots Per Guest** | `/admin/settings` | Configures the number of shots on each guest's roll (e.g. 15 or 30). Updates in real time on active phones (with automatic roll extension toasts and auto-reopening the camera for guests who completed their roll). | Adjust anytime before or during the wedding. |
 | **Reset All Guest Sessions** | `/admin/settings` | Grants all guests another 15-shot roll without deleting previous photos. | Use during after-parties or when resetting test phones before the wedding. |
-| **Editorial Gallery & Lightbox** | `/admin/photos` | High-definition Retina streaming gallery from Google Drive with zero external CDN costs. Toggle between contact-sheet grid and rolls table, filter by guest roll or film recipe, and open full-screen lightbox with a Film Graded vs. RAW Original comparison toggle and 1-click HD downloads. | Review all wedding captures, download favorites, or inspect RAW originals. |
+| **Editorial Gallery & Lightbox** | `/admin/photos` & `/admin/guests` | High-definition Retina streaming gallery from Google Drive with zero external CDN costs. Toggle between contact-sheet grid and rolls table, filter by guest roll or horizontal film recipe pills, and open full-screen React Portal lightbox with touch swipe navigation, background scroll-lock, Film Graded vs. RAW Original comparison, and 1-click HD downloads. | Review all wedding captures, download favorites, or inspect RAW originals. |
 | **Product & Filter Usage Analytics** | `/admin/health` | Audit-safe, zero-PII aggregate insights tracking film recipe popularity, keep-to-retake ratios, guest shooting funnel, and camera hardware capture reliability (`takePhoto` vs `videoFrame`). | Monitor guest engagement and film recipe trends with 0ms added camera latency. |
 
 ### Admin Navigation Layout (Clean Top Bar + Utility Dropdown)
 The admin navigation uses a streamlined 5-link primary bar with an account popover:
-- **Primary Desktop Nav (Single-Line, `>= 1024px`):** `Dashboard` (`/admin`), `Gallery` (`/admin/photos`), `QR & Print` (`/admin/qr`), `Look Lab` (`/admin/look-lab`), and `Settings` (`/admin/settings`).
+- **Primary Desktop Nav (Single-Line, `>= 1024px`):** `Dashboard` (`/admin`), `Gallery` (`/admin/photos` & `/admin/guests`), `QR & Print` (`/admin/qr`), `Look Lab` (`/admin/look-lab`), and `Settings` (`/admin/settings`).
 - **Right Utility & Account Menu:** Quick `? Guide` pill button + Account trigger (`username ▾`) containing full admin email, `Connect Google Drive`, `System Health` diagnostics, and `Sign Out`.
 - **Mobile & Tablet Drawer (`< 1024px`):** Mobile bottom navigation bar and expandable drawer keeping all admin routes accessible on touchscreens.
 
