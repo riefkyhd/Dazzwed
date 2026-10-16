@@ -103,7 +103,9 @@ export function GuestApp({
 
   const [welcomeToast, setWelcomeToast] = useState(false);
   const [freshRollToast, setFreshRollToast] = useState(false);
+  const [rollExtendedToast, setRollExtendedToast] = useState(false);
   const [isCheckingRoll, setIsCheckingRoll] = useState(false);
+  const prevShotsPerGuestRef = useRef(event.shots_per_guest);
 
   // Background IndexedDB upload queue with real-time pending badge
   // Strictly gated on consentGranted so IndexedDB is never opened before consent
@@ -193,7 +195,12 @@ export function GuestApp({
         const activeGuestId = data.guestId;
         const code = data.rollCode || computeRollCodeFromGuestId(activeGuestId);
         setGuestId(activeGuestId);
-        setRollCode(code);
+        // Detect if admin increased the quota on the server
+        if (prevShotsPerGuestRef.current && data.shotsPerGuest > prevShotsPerGuestRef.current) {
+          setRollExtendedToast(true);
+          setTimeout(() => setRollExtendedToast(false), 5000);
+        }
+        prevShotsPerGuestRef.current = data.shotsPerGuest;
         setShotsPerGuest(data.shotsPerGuest);
 
         // Calculate true remaining shots from both server count and local DB
@@ -324,8 +331,10 @@ export function GuestApp({
     void resolveSession();
   }, [event.slug, event.theme, initialRestoreCode, status, initGuest, lang]);
 
+  const isSyncingRef = useRef(false);
   const checkRollSync = useCallback(async () => {
-    if (status !== "open") return;
+    if (status !== "open" || isSyncingRef.current) return;
+    isSyncingRef.current = true;
     setIsCheckingRoll(true);
     try {
       const synced = await initGuest(null, guestId || undefined);
@@ -346,6 +355,7 @@ export function GuestApp({
       }
     } finally {
       setIsCheckingRoll(false);
+      isSyncingRef.current = false;
     }
   }, [status, guestId, initGuest, screen]);
 
@@ -358,7 +368,7 @@ export function GuestApp({
     }
   }, [screen]);
 
-  // Listen to visibility change (e.g. phone unlocked or browser tab brought to foreground)
+  // 1. Listen to visibility change (e.g. phone unlocked or browser tab brought to foreground)
   useEffect(() => {
     const onVisibilityChange = () => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
@@ -368,6 +378,26 @@ export function GuestApp({
     document.addEventListener("visibilitychange", onVisibilityChange);
     return () => document.removeEventListener("visibilitychange", onVisibilityChange);
   }, [checkRollSync]);
+
+  // 2. Periodic live background sync: Polls every 20s while the web page is actively in foreground
+  useEffect(() => {
+    if (!consentGranted || status !== "open") return;
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void checkRollSync();
+      }
+    }, 20000);
+    return () => clearInterval(interval);
+  }, [consentGranted, status, checkRollSync]);
+
+  // 3. Sync on upload queue completion: When all pending uploads successfully finish, sync shot count
+  const prevPendingRef = useRef(pendingCount);
+  useEffect(() => {
+    if (prevPendingRef.current > 0 && pendingCount === 0 && consentGranted && status === "open") {
+      void checkRollSync();
+    }
+    prevPendingRef.current = pendingCount;
+  }, [pendingCount, consentGranted, status, checkRollSync]);
 
   const handleStartCamera = async (name: string, consent: ConsentSubmission) => {
     // Best-effort fullscreen request on user gesture (Android Chrome, ignores on iOS)
@@ -683,6 +713,17 @@ export function GuestApp({
           <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
           <span>
             {t(lang, "freshRollToast", { n: shotsLeft })}
+          </span>
+        </div>
+      )}
+
+      {rollExtendedToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-4 py-2 bg-amber-950/95 border border-amber-400/60 rounded-full shadow-2xl flex items-center gap-2 text-amber-200 text-xs font-mono animate-in fade-in slide-in-from-top-4 duration-300">
+          <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+          <span>
+            {lang === "id"
+              ? `Rol diperpanjang menjadi ${shotsPerGuest} foto! (Sisa ${shotsLeft})`
+              : `Roll extended to ${shotsPerGuest} photos! (${shotsLeft} remaining)`}
           </span>
         </div>
       )}

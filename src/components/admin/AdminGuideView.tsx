@@ -339,8 +339,8 @@ export function AdminGuideView() {
               </div>
               <p className="text-xs text-zinc-300 leading-relaxed">
                 {lang === "en"
-                  ? "Configures how many exposures each guest can take (typically 15). Once a guest takes their final shot, they are smoothly transitioned to the Thank You screen."
-                  : "Menentukan jumlah jepretan yang didapat setiap tamu (standar 15). Setelah jepretan terakhir, tamu diarahkan ke layar ucapan terima kasih."}
+                  ? "Configures how many exposures each guest can take (e.g. 15 or 30). Changes sync in real time to all guests' active screens within seconds, automatically updating the remaining shot counter, displaying a roll extension toast, and reopening the camera for guests who had already finished."
+                  : "Menentukan jumlah jepretan yang didapat setiap tamu (misal 15 atau 30). Perubahan tersinkronisasi otomatis secara real time ke layar tamu dalam beberapa detik, memperbarui sisa jepretan, menampilkan notifikasi perpanjangan rol, dan membuka kembali kamera bagi tamu yang sudah selesai."}
               </p>
             </div>
 
