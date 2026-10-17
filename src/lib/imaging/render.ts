@@ -209,6 +209,8 @@ export interface RenderOptions {
   mirror?: boolean;
   /** Optional manual exposure compensation (EV bias, e.g. -2.0 to +2.0) */
   exposureCompensation?: number;
+  /** Whether shot was illuminated by flash (applies Godox Xenon Strobe direct-flash grading pass) */
+  flashUsed?: boolean;
 }
 
 let sharedCapturePipeline: LookEnginePipeline | null = null;
@@ -256,6 +258,7 @@ export async function renderShot(
     intensity,
     mirror = false,
     exposureCompensation,
+    flashUsed = false,
   }: RenderOptions & { maxEdge?: number; quality?: number; applyFilter?: boolean } = {}
 ): Promise<Blob> {
   const { w, h } = sourceSize(src);
@@ -292,6 +295,7 @@ export async function renderShot(
           height: out.height,
           isCapture: true,
           intensity: 0,
+          flashUsed: false,
           cropRect: {
             x: crop.sx / w,
             y: crop.sy / h,
@@ -385,6 +389,7 @@ export async function renderShot(
       exposureCompensation,
       cropRect: normCropRect,
       mirror: isVideo ? mirror : false,
+      flashUsed: flashUsed,
     });
     if (rendered) processedCanvas = glCanvas;
   } catch (err) {

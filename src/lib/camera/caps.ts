@@ -136,20 +136,66 @@ export async function applyExposureCompensation(track: MediaStreamTrack, ev: num
   }
 }
 
-/** Measures scene mean luminance on a downsampled canvas for Flash Auto detection */
-export function measureSceneLuminance(video: HTMLVideoElement): number {
+export interface FlashConstraintOptions {
+  torch: boolean;
+  exposureBiasEV?: number;
+}
+
+/**
+ * Combines hardware torch and exposure compensation into a single atomic constraint set.
+ * Android Camera2 HAL cancels or drops constraints when torch and exposure are called sequentially;
+ * combining them in advanced: [{ torch, exposureCompensation }] guarantees both apply atomically.
+ */
+export async function applyFlashConstraints(
+  track: MediaStreamTrack,
+  options: FlashConstraintOptions
+): Promise<void> {
+  const c = caps(track);
+  const adv: Record<string, unknown> = {};
+  if (c.torch) {
+    adv.torch = options.torch;
+  }
+  if (typeof options.exposureBiasEV === "number" && c.exposureCompensation) {
+    const min = c.exposureCompensation.min ?? -2;
+    const max = c.exposureCompensation.max ?? 2;
+    const clamped = Math.max(min, Math.min(max, options.exposureBiasEV));
+    adv.exposureCompensation = clamped;
+  }
+
+  if (Object.keys(adv).length === 0) return;
+
+  try {
+    await track.applyConstraints({
+      advanced: [adv as MediaTrackConstraintSet],
+    });
+  } catch (err) {
+    // If combined fails on quirky HAL driver, fallback to torch alone
+    if (adv.torch !== undefined) {
+      try {
+        await track.applyConstraints({
+          advanced: [{ torch: adv.torch } as MediaTrackConstraintSet],
+        });
+      } catch (e2) {
+        console.warn("Failed to apply torch constraint fallback:", e2);
+      }
+    }
+  }
+}
+
+/** Measures scene mean perceived luminance on a downsampled canvas */
+export function measureSceneLuminance(video: HTMLVideoElement, size = 16): number {
   try {
     if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return 0.5;
     const canvas = document.createElement("canvas");
-    canvas.width = 32;
-    canvas.height = 32;
+    canvas.width = size;
+    canvas.height = size;
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return 0.5;
 
-    ctx.drawImage(video, 0, 0, 32, 32);
-    const imgData = ctx.getImageData(0, 0, 32, 32);
+    ctx.drawImage(video, 0, 0, size, size);
+    const imgData = ctx.getImageData(0, 0, size, size);
     let sum = 0;
-    const totalPixels = 32 * 32;
+    const totalPixels = size * size;
 
     for (let i = 0; i < imgData.data.length; i += 4) {
       // Perceived luminance (ITU-R BT.709)

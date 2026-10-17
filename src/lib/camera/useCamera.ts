@@ -8,6 +8,7 @@ import {
   hasTorch,
   hasImageCaptureFlash,
   pulseTorch,
+  applyFlashConstraints,
   measureSceneLuminance,
   readZoomRange,
   readExposureCompRange,
@@ -1130,29 +1131,88 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             throw new DOMException("Capture aborted", "AbortError");
           }
         } else {
-          // --- Flash Illuminated Capture Pipeline (Reliable hardware torch and screen flash) ---
+          // --- Flash Illuminated Capture Pipeline (Deterministic Pre-Flash Metering & Convergence) ---
           let previewBmp: ImageBitmap | null = null;
           const isSoft = flashIntensity === "soft";
 
           if (shouldFireTorch && track) {
-            // Reliable hardware torch pulse (180ms soft, 240ms standard)
-            const maxWait = isSoft ? 180 : 240;
-            await pulseTorch(
-              track,
-              async () => {
-                const snap = await takeFrameSnapshots();
-                previewBmp = snap.previewBmp;
-                snapCanvasFallback = snap.snapCanvas;
-                frozenSource = v;
-              },
-              { maxStabilizeMs: maxWait }
-            );
+            // 1. Ignite torch and lock hardware negative exposure bias (-0.5 EV) atomically
+            const biasEV = isSoft ? -0.7 : -0.5;
+            await applyFlashConstraints(track, { torch: true, exposureBiasEV: biasEV });
+
+            // 2. Pre-flash metering & convergence loop with Safeguard #1:
+            // Minimum 240ms hardware warmup floor before checking Delta < 5% luminance stability
+            const tStart = performance.now();
+            const baselineLuma = measureSceneLuminance(v, 16);
+            let prevLuma = baselineLuma;
+            const warmupFloor = 240;
+            const maxTimeout = isSoft ? 400 : 520;
+
+            await new Promise<void>((resolve) => {
+              let animId: number;
+              const checkConvergence = () => {
+                if (abortCtrl.signal.aborted) {
+                  resolve();
+                  return;
+                }
+                const elapsed = performance.now() - tStart;
+                const currentLuma = measureSceneLuminance(v, 16);
+
+                // Enforce minimum 240ms warmup floor before checking stability
+                if (elapsed >= warmupFloor) {
+                  const delta = Math.abs(currentLuma - prevLuma) / Math.max(0.01, prevLuma);
+                  if (delta < 0.05 || elapsed >= maxTimeout) {
+                    resolve();
+                    return;
+                  }
+                } else if (elapsed >= maxTimeout) {
+                  resolve();
+                  return;
+                }
+                prevLuma = currentLuma;
+                animId = requestAnimationFrame(checkConvergence);
+              };
+              animId = requestAnimationFrame(checkConvergence);
+            });
+
+            // 3. Readout frame pixels with torch GUARANTEED ON
+            const snap = await takeFrameSnapshots();
+            previewBmp = snap.previewBmp;
+            snapCanvasFallback = snap.snapCanvas;
+            frozenSource = v;
+
+            // 4. Guaranteed Post-Readout Release: 60ms guard tick before turning torch off
+            await new Promise((r) => setTimeout(r, 60));
+            try {
+              await applyFlashConstraints(track, { torch: false, exposureBiasEV: 0 });
+            } catch (err) {
+              console.warn("Failed to release flash constraints:", err);
+            }
           } else if (shouldFireScreenFlash) {
             // Front camera screen flash
             callbacks?.onScreenFlash?.(true);
-            const waitMs = isSoft ? 180 : 240;
+            const tStart = performance.now();
+            const warmupFloor = 240;
+            const maxTimeout = isSoft ? 360 : 480;
+
+            await new Promise<void>((resolve) => {
+              let animId: number;
+              const checkScreen = () => {
+                if (abortCtrl.signal.aborted) {
+                  resolve();
+                  return;
+                }
+                const elapsed = performance.now() - tStart;
+                if (elapsed >= warmupFloor || elapsed >= maxTimeout) {
+                  resolve();
+                  return;
+                }
+                animId = requestAnimationFrame(checkScreen);
+              };
+              animId = requestAnimationFrame(checkScreen);
+            });
+
             try {
-              await new Promise((r) => setTimeout(r, waitMs));
               const snap = await takeFrameSnapshots();
               previewBmp = snap.previewBmp;
               snapCanvasFallback = snap.snapCanvas;
@@ -1170,7 +1230,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
           diagnostics.recordMark("t2");
 
-          // Open ReviewModal with the illuminated frame
+          // Pass preview bitmap to preview callback
           if (previewBmp && onPreviewReady) {
             diagnostics.recordMark("t3");
             onPreviewReady(previewBmp);
@@ -1183,14 +1243,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         }
 
         try {
-          // Yield so main thread paints ReviewModal and processes touch events
-          await new Promise((r) => setTimeout(r, 40));
+          // Yield so main thread paints and processes events
+          await new Promise((r) => setTimeout(r, 20));
           if (abortCtrl.signal.aborted) {
             if (frozenSource instanceof ImageBitmap && !passedFrozenSourceToPreview) frozenSource.close();
             throw new DOMException("Capture aborted", "AbortError");
           }
 
-          // Background archival photos rendered at tier high resolution (max 2560px on iOS, 3840px elsewhere)
+          // Archival photos rendered at tier high resolution (max 2560px on iOS, 3840px elsewhere)
           const isIOS =
             typeof navigator !== "undefined" &&
             (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
@@ -1200,6 +1260,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           const effectiveDigitalZoom = Math.max(1, digitalZoom);
           const swEV = exposureCompRange ? 0 : exposureCompValueRef.current;
           const isFromSnapCanvas = (frozenSource as unknown) === snapCanvasFallback;
+          const flashIlluminated = shouldFireTorch || shouldFireScreenFlash;
+
           let filteredBlob: Blob;
           try {
             filteredBlob = await renderShot(frozenSource, {
@@ -1212,6 +1274,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               maxEdge: safeMaxEdge,
               quality: 0.92,
               exposureCompensation: swEV,
+              flashUsed: flashIlluminated,
             });
           } catch (err) {
             console.warn("Archival filtered renderShot failed, falling back to clean render:", err);
@@ -1222,6 +1285,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               mirror: isFromSnapCanvas ? false : isMirrored,
               maxEdge: Math.min(safeMaxEdge, 1920),
               quality: 0.85,
+              flashUsed: false,
             });
           }
 
@@ -1238,6 +1302,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
                 mirror: false,
                 maxEdge: safeMaxEdge,
                 quality: 0.92,
+                flashUsed: false,
               });
             } catch {}
           }
@@ -1253,6 +1318,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               mirror: isFromSnapCanvas ? false : isMirrored,
               maxEdge: safeMaxEdge,
               quality: 0.92,
+              flashUsed: false,
             });
           } catch (err) {
             console.warn("Archival original renderShot failed, reusing filtered:", err);

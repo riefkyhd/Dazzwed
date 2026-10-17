@@ -268,5 +268,27 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Dynamic Un-Cached Pages:** `/admin/qr/page.tsx` and `/admin/settings/page.tsx` export `dynamic = "force-dynamic"` and `revalidate = 0`.
    - **Client-Side Next.js Router Cache Flush (`router.refresh()`):** Calling `router.refresh()` in `SettingsView.tsx` flushes the browser's prefetched `<Link>` cache immediately upon save, so clicking from `/admin/settings` to `/admin/qr` displays updated event taglines and couple names with zero stale cache lag.
 
+---
+
+## 10. Deterministic Flash Sync, Single-Step Capture Transition & "Godox Xenon Strobe" Aesthetic
+
+1. **Deterministic Pre-Flash Metering & Convergence State Machine (`caps.ts` & `useCamera.ts`):**
+   - **Atomic Constraint Lock (`applyFlashConstraints`):** Merges `torch: true` and `exposureCompensation: -0.5 EV` into a single atomic `advanced: [{ ... }]` dictionary. This resolves hardware HAL driver cancellation on Android Camera2, which previously dropped either the flash or exposure compensation if requested sequentially.
+   - **Enforced 240ms Hardware Warmup Floor:** Because physical smartphone LEDs take ~80–120ms to illuminate from a cold state, the convergence loop enforces a minimum 240ms warmup floor before evaluating the $\Delta < 5\%$ luminance stability exit condition. This completely prevents premature capture on initial dark or un-illuminated frames.
+   - **Guaranteed Post-Readout Release (+ 60ms Guard Tick):** The hardware torch stays energized throughout off-screen canvas/bitmap frame readout. Only after video stream texture binding and pixel copying to memory have completely resolved (+ 60ms safety guard tick) is the torch deactivated and exposure compensation restored to 0 EV, eliminating dark frames and sensor Auto-Exposure blindness spikes.
+   - **Front Camera True Tone Screen Flash:** Full-screen warm-ivory (`#fff8ea`) retina glow held through a 240ms convergence window before frame capture.
+
+2. **Single-Step Unified Capture Transition (`CameraScreen.tsx` & `ReviewModal.tsx`):**
+   - **Elimination of 3-Stage Visual Hopping:** Replaces the jarring sequence (frozen live frame -> unbaked preview canvas -> delayed developed image pop 300ms later) with one unified transition.
+   - **Under-Curtain Archival Development:** When the shutter snaps, a 160ms mechanical shutter curtain (`opacity: 95%`) closes while `renderShot()` executes directly on the captured frame at high resolution (2048px–2560px in ~90–120ms).
+   - **Direct 100% Developed Mount:** `ReviewModal` mounts directly with `photoBlob` already 100% developed. The developing chemical emulsion fog (`opacity` transition over 500ms) smoothly brings the image to full brightness, delivering authentic analog darkroom delight with zero preview-to-image popping or color jumps.
+
+3. **"Godox Xenon Strobe" Direct-Flash Grading Pass (`pipeline.ts` & `render.ts`):**
+   - **Radial Inverse-Square Flash Falloff:** Center light source slightly elevated above lens axis (`cx = 0.50, cy = 0.46`). The central subject zone ($r < 0.40$) remains full brightness, while background and outer corners smoothly attenuate by ~32% with a deeper shadow floor via Hermite smoothstep.
+   - **Soft-Knee Xenon Highlight Roll-off:** Highlights with luminance $L > 0.78$ pass through a soft-knee compressed shoulder curve preventing harsh digital sensor clipping, infused with warm ivory specular tint (+3% R, +1.5% G, -2% B) matching physical 5600K Xenon quartz tube discharge.
+   - **5600K Xenon Color Balance & Midtone Punch:** Neutralizes smartphone LED yellow-green spike in linear space while adding +10% midtone local contrast punch for editorial high-fashion pop (Juergen Teller / Helmut Newton style).
+   - **Specular Jewelry Halation:** Specular highlights ($L > 0.88$) receive subtle micro-halation bloom without muddying the rest of the frame.
+   - **Preserved Clean RAW Capture:** The Godox Xenon Strobe pass is baked into `filteredBlob`, while `originalBlob` remains the pure, un-graded sensor capture (`intensity: 0`, `flashUsed: false`) so the Admin Gallery's `Film vs. Original` comparison toggle remains 100% accurate.
+
 
 

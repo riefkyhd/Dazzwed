@@ -68,6 +68,7 @@ uniform int u_shoulderType; // 0: soft, 1: hard
 uniform float u_localContrast;
 uniform float u_effectiveLines;
 uniform vec4 u_flashFalloff; // strength, radius, cx, cy
+uniform bool u_flashUsed; // Godox Xenon Strobe Direct-Flash Grading Pass
 
 // 3. OKLCH Color Grading
 uniform vec4 u_hueNodes[24]; // .x: hueDeg, .y: dHueDeg, .z: dChromaScale, .w: dLightness
@@ -313,8 +314,21 @@ void main() {
     linRgb *= safePow(2.0, u_exposureEV);
   }
 
-  // 2b. Flash Falloff (in linear space)
-  if (u_flashFalloff.x > 0.0) {
+  // 2b. Flash Falloff & Godox Direct-Flash Strobe Pass (in linear space)
+  if (u_flashUsed) {
+    // Godox Direct-Flash Pass:
+    // Radial inverse-square subject/background falloff centered slightly above lens axis (cx=0.50, cy=0.46)
+    vec2 godoxCenter = vec2(0.50, 0.46);
+    float rGodox = length(distUv - godoxCenter);
+    // Subject zone r < 0.40 full brightness, outer background smoothly attenuates by ~32% with deeper shadow floor
+    float godoxFalloff = 1.0 - 0.32 * smoothstep(0.40, 1.05, rGodox);
+    linRgb *= godoxFalloff;
+
+    // 5600K Xenon Daylight Balance: neutralize smartphone LED warm/green spike
+    linRgb.r *= 1.02;
+    linRgb.g *= 0.96;
+    linRgb.b *= 1.04;
+  } else if (u_flashFalloff.x > 0.0) {
     vec2 fCenter = u_flashFalloff.zw;
     vec2 fDiff = (distUv - fCenter);
     float fDist = length(fDiff);
@@ -337,6 +351,23 @@ void main() {
   rgb.r = evalChannelCurve(rgb.r, u_curveR, u_shoulderType);
   rgb.g = evalChannelCurve(rgb.g, u_curveG, u_shoulderType);
   rgb.b = evalChannelCurve(rgb.b, u_curveB, u_shoulderType);
+
+  // Godox Xenon Strobe Highlight Roll-off & Micro-Contrast Punch
+  if (u_flashUsed) {
+    float flashLuma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));
+    if (flashLuma > 0.78) {
+      float over = (flashLuma - 0.78) / 0.22;
+      // Soft-knee compressed shoulder roll-off curve
+      float compressed = 0.78 + 0.22 * (over / (1.0 + 0.5 * over));
+      rgb *= (compressed / max(1e-4, flashLuma));
+      // Warm ivory specular tint (+3% R, +1.5% G, -2% B) for natural xenon arc discharge
+      rgb.r = min(1.0, rgb.r * (1.0 + 0.03 * over));
+      rgb.g = min(1.0, rgb.g * (1.0 + 0.015 * over));
+      rgb.b = max(0.0, rgb.b * (1.0 - 0.02 * over));
+    }
+    // +10% midtone local punch for crisp direct flash editorial look
+    rgb = clamp(rgb + (rgb - 0.5) * 0.10 * (1.0 - abs(rgb - 0.5) * 2.0), 0.0, 1.0);
+  }
 
   // 2e. Local Contrast adjustment
   if (abs(u_localContrast) > 0.01) {
@@ -482,6 +513,13 @@ void main() {
     rgb = clamp(rgb + halColor - (rgb * halColor), 0.0, 1.0);
   }
 
+  // Specular micro-halation on bright direct-flash reflections (jewelry, gloss highlights)
+  if (u_flashUsed && luma > 0.88) {
+    float specIntensity = smoothstep(0.88, 1.0, luma) * 0.16;
+    vec3 specBloom = vec3(1.0, 0.96, 0.90) * specIntensity;
+    rgb = clamp(rgb + specBloom - (rgb * specBloom), 0.0, 1.0);
+  }
+
   // 4b. Vignette (cos^4 falloff)
   if (u_vignette.x > 0.0) {
     float vDist = length(p * 2.0);
@@ -589,6 +627,7 @@ export interface LookEngineRenderOptions {
   exposureCompensation?: number; // User EV bias (-2.0 to +2.0)
   lut?: ParsedCubeLUT;
   lutStrength?: number;
+  flashUsed?: boolean;
 }
 
 export class LookEnginePipeline {
@@ -635,6 +674,7 @@ export class LookEnginePipeline {
   private uLocalContrastLoc: WebGLUniformLocation | null = null;
   private uEffectiveLinesLoc: WebGLUniformLocation | null = null;
   private uFlashLoc: WebGLUniformLocation | null = null;
+  private uFlashUsedLoc: WebGLUniformLocation | null = null;
 
   // OKLCH
   private uHueNodesLoc: WebGLUniformLocation | null = null;
@@ -802,6 +842,7 @@ export class LookEnginePipeline {
     this.uLocalContrastLoc = gl.getUniformLocation(prog, "u_localContrast");
     this.uEffectiveLinesLoc = gl.getUniformLocation(prog, "u_effectiveLines");
     this.uFlashLoc = gl.getUniformLocation(prog, "u_flashFalloff");
+    this.uFlashUsedLoc = gl.getUniformLocation(prog, "u_flashUsed");
 
     this.uHueNodesLoc = gl.getUniformLocation(prog, "u_hueNodes");
     this.uSkinProtectLoc = gl.getUniformLocation(prog, "u_skinProtect");
@@ -955,6 +996,7 @@ export class LookEnginePipeline {
 
     const flash = resp?.flashFalloff ?? look.flashFalloff;
     gl.uniform4f(this.uFlashLoc, flash.strength, flash.radius, flash.centerX ?? 0.5, flash.centerY ?? 0.5);
+    gl.uniform1i(this.uFlashUsedLoc, options.flashUsed ? 1 : 0);
 
     // 3. OKLCH Color Grading
     const col = look.color;

@@ -463,6 +463,21 @@ export function AdminGuideView() {
                   : "Tamu dapat memilih antara 'Alami / Soft Fill' (cahaya pengisi lembut dengan perlindungan highlight kompensasi pencahayaan negatif otomatis pada kamera belakang, dan pendaran layar gading hangat 65% pada kamera depan agar wajah tidak overexposed) dan 'Standar' lampu kilat langsung daya penuh. Latensi rana dioptimalkan tanpa jeda buatan, memotret seketika dan responsif."}
               </p>
             </div>
+
+            {/* Control 12: Deterministic Flash Sync, Single-Step Capture & Godox Strobe Aesthetic */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Deterministic Flash Sync, Single-Step Capture & Godox Xenon Strobe" : "Sinkronisasi Kilat Deterministik, Transisi 1-Langkah & Estetika Godox Xenon"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Flash illumination operates with a frame-verified convergence state machine: the LED torch is energized with atomic -0.5 EV negative exposure bias, enforces a 240ms hardware warmup floor until frame luminance stabilizes, and holds full power until pixel readout completes (+ 60ms guard tick), eliminating missed flashes and dark frames. Shutter transitions are unified into a single mechanical curtain: the review modal mounts directly with the 100% developed photo (zero preview swapping or color popping). Photos taken with flash receive a dedicated 'Godox Xenon Strobe' grading pass featuring inverse-square radial falloff (cx=0.50, cy=0.46), soft-knee highlight roll-off (luma > 0.78), 5600K xenon daylight balance, and specular jewelry halation, while clean original un-graded captures remain preserved for the admin comparison toggle."
+                  : "Pencahayaan lampu kilat beroperasi dengan mesin status konvergensi terverifikasi bingkai: lampu LED dinyalakan dengan bias pencahayaan negatif -0.5 EV atomik, menerapkan ambang pemanasan perangkat keras 240ms hingga luminansi stabil, dan mempertahankan daya penuh hingga pembacaan piksel tuntas (+ 60ms tick pengaman), mencegah kilat terlewat atau foto gelap. Transisi rana disatukan dalam tirai mekanis tunggal: modal pratinjau langsung menampilkan foto matang 100% (tanpa pergantian gambar kasar atau loncatan warna). Foto dengan kilat mendapat polesan 'Godox Xenon Strobe' dengan jatuhnya cahaya kuadrat-terbalik (cx=0.50, cy=0.46), roll-off highlight lembut (luma > 0.78), keseimbangan siang hari xenon 5600K, dan pendaran kilau perhiasan, sementara foto asli tanpa polesan tetap tersimpan rapi untuk tombol perbandingan admin."}
+              </p>
+            </div>
           </div>
         </div>
       )}

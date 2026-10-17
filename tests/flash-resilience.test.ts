@@ -95,4 +95,68 @@ describe("Flash & Torch Pulse Resilience", () => {
     expect(onCalls).toHaveLength(2);
     expect(offCalls).toHaveLength(2);
   });
+
+  it("combines torch and exposureCompensation atomically into a single constraint set via applyFlashConstraints", async () => {
+    const { applyFlashConstraints } = await import("@/lib/camera/caps");
+    const calls: any[] = [];
+    const mockTrack = {
+      getCapabilities: () => ({
+        torch: true,
+        exposureCompensation: { min: -2, max: 2, step: 0.1 },
+      }),
+      applyConstraints: vi.fn(async (constraints: any) => {
+        calls.push(constraints);
+      }),
+    } as unknown as MediaStreamTrack;
+
+    await applyFlashConstraints(mockTrack, { torch: true, exposureBiasEV: -0.5 });
+
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toEqual({
+      advanced: [{ torch: true, exposureCompensation: -0.5 }],
+    });
+
+    await applyFlashConstraints(mockTrack, { torch: false, exposureBiasEV: 0 });
+    expect(calls).toHaveLength(2);
+    expect(calls[1]).toEqual({
+      advanced: [{ torch: false, exposureCompensation: 0 }],
+    });
+  });
+
+  it("gracefully falls back to torch only if combined constraint is rejected by HAL driver", async () => {
+    const { applyFlashConstraints } = await import("@/lib/camera/caps");
+    let callCount = 0;
+    const calls: any[] = [];
+    const mockTrack = {
+      getCapabilities: () => ({
+        torch: true,
+        exposureCompensation: { min: -2, max: 2, step: 0.1 },
+      }),
+      applyConstraints: vi.fn(async (constraints: any) => {
+        callCount++;
+        calls.push(constraints);
+        if (callCount === 1) {
+          throw new Error("OverconstrainedError: exposureCompensation unsupported simultaneously with torch");
+        }
+      }),
+    } as unknown as MediaStreamTrack;
+
+    await applyFlashConstraints(mockTrack, { torch: true, exposureBiasEV: -0.5 });
+
+    // Should have attempted combined, caught error, and fell back to torch-only
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toEqual({
+      advanced: [{ torch: true, exposureCompensation: -0.5 }],
+    });
+    expect(calls[1]).toEqual({
+      advanced: [{ torch: true }],
+    });
+  });
+
+  it("supports configurable resolution downsampling in measureSceneLuminance", async () => {
+    const { measureSceneLuminance } = await import("@/lib/camera/caps");
+    // Create mock video element with no frames ready
+    const mockVideo = { readyState: 0 } as HTMLVideoElement;
+    expect(measureSceneLuminance(mockVideo, 16)).toBe(0.5);
+  });
 });
