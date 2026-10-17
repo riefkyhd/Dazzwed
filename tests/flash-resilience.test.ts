@@ -73,4 +73,26 @@ describe("Flash & Torch Pulse Resilience", () => {
 
     expect(result).toBe("captured-without-torch");
   });
+
+  it("executes rapid sequential captures without artificial 600ms cooldown blocking", async () => {
+    const appliedConstraints: TorchConstraint[] = [];
+    const mockTrack = {
+      applyConstraints: vi.fn(async (c: TorchConstraint) => {
+        appliedConstraints.push(c);
+      }),
+    } as unknown as MediaStreamTrack;
+
+    const tStart = Date.now();
+    await pulseTorch(mockTrack, async () => "shot1", { maxStabilizeMs: 20 });
+    await pulseTorch(mockTrack, async () => "shot2", { maxStabilizeMs: 20 });
+    const elapsed = Date.now() - tStart;
+
+    // Both shots completed rapidly without waiting for any 600ms cooldown
+    expect(elapsed).toBeLessThan(300);
+    // Verified 2 ON constraints and 2 OFF constraints
+    const onCalls = appliedConstraints.filter((c) => c.advanced?.[0]?.torch === true);
+    const offCalls = appliedConstraints.filter((c) => c.advanced?.[0]?.torch === false);
+    expect(onCalls).toHaveLength(2);
+    expect(offCalls).toHaveLength(2);
+  });
 });

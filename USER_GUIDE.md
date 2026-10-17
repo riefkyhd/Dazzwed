@@ -87,7 +87,8 @@
 | **Reset All Guest Sessions** | `/admin/settings` | Grants all guests another 15-shot roll without deleting previous photos. | Use during after-parties or when resetting test phones before the wedding. |
 | **Editorial Gallery & Lightbox** | `/admin/photos` & `/admin/guests` | High-definition Retina streaming gallery from Google Drive with zero external CDN costs. Toggle between contact-sheet grid and rolls table, filter by guest roll or horizontal film recipe pills, and open full-screen React Portal lightbox with strict aspect-ratio containment (zero cropping/unwanted zoom on 3:4 portrait or landscape photos), click-outside backdrop dismissal, touch swipe navigation, background scroll-lock, Film Graded vs. RAW Original comparison, and 1-click HD downloads. Features dynamic Crockford Base32 roll code resolution for all guests and graceful dark-room fallback cards for photos removed from Google Drive. | Review all wedding captures, download favorites, or inspect RAW originals. |
 | **Product & Filter Usage Analytics** | `/admin/health` | Audit-safe, zero-PII aggregate insights tracking film recipe popularity, keep-to-retake ratios, guest shooting funnel, and camera hardware capture reliability (`takePhoto` vs `videoFrame`). | Monitor guest engagement and film recipe trends with 0ms added camera latency. |
-| **Vintage Self-Timer (`3s / 10s`) & Instant Settings Sync** | `/e/[slug]` & `/admin/settings` | Authentic 1990s compact camera self-timer cadence (1 blip/sec for 10..4, 2 blips/sec for 3..2, 600ms hold, 400ms Auto-Exposure pause) synchronized with rear torch LED and front selfie screen glow. Multi-layer Next.js cache invalidation (server-side `revalidatePath('/admin', 'layout')` and client-side `router.refresh()`) guarantees `/admin/qr` and A4 posters reflect event title/subtitle/quota updates in 0ms without manual page refreshes. | Group portraits, wedding table photos, and immediate print preview sync. |
+| **Vintage Self-Timer (`3s / 10s`) & Instant Settings Sync** | `/e/[slug]` & `/admin/settings` | Authentic 1990s compact camera self-timer cadence (1 tick/sec for 10..4, 2 ticks/sec for 3..2, steady confirmation tone on 1) with instant 0ms shutter snap. Countdown preserves camera sensor Auto Exposure with zero premature torch blinding. Multi-layer Next.js cache invalidation (server-side `revalidatePath('/admin', 'layout')` and client-side `router.refresh()`) guarantees `/admin/qr` and A4 posters reflect event title/subtitle/quota updates in 0ms without manual page refreshes. | Group portraits, wedding table photos, and immediate print preview sync. |
+| **Flash Intensity Control (Soft Fill vs Standard)** | `/e/[slug]` | Dedicated flash intensity setting in Camera Tools. 'Soft Fill' (default) provides flattering, gentle illumination with automatic negative EV highlight protection on rear camera and 65% warm-ivory screen glow on front camera; 'Standard' provides full-power direct flash. Shutter latency is reduced to 0ms overhead with eliminated cooldown delays. | Natural, non-blinding night & indoor captures without harsh overexposure. |
 
 ### Admin Navigation Layout (Clean Top Bar + Utility Dropdown)
 The admin navigation uses a streamlined 5-link primary bar with an account popover:
@@ -245,19 +246,24 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 
 ---
 
-## 9. Vintage Point-and-Shoot Self-Timer Cadence & Instant Settings Synchronization
+## 9. Vintage Point-and-Shoot Self-Timer Cadence & Flash Intensity Management
 
-1. **Authentic 1990s Film Compact Flash Cadence (`timer-cadence.ts` & `useCamera.ts`):**
-   - **Seconds 10 down to 4 (1 blip/sec):** Single `140ms` torch blip + Web Audio tick + haptic pulse per second.
-   - **Seconds 3 and 2 (Accelerated Double-Time Blips — 2 blips/sec):** Two rapid pulses per second (Blip 1: `+0ms` to `+130ms`, `320ms` hardware driver cooldown gap, Blip 2: `+450ms` to `+580ms`) to signal urgency.
-   - **Final Count 1 (Long Hold + Auto-Exposure Sensor Pause):**
-     - **Long Hold (`0ms -> 600ms`):** Torch LED and viewfinder cue turn ON and hold steady for `600ms` (*"Hold your smile!"*).
-     - **Complete Stop (`600ms -> 1000ms`):** Torch turns completely OFF for `400ms`. This pause prevents overexposed / blown-out photos by allowing the camera sensor's Auto-Exposure and ISP metering to converge cleanly right before capture.
-     - **Shutter Capture (`1000ms`):** Shutter fires! If low-light flash mode is enabled, fires capture flash.
-   - **Multi-Device Compatibility:** Works on rear lenses with physical LED torches (via non-blocking sequential lock in `useCamera.ts`) and on front selfie cameras / ultra-wide lenses via synchronized amber border pulses and selfie screen glow.
-   - **Instant Cancellation:** Tapping the shutter button during countdown immediately clears all scheduled timeouts, terminates the torch, and resets state with 0ms delay.
+1. **Authentic 1990s Film Compact Self-Timer Cadence (`timer-cadence.ts` & `useCamera.ts`):**
+   - **Seconds 10 down to 4 (1 tick/sec):** Single Web Audio 880Hz retro camera tick + subtle 15ms haptic pulse per second.
+   - **Seconds 3 and 2 (Accelerated Double-Time Ticks — 2 ticks/sec):** Two rapid 1100Hz ticks per second to signal urgency.
+   - **Final Count 1 (Confirmation Tone -> Instant Capture):**
+     - **Confirmation Tone:** Confident 1320Hz tone + 30ms haptic confirmation (*"Hold your smile!"*).
+     - **Sensor Auto-Exposure Protection:** The rear flashlight is never prematurely strobed during countdown, ensuring the camera sensor's Auto Exposure and live preview remain 100% stable, sharp, and undisturbed without blinding guests.
+     - **Instant Shutter Capture (`0ms` Latency):** Shutter fires immediately at `t = 0` with zero artificial cooldown pause.
+   - **De-Cluttered Viewfinder Badge:** Replaced chaotic full-screen flashing borders and blurs with a calm, steady vintage typography badge and subtle amber status indicator.
+   - **Instant Cancellation:** Tapping the shutter button during countdown immediately clears all scheduled timeouts, terminates the cue, and resets state with 0ms delay.
 
-2. **Multi-Layer Settings & QR Cache Invalidation:**
+2. **Flash Intensity Management (`Soft Fill` vs `Standard Full`):**
+   - **Soft Fill (Default):** Flattering, natural fill light. On the rear camera, uses a snappy 75ms pulse and automatically applies a highlight-protecting negative EV offset (`-0.7 EV`), preventing harsh washed-out faces. On the front camera, illuminates with a gentle warm-ivory screen glow (`#fff8ea` at 65% opacity) mimicking Apple True Tone fill flash.
+   - **Standard Full:** Traditional direct flash illumination (140ms rear torch pulse, 90% white front screen flash) for pitch-dark environments.
+   - **Settings Control:** Guests can select their preferred intensity in Camera Tools (`CameraSettingsSheet.tsx`), persisted locally in `localStorage` (`dazzwed_flash_intensity`).
+
+3. **Multi-Layer Settings & QR Cache Invalidation:**
    - **Server-Side Path Revalidation (`revalidatePath`):** Saving changes in `/api/admin/settings`, `/api/admin/events/token`, or `/api/admin/settings/reset-sessions` invalidates `/admin` and `/e/[slug]` layout caches on Supabase update.
    - **Dynamic Un-Cached Pages:** `/admin/qr/page.tsx` and `/admin/settings/page.tsx` export `dynamic = "force-dynamic"` and `revalidate = 0`.
    - **Client-Side Next.js Router Cache Flush (`router.refresh()`):** Calling `router.refresh()` in `SettingsView.tsx` flushes the browser's prefetched `<Link>` cache immediately upon save, so clicking from `/admin/settings` to `/admin/qr` displays updated event taglines and couple names with zero stale cache lag.

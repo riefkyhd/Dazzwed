@@ -132,6 +132,8 @@ export function CameraScreen({
     pulseTorchSafe,
     flashMode,
     setFlashMode,
+    flashIntensity,
+    setFlashIntensity,
     capture,
     retry,
     cameraAspect,
@@ -443,16 +445,9 @@ export function CameraScreen({
       onCueChange: (active) => {
         setTimerCueActive(active);
       },
-      onTorchPulse: (durationMs) => {
-        if (facing === "environment") {
-          void pulseTorchSafe(durationMs);
-        }
-      },
-      onTorchHold: (on) => {
-        if (facing === "environment") {
-          void setTorchSafe(on);
-        }
-      },
+      // Do not strobe rear torch during countdown:
+      // Protects camera sensor auto-exposure from severe fluctuations,
+      // prevents blinding guests before capture, and avoids async IPC latency.
       onCapture: () => {
         void executeCapture();
       },
@@ -617,10 +612,16 @@ export function CameraScreen({
 
   return (
     <div className="fixed inset-0 w-full h-dvh bg-black overflow-hidden select-none touch-manipulation flex flex-col justify-between">
-      {/* Warm-white front camera screen flash overlay */}
+      {/* Front camera screen flash overlay */}
       <div
-        className={`fixed inset-0 z-45 pointer-events-none transition-opacity duration-150 bg-[#fff9ea] ${
-          isScreenFlashActive ? "opacity-100" : "opacity-0"
+        className={`fixed inset-0 z-45 pointer-events-none transition-opacity duration-150 ${
+          flashIntensity === "soft" ? "bg-[#fff8ea]" : "bg-white"
+        } ${
+          isScreenFlashActive
+            ? flashIntensity === "soft"
+              ? "opacity-65"
+              : "opacity-90"
+            : "opacity-0"
         }`}
       />
 
@@ -740,44 +741,44 @@ export function CameraScreen({
         {/* Retro 4 Corner Brackets (always inside viewfinder, hidden in full-bleed 16:9) */}
         <ViewfinderFrame visible={mode === "banded"} />
 
-        {/* Self-Timer Cadence: Viewfinder border pulse */}
+        {/* Self-Timer Cadence: Subtle Viewfinder border indicator */}
         <div
           data-testid="timer-cue-border"
-          className={`absolute inset-0 pointer-events-none transition-opacity duration-100 z-20 ${
-            timerCueActive
-              ? "ring-4 ring-amber-400 ring-inset shadow-[inset_0_0_50px_rgba(251,191,36,0.6)] opacity-100"
-              : "opacity-0"
+          className={`absolute inset-0 pointer-events-none transition-opacity duration-150 z-20 border border-amber-400/25 ${
+            timerCueActive ? "opacity-100" : "opacity-0"
           }`}
           aria-hidden="true"
         />
 
-        {/* Self-Timer Cadence: Front Camera Selfie Glow during timer blips */}
+        {/* Self-Timer Cadence: Front Camera subtle selfie indicator */}
         {facing === "user" && (
           <div
             data-testid="timer-selfie-glow"
-            className={`absolute inset-0 pointer-events-none transition-opacity duration-100 z-20 ${
-              timerCueActive
-                ? "bg-amber-100/35 backdrop-blur-[0.5px] opacity-100"
-                : "opacity-0"
+            className={`absolute inset-0 pointer-events-none transition-opacity duration-150 z-20 bg-amber-400/5 ${
+              timerCueActive ? "opacity-100" : "opacity-0"
             }`}
             aria-hidden="true"
           />
         )}
 
-        {/* Self-Timer Cadence: Viewfinder Top Countdown Badge */}
+        {/* Self-Timer Cadence: Minimalist, steady countdown badge */}
         {timerCountdown > 0 && (
           <div
             data-testid="timer-countdown-badge"
             className="absolute top-5 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center"
           >
             <div
-              className={`px-4 py-1.5 rounded-2xl bg-black/80 border backdrop-blur-md font-mono font-bold text-2xl shadow-2xl flex items-center gap-2 transition-all duration-100 ${
+              className={`px-3.5 py-1.5 rounded-full bg-black/80 border backdrop-blur-sm font-mono font-bold text-xl shadow-xl flex items-center gap-2 transition-colors duration-150 ${
                 timerCueActive
-                  ? "scale-110 border-amber-300 text-amber-300 shadow-[0_0_25px_rgba(251,191,36,0.8)]"
-                  : "scale-100 border-amber-400/80 text-amber-400 shadow-black/80"
+                  ? "border-amber-300 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.4)]"
+                  : "border-amber-400/40 text-amber-400 shadow-black/80"
               }`}
             >
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+              <span
+                className={`w-2 h-2 rounded-full transition-colors duration-150 ${
+                  timerCueActive ? "bg-amber-300" : "bg-amber-400/50"
+                }`}
+              />
               <span>{timerCountdown}s</span>
             </div>
           </div>
@@ -1047,6 +1048,8 @@ export function CameraScreen({
         onToggleMirrorFront={() => setMirrorFront((v) => !v)}
         soundEnabled={soundEnabled}
         onToggleSound={() => setSoundEnabled((v) => !v)}
+        flashIntensity={flashIntensity}
+        onChangeFlashIntensity={setFlashIntensity}
         rollCode={rollCode}
         eventSlug={eventSlug}
         lang={lang}

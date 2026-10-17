@@ -163,4 +163,38 @@ describe("Vintage Self-Timer Cadence Engine", () => {
     vi.advanceTimersByTime(10000);
     expect(captured).toBe(false);
   });
+
+  it("safely executes countdown with audio ticks and haptics when torch callbacks are omitted", () => {
+    const audioTicks: string[] = [];
+    const haptics: number[][] = [];
+    let captured = false;
+    let finalCaptureTime: number | null = null;
+
+    const scheduler = createTimerScheduler({
+      totalSeconds: 3,
+      onCountdownUpdate: () => {},
+      onCueChange: () => {},
+      // Torch omitted to protect camera sensor auto-exposure from flashing
+      onCapture: () => {
+        captured = true;
+        finalCaptureTime = Date.now();
+      },
+      onTickAudio: (type) => audioTicks.push(type),
+      onHaptic: (pattern) => haptics.push(pattern),
+    });
+
+    scheduler.start();
+    expect(scheduler.isActive()).toBe(true);
+
+    // Initial tick at t=0
+    expect(audioTicks).toEqual(["double"]);
+    expect(haptics).toHaveLength(1);
+
+    // Advance 3000ms
+    vi.advanceTimersByTime(3000);
+    expect(captured).toBe(true);
+    expect(finalCaptureTime).toBe(3000);
+    expect(audioTicks).toContain("hold");
+    expect(scheduler.isActive()).toBe(false);
+  });
 });

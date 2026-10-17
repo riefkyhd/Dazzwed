@@ -5,6 +5,7 @@ import { triggerHaptic } from "@/lib/camera/haptics";
 import type { Lang } from "@/lib/i18n";
 import { t } from "@/lib/i18n";
 import type { PerformanceMode, QualityTier } from "@/lib/camera/adaptive-controller";
+import type { FlashIntensity } from "@/lib/camera/useCamera";
 
 interface CameraSettingsSheetProps {
   open: boolean;
@@ -17,6 +18,8 @@ interface CameraSettingsSheetProps {
   onToggleMirrorFront: () => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
+  flashIntensity?: FlashIntensity;
+  onChangeFlashIntensity?: (intensity: FlashIntensity) => void;
   rollCode?: string | null;
   eventSlug: string;
   lang: Lang;
@@ -37,6 +40,8 @@ export function CameraSettingsSheet({
   onToggleMirrorFront,
   soundEnabled,
   onToggleSound,
+  flashIntensity = "soft",
+  onChangeFlashIntensity,
   rollCode,
   eventSlug,
   lang,
@@ -435,6 +440,61 @@ export function CameraSettingsSheet({
               <div className="w-5 h-5 rounded-full bg-black shadow" />
             </button>
           </div>
+
+          {/* Flash Intensity (Soft Fill vs Standard Full) */}
+          {onChangeFlashIntensity && (
+            <div className="pt-2 border-t border-zinc-800 space-y-1.5">
+              <div className="flex items-center justify-between text-xs text-zinc-400">
+                <span>{lang === "id" ? "Intensitas Lampu Kilat (Flash)" : "Flash Intensity"}</span>
+                <span className="font-mono text-amber-400 uppercase font-semibold">
+                  {flashIntensity === "soft"
+                    ? (lang === "id" ? "Alami" : "Soft Fill")
+                    : (lang === "id" ? "Standar" : "Standard")}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1 p-1 bg-zinc-950/80 rounded-xl border border-zinc-800">
+                <button
+                  type="button"
+                  data-testid="flash-intensity-soft"
+                  onClick={() => {
+                    triggerHaptic([15]);
+                    onChangeFlashIntensity("soft");
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
+                    flashIntensity === "soft"
+                      ? "bg-amber-400 text-black font-bold shadow"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {lang === "id" ? "Alami (Soft Fill)" : "Soft Fill (Natural)"}
+                </button>
+                <button
+                  type="button"
+                  data-testid="flash-intensity-standard"
+                  onClick={() => {
+                    triggerHaptic([15]);
+                    onChangeFlashIntensity("standard");
+                  }}
+                  className={`py-1.5 px-2 rounded-lg text-xs font-medium transition-all ${
+                    flashIntensity === "standard"
+                      ? "bg-amber-400 text-black font-bold shadow"
+                      : "text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {lang === "id" ? "Standar (Penuh)" : "Standard (Full)"}
+                </button>
+              </div>
+              <p className="text-[11px] text-zinc-400 leading-snug">
+                {flashIntensity === "soft"
+                  ? (lang === "id"
+                      ? "Lampu kilat lembut & hangat, ramah di mata, dan melindungi warna kulit dari kilau berlebih."
+                      : "Gentle warm fill light; protects skin tones and highlights from harsh overexposure.")
+                  : (lang === "id"
+                      ? "Pencahayaan lampu kilat langsung daya penuh untuk ruangan sangat gelap."
+                      : "Full-power direct flash illumination for very dark settings.")}
+              </p>
+            </div>
+          )}
 
           {/* Performance Mode (Auto / Quality / Smooth) */}
           {onSelectPerformanceMode && (

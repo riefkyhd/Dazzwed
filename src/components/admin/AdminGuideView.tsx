@@ -444,8 +444,23 @@ export function AdminGuideView() {
               </div>
               <p className="text-xs text-zinc-300 leading-relaxed">
                 {lang === "en"
-                  ? "Camera self-timer (3s / 10s) replicates the authentic cadence of classic 1990s 35mm compact cameras: 1 blip/sec (10..4), 2 accelerated blips/sec (3..2), 600ms steady hold, 400ms Auto-Exposure recovery pause, and capture at 0s, synchronized with hardware torch LED and selfie screen glow. When editing event descriptions, couple names, or limits in /admin/settings, server-side revalidatePath and client-side router cache flushing guarantee /admin/qr and A4 posters reflect changes in 0ms without requiring browser refreshes."
-                  : "Self-timer kamera (3d / 10d) mereplikasi irama otentik kamera saku 35mm tahun 1990-an: 1 kedip/detik (10..4), 2 kedip cepat/detik (3..2), tahan lampu 600ms, jeda pemulihan Auto-Exposure 400ms, dan pemotretan pada 0d, disinkronkan dengan lampu kilat perangkat keras dan pendaran layar swafoto. Saat mengubah deskripsi, nama pasangan, atau kuota di /admin/settings, revalidatePath server dan pembersihan cache router klien memastikan /admin/qr dan poster A4 diperbarui dalam 0ms tanpa perlu muat ulang peramban."}
+                  ? "Camera self-timer (3s / 10s) replicates the authentic cadence of classic 1990s 35mm compact cameras: 1 tick/sec (10..4), 2 accelerated ticks/sec (3..2), and a steady confirmation tone on second 1 with instant 0ms shutter snap. Countdown keeps the camera sensor's Auto Exposure stable and clean with zero torch blinding. When editing event descriptions, couple names, or limits in /admin/settings, server-side revalidatePath and client-side router cache flushing guarantee /admin/qr and A4 posters reflect changes in 0ms without requiring browser refreshes."
+                  : "Self-timer kamera (3d / 10d) mereplikasi irama otentik kamera saku 35mm tahun 1990-an: 1 detak/detik (10..4), 2 detak cepat/detik (3..2), dan nada konfirmasi mantap pada detik ke-1 dengan jepretan instan 0ms. Hitung mundur menjaga Auto-Exposure sensor kamera tetap stabil tanpa kilauan lampu yang menyilaukan. Saat mengubah deskripsi, nama pasangan, atau kuota di /admin/settings, revalidatePath server dan pembersihan cache router klien memastikan /admin/qr dan poster A4 diperbarui dalam 0ms tanpa perlu muat ulang peramban."}
+              </p>
+            </div>
+
+            {/* Control 11: Flash Intensity Management & Zero-Lag Instant Capture */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Flash Intensity (Soft Fill vs Standard) & Zero-Lag Shutter" : "Intensitas Lampu Kilat (Soft Fill vs Standar) & Jepretan Tanpa Jeda"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Guests can select between 'Soft Fill' (gentle warm fill light with automatic highlight-protecting negative EV offset on rear camera, and soft 65% warm-ivory screen glow on front camera to prevent washed-out faces) and 'Standard' full-power direct flash. Shutter latency is optimized with 0ms cooldown overhead, snapping illuminated frames cleanly and instantly."
+                  : "Tamu dapat memilih antara 'Alami / Soft Fill' (cahaya pengisi lembut dengan perlindungan highlight kompensasi pencahayaan negatif otomatis pada kamera belakang, dan pendaran layar gading hangat 65% pada kamera depan agar wajah tidak overexposed) dan 'Standar' lampu kilat langsung daya penuh. Latensi rana dioptimalkan tanpa jeda buatan, memotret seketika dan responsif."}
               </p>
             </div>
           </div>

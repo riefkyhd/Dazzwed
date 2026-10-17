@@ -33,6 +33,7 @@ import {
 } from "./adaptive-controller";
 
 export type Facing = "environment" | "user";
+export type FlashIntensity = "soft" | "standard";
 
 const stopStream = (s: MediaStream | null) => s?.getTracks().forEach((t) => t.stop());
 
@@ -141,6 +142,22 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
   const [hasHardwareFlash, setHasHardwareFlash] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const [flashMode, setFlashMode] = useState<"auto" | "on" | "off">("auto");
+  const [flashIntensity, setFlashIntensityState] = useState<FlashIntensity>(() => {
+    if (typeof window === "undefined") return "soft";
+    try {
+      const saved = localStorage.getItem("dazzwed_flash_intensity");
+      return saved === "standard" ? "standard" : "soft";
+    } catch {
+      return "soft";
+    }
+  });
+
+  const setFlashIntensity = useCallback((intensity: FlashIntensity) => {
+    setFlashIntensityState(intensity);
+    try {
+      localStorage.setItem("dazzwed_flash_intensity", intensity);
+    } catch {}
+  }, []);
   const [aspect, setAspect] = useState(9 / 16);
   const [cameraAspect, setCameraAspect] = useState<CameraAspect>("3:4");
   const [activeLook, setActiveLookState] = useState<LookRecipe>(() => {
@@ -1111,26 +1128,48 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             throw new DOMException("Capture aborted", "AbortError");
           }
         } else {
-          // --- Flash Illuminated Capture Pipeline (~260ms exposure adaptation) ---
+          // --- Flash Illuminated Capture Pipeline (Gentle, low-latency exposure adaptation) ---
           let previewBmp: ImageBitmap | null = null;
+          const isSoft = flashIntensity === "soft";
 
           if (shouldFireTorch && track) {
-            // Hardware LED torch pulse with 260ms auto-exposure & sensor convergence
-            await pulseTorch(
-              track,
-              async () => {
-                const snap = await takeFrameSnapshots();
-                previewBmp = snap.previewBmp;
-                snapCanvasFallback = snap.snapCanvas;
-                frozenSource = v;
-              },
-              { maxStabilizeMs: 260 }
-            );
-          } else if (shouldFireScreenFlash) {
-            // Front camera warm-white screen flash with 260ms exposure adaptation
-            callbacks?.onScreenFlash?.(true);
+            // Apply highlight protection EV offset if soft flash
+            const prevEV = exposureCompValueRef.current;
+            const ec = exposureCompRange;
+            if (isSoft && ec) {
+              const softEV = Math.max(ec.min, Math.min(ec.max, prevEV - 0.7));
+              try {
+                await applyExposureCompensation(track, softEV);
+              } catch {}
+            }
+
             try {
-              await new Promise((r) => setTimeout(r, 260));
+              // Snappy auto-exposure adaptation (75ms soft, 140ms standard)
+              const maxWait = isSoft ? 75 : 140;
+              await pulseTorch(
+                track,
+                async () => {
+                  const snap = await takeFrameSnapshots();
+                  previewBmp = snap.previewBmp;
+                  snapCanvasFallback = snap.snapCanvas;
+                  frozenSource = v;
+                },
+                { maxStabilizeMs: maxWait }
+              );
+            } finally {
+              // Restore user's previous exposure compensation
+              if (isSoft && ec) {
+                try {
+                  await applyExposureCompensation(track, prevEV);
+                } catch {}
+              }
+            }
+          } else if (shouldFireScreenFlash) {
+            // Front camera warm screen flash with gentle fill adaptation
+            callbacks?.onScreenFlash?.(true);
+            const waitMs = isSoft ? 160 : 220;
+            try {
+              await new Promise((r) => setTimeout(r, waitMs));
               const snap = await takeFrameSnapshots();
               previewBmp = snap.previewBmp;
               snapCanvasFallback = snap.snapCanvas;
@@ -1257,7 +1296,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
       };
       return capturePromise;
     },
-      [digitalZoom, cameraAspect, activeLook, flashMode, facing, mirrorFront]
+      [digitalZoom, cameraAspect, activeLook, flashMode, flashIntensity, facing, mirrorFront, exposureCompRange]
     );
 
   const takeOverCamera = useCallback(async () => {
@@ -1329,6 +1368,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     pulseTorchSafe,
     flashMode,
     setFlashMode,
+    flashIntensity,
+    setFlashIntensity,
     capture,
     unfreezeViewfinder,
     retry: () => void runRef.current(),

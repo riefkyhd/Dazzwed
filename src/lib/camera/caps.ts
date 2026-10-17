@@ -80,9 +80,6 @@ export async function applyTorch(track: MediaStreamTrack, on: boolean): Promise<
   await track.applyConstraints({ advanced: [{ torch: on } as MediaTrackConstraintSet] });
 }
 
-let lastTorchPulseTime = 0;
-const TORCH_COOLDOWN_MS = 600;
-
 /**
  * Pulses the torch strictly at moment of capture and GUARANTEES turning it off afterwards.
  * Automatically handles timeouts, errors, and background transitions.
@@ -92,28 +89,20 @@ export async function pulseTorch<T>(
   captureAction: () => Promise<T>,
   options: { maxStabilizeMs?: number } = {}
 ): Promise<T> {
-  const maxWait = options.maxStabilizeMs ?? 260;
-
-  // Respect minimum LED cooldown interval
-  const now = Date.now();
-  const elapsed = now - lastTorchPulseTime;
-  if (elapsed < TORCH_COOLDOWN_MS) {
-    await new Promise((r) => setTimeout(r, TORCH_COOLDOWN_MS - elapsed));
-  }
+  const maxWait = options.maxStabilizeMs ?? 80;
 
   // Turn torch ON
   let torchActivated = false;
   try {
     await applyTorch(track, true);
     torchActivated = true;
-    lastTorchPulseTime = Date.now();
   } catch (err) {
     console.warn("Failed to activate hardware torch:", err);
   }
 
   try {
-    // If torch was activated, wait for camera ISP auto-exposure/gain to adapt (~260ms)
-    if (torchActivated) {
+    // If torch was activated, wait brief auto-exposure stabilization
+    if (torchActivated && maxWait > 0) {
       await new Promise((r) => setTimeout(r, maxWait));
     }
     return await captureAction();

@@ -30,8 +30,8 @@ export interface TimerSchedulerOptions {
   totalSeconds: number; // 3 or 10
   onCountdownUpdate: (remaining: number) => void;
   onCueChange: (active: boolean) => void;
-  onTorchPulse: (durationMs: number) => void;
-  onTorchHold: (on: boolean) => void;
+  onTorchPulse?: (durationMs: number) => void;
+  onTorchHold?: (on: boolean) => void;
   onCapture: () => void;
   onTickAudio?: (type: "single" | "double" | "hold") => void;
   onHaptic?: (pattern: number[]) => void;
@@ -74,7 +74,7 @@ export function createTimerScheduler(options: TimerSchedulerOptions): TimerSched
     if (running) {
       running = false;
       onCueChange(false);
-      onTorchHold(false);
+      onTorchHold?.(false);
       onCountdownUpdate(0);
     }
   };
@@ -98,7 +98,7 @@ export function createTimerScheduler(options: TimerSchedulerOptions): TimerSched
           if (!running) return;
           onCountdownUpdate(sec);
           onCueChange(true);
-          onTorchPulse(140);
+          onTorchPulse?.(140);
           onTickAudio?.("single");
           onHaptic?.([15]);
         }, secondOffsetMs);
@@ -114,7 +114,7 @@ export function createTimerScheduler(options: TimerSchedulerOptions): TimerSched
           if (!running) return;
           onCountdownUpdate(sec);
           onCueChange(true);
-          onTorchPulse(130);
+          onTorchPulse?.(130);
           onTickAudio?.("double");
           onHaptic?.([15]);
         }, secondOffsetMs);
@@ -128,7 +128,7 @@ export function createTimerScheduler(options: TimerSchedulerOptions): TimerSched
         schedule(() => {
           if (!running) return;
           onCueChange(true);
-          onTorchPulse(130);
+          onTorchPulse?.(130);
           onTickAudio?.("double");
           onHaptic?.([15]);
         }, secondOffsetMs + 450);
@@ -143,7 +143,7 @@ export function createTimerScheduler(options: TimerSchedulerOptions): TimerSched
           if (!running) return;
           onCountdownUpdate(1);
           onCueChange(true);
-          onTorchHold(true);
+          onTorchHold?.(true);
           onTickAudio?.("hold");
           onHaptic?.([30]);
         }, secondOffsetMs);
@@ -151,7 +151,7 @@ export function createTimerScheduler(options: TimerSchedulerOptions): TimerSched
         schedule(() => {
           if (!running) return;
           onCueChange(false);
-          onTorchHold(false);
+          onTorchHold?.(false);
         }, secondOffsetMs + 600);
       }
     }
