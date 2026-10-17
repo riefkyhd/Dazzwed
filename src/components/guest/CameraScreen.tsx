@@ -340,9 +340,6 @@ export function CameraScreen({
     try {
       setIsProcessing(true);
 
-      let fastPreviewBitmap: ImageBitmap | null = null;
-      let fastPreviewBlob: Blob | null = null;
-
       const capturePromise = capture(
         cameraAspect,
         undefined,
@@ -354,11 +351,18 @@ export function CameraScreen({
             }
             return;
           }
-          if (fastPreview instanceof ImageBitmap) {
-            fastPreviewBitmap = fastPreview;
-          } else {
-            fastPreviewBlob = fastPreview;
-          }
+          // Fast fallback preview: if archival takes unexpectedly long (> 200ms on older devices),
+          // mount review with fast preview so the guest is never left waiting
+          setTimeout(() => {
+            if (activeSessionIdRef.current === sessionId) {
+              setActiveReview((prev) => {
+                if (prev) return prev;
+                return fastPreview instanceof ImageBitmap
+                  ? { previewBitmap: fastPreview, blobsPromise: capturePromise, abortCapture: capturePromise.abort }
+                  : { filteredBlob: fastPreview, blobsPromise: capturePromise, abortCapture: capturePromise.abort };
+              });
+            }
+          }, 200);
         },
         {
           onScreenFlash: (active) => setIsScreenFlashActive(active),
@@ -368,81 +372,32 @@ export function CameraScreen({
             requestAnimationFrame(() => {
               diagnostics.recordMark("t1");
             });
+            setTimeout(() => setIsShutterActive(false), 160);
           },
         }
       );
 
-      // Race capturePromise against a 160ms mechanical shutter curtain window.
-      // In 95%+ of captures, renderShot completes in ~90-120ms, allowing ReviewModal
-      // to open DIRECTLY with the 100% final developed photo (zero preview swap or visual hop).
-      const result = await Promise.race([
-        capturePromise,
-        new Promise<{ filteredBlob: null; originalBlob: null }>((r) =>
-          setTimeout(() => r({ filteredBlob: null, originalBlob: null }), 160)
-        ),
-      ]);
+      // In 95%+ of captures, renderShot completes in ~90-120ms (under the 160ms shutter curtain).
+      // ReviewModal opens directly with the 100% final developed photo (zero preview swap or visual hop).
+      const { filteredBlob, originalBlob } = await capturePromise;
 
-      if (activeSessionIdRef.current !== sessionId) return;
-
-      if (result.filteredBlob && result.filteredBlob.size > 0) {
-        // Unified 1-step mount: ReviewModal opens directly with the fully developed photo!
+      if (activeSessionIdRef.current === sessionId && filteredBlob && filteredBlob.size > 0) {
         setActiveReview({
-          filteredBlob: result.filteredBlob,
-          originalBlob: result.originalBlob ?? undefined,
+          filteredBlob,
+          originalBlob: originalBlob ?? undefined,
           blobsPromise: capturePromise,
           abortCapture: capturePromise.abort,
         });
-      } else {
-        // Fallback: If archival render took > 160ms on low-tier hardware, mount with fast preview
-        if (fastPreviewBitmap) {
-          setActiveReview({
-            previewBitmap: fastPreviewBitmap,
-            blobsPromise: capturePromise,
-            abortCapture: capturePromise.abort,
-          });
-        } else if (fastPreviewBlob) {
-          setActiveReview({
-            filteredBlob: fastPreviewBlob,
-            blobsPromise: capturePromise,
-            abortCapture: capturePromise.abort,
-          });
-        }
       }
-
-      // Background listener for archival resolution completion
-      capturePromise
-        .then(({ filteredBlob, originalBlob }) => {
-          if (activeSessionIdRef.current !== sessionId) {
-            // Dismissed by user clicking Retake
-            return;
-          }
-          if (filteredBlob && filteredBlob.size > 0) {
-            setActiveReview((prev) => {
-              if (!prev || activeSessionIdRef.current !== sessionId) {
-                return null;
-              }
-              return {
-                ...prev,
-                filteredBlob,
-                originalBlob,
-              };
-            });
-          }
-        })
-        .catch((err) => {
-          if (err?.name !== "AbortError") {
-            console.error("Background photo render failed:", err);
-          }
-        });
     } catch (err) {
       console.error("Capture error:", err);
       unfreezeViewfinder();
       showToast(t(lang, "captureFailed"));
       triggerHaptic([100, 50, 100]);
+      setIsShutterActive(false);
     } finally {
       setIsProcessing(false);
       setIsScreenFlashActive(false);
-      setIsShutterActive(false);
       isExecutingCaptureRef.current = false;
     }
   }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, mirrorFront, showToast, lang, unfreezeViewfinder]);
