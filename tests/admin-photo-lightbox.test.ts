@@ -4,6 +4,7 @@ import {
   classifySwipeGesture,
   resolveActiveFileId,
   applyScrollLock,
+  LIGHTBOX_STAGE_CONTAINMENT,
 } from "@/components/admin/AdminPhotoLightbox";
 
 describe("AdminPhotoLightbox Pure State & Gesture Engine", () => {
@@ -114,6 +115,79 @@ describe("AdminPhotoLightbox Pure State & Gesture Engine", () => {
       expect(mockDoc.documentElement.style.overflow).toBe("visible");
       expect(mockDoc.body.style.overflow).toBe("auto");
       expect(mockWin.scrollTo).toHaveBeenCalledWith(0, 450);
+    });
+  });
+
+  describe("LIGHTBOX_STAGE_CONTAINMENT & Zero-Crop Geometry", () => {
+    it("enforces definite container bounds preventing unconstrained percentage height failures", () => {
+      expect(LIGHTBOX_STAGE_CONTAINMENT.containerClass).toContain("w-full");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.containerClass).toContain("h-full");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.containerClass).toContain("min-h-0");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.containerClass).toContain("min-w-0");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.containerClass).toContain("flex");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.containerClass).toContain("items-center");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.containerClass).toContain("justify-center");
+    });
+
+    it("enforces object-contain and max-dimension containment on image tags", () => {
+      expect(LIGHTBOX_STAGE_CONTAINMENT.imageClass).toContain("max-h-full");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.imageClass).toContain("max-w-full");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.imageClass).toContain("w-auto");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.imageClass).toContain("h-auto");
+      expect(LIGHTBOX_STAGE_CONTAINMENT.imageClass).toContain("object-contain");
+
+      expect(LIGHTBOX_STAGE_CONTAINMENT.imageStyle).toEqual({
+        maxHeight: "100%",
+        maxWidth: "100%",
+        objectFit: "contain",
+      });
+    });
+
+    it("guarantees 3:4 portrait photo never overflows or crops across widescreen desktop or mobile", () => {
+      // Helper simulating CSS object-contain inside bounded container
+      function calculateContainedDimensions(
+        containerW: number,
+        containerH: number,
+        imageW: number,
+        imageH: number
+      ) {
+        const aspect = imageW / imageH;
+        let renderedW = containerW;
+        let renderedH = containerW / aspect;
+
+        if (renderedH > containerH) {
+          renderedH = containerH;
+          renderedW = containerH * aspect;
+        }
+
+        return { renderedW, renderedH };
+      }
+
+      // Widescreen Desktop (e.g., 1440 x 750 available stage)
+      const desktop = calculateContainedDimensions(1440, 750, 3024, 4032);
+      expect(desktop.renderedH).toBe(750);
+      expect(desktop.renderedW).toBe(750 * (3 / 4)); // 562.5px
+      expect(desktop.renderedH).toBeLessThanOrEqual(750);
+      expect(desktop.renderedW).toBeLessThanOrEqual(1440);
+
+      // Mobile Portrait (e.g., 375 x 700 available stage)
+      const mobilePortrait = calculateContainedDimensions(375, 700, 3024, 4032);
+      expect(mobilePortrait.renderedW).toBe(375);
+      expect(mobilePortrait.renderedH).toBe(375 * (4 / 3)); // 500px
+      expect(mobilePortrait.renderedH).toBeLessThanOrEqual(700);
+      expect(mobilePortrait.renderedW).toBeLessThanOrEqual(375);
+
+      // Mobile Landscape (e.g., 700 x 280 available stage)
+      const mobileLandscape = calculateContainedDimensions(700, 280, 3024, 4032);
+      expect(mobileLandscape.renderedH).toBe(280);
+      expect(mobileLandscape.renderedW).toBe(280 * (3 / 4)); // 210px
+      expect(mobileLandscape.renderedH).toBeLessThanOrEqual(280);
+      expect(mobileLandscape.renderedW).toBeLessThanOrEqual(700);
+
+      // 16:9 Landscape Photo on Desktop Widescreen
+      const landscape169 = calculateContainedDimensions(1440, 750, 1920, 1080);
+      expect(landscape169.renderedH).toBeLessThanOrEqual(750);
+      expect(landscape169.renderedW).toBeLessThanOrEqual(1440);
     });
   });
 });

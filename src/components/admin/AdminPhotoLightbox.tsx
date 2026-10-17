@@ -81,6 +81,16 @@ export function applyScrollLock(
   };
 }
 
+/**
+ * Layout and aspect-ratio containment contracts for lightbox image stages.
+ * Guarantees zero cropping / zero unwanted zooming across desktop, tablet, and mobile orientations.
+ */
+export const LIGHTBOX_STAGE_CONTAINMENT = {
+  containerClass: "relative w-full h-full min-h-0 min-w-0 flex items-center justify-center",
+  imageClass: "max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl select-none",
+  imageStyle: { maxHeight: "100%", maxWidth: "100%", objectFit: "contain" } as const,
+};
+
 export function AdminPhotoLightbox({
   photos,
   currentIndex,
@@ -246,9 +256,14 @@ export function AdminPhotoLightbox({
 
       {/* ZONE 2 — CENTER PHOTO STAGE */}
       <main
-        className="flex-1 min-h-0 min-w-0 relative flex items-center justify-center p-2 sm:p-6 overflow-hidden cursor-grab active:cursor-grabbing"
+        className="flex-1 min-h-0 min-w-0 relative flex items-center justify-center p-2 sm:p-6 overflow-hidden select-none cursor-default"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) {
+            onClose();
+          }
+        }}
       >
         {/* Desktop Side Chevron: Previous */}
         <button
@@ -278,17 +293,25 @@ export function AdminPhotoLightbox({
             <p className="text-xs text-stone-400 mt-1">This photo was moved or deleted from the event Drive folder.</p>
           </div>
         ) : (
-          <div className="relative max-h-full max-w-full flex items-center justify-center pointer-events-none">
-            {/* Base Layer: Instant cached thumbnail (=s800) - only shown while HD image is loading */}
-            {!hdLoaded && (
-              <img
-                src={`/api/admin/photos/${currentFileId}?size=grid`}
-                alt=""
-                aria-hidden="true"
-                onError={() => setHasError(true)}
-                className="max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl filter blur-[0.5px]"
-              />
-            )}
+          <div
+            className={LIGHTBOX_STAGE_CONTAINMENT.containerClass}
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                onClose();
+              }
+            }}
+          >
+            {/* Base Layer: Instant cached thumbnail (=s800) */}
+            <img
+              src={`/api/admin/photos/${currentFileId}?size=grid`}
+              alt=""
+              aria-hidden="true"
+              onError={() => setHasError(true)}
+              className={`${LIGHTBOX_STAGE_CONTAINMENT.imageClass} filter blur-[0.5px] transition-opacity duration-200 ${
+                hdLoaded ? "opacity-0 absolute pointer-events-none" : "opacity-100 relative pointer-events-auto"
+              }`}
+              style={LIGHTBOX_STAGE_CONTAINMENT.imageStyle}
+            />
 
             {/* Top Layer: HD Lightbox image (=s1600) */}
             <img
@@ -297,14 +320,14 @@ export function AdminPhotoLightbox({
               alt={guestName ? `Photo by ${guestName}` : "Wedding photo"}
               onLoad={() => setHdLoaded(true)}
               onError={() => setHasError(true)}
-              className={`${
+              className={`${LIGHTBOX_STAGE_CONTAINMENT.imageClass} transition-opacity duration-200 ${
                 hdLoaded
-                  ? "relative max-h-full max-w-full w-auto h-auto object-contain rounded-lg shadow-2xl opacity-100"
-                  : "absolute inset-0 m-auto max-h-full max-w-full w-auto h-auto object-contain rounded-lg opacity-0 pointer-events-none"
-              } transition-opacity duration-200`}
+                  ? "relative opacity-100 pointer-events-auto"
+                  : "absolute inset-0 m-auto opacity-0 pointer-events-none"
+              }`}
+              style={LIGHTBOX_STAGE_CONTAINMENT.imageStyle}
             />
           </div>
-
         )}
 
         {/* Desktop Side Chevron: Next */}

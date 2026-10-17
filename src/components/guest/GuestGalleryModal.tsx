@@ -236,13 +236,14 @@ export function GuestGalleryModal({
               </button>
             </div>
 
-            <div className="flex-1 flex items-center justify-center overflow-hidden my-auto rounded-2xl bg-zinc-950">
+            <div className="flex-1 min-h-0 min-w-0 flex items-center justify-center overflow-hidden my-auto rounded-2xl bg-zinc-950">
               {selectedPhoto.thumbnailUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={selectedPhoto.thumbnailUrl}
                   alt="Developed preview"
-                  className="max-w-full max-h-[62dvh] object-contain rounded-xl shadow-2xl"
+                  className="max-w-full max-h-[62dvh] w-auto h-auto object-contain rounded-xl shadow-2xl select-none"
+                  style={{ maxHeight: "62dvh", maxWidth: "100%", objectFit: "contain" }}
                 />
               )}
             </div>
