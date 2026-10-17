@@ -302,9 +302,12 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
      - Bottom shutter dock: film roll thumbnail + remaining shots counter badge, and flip camera button
    - **Non-Blocking Container Geometries:** All button hitboxes and parent flex containers maintain fixed hit zones, preventing touch misalignment, scroll jumps, or reflow jitter during rotation.
 
-2. **Landscape Side-Rail Dock Layout (`CameraScreen.tsx` & `CameraTopBar.tsx`):**
-   - When the phone or browser window enters landscape orientation (`width > height`), the top bar automatically converts into a dedicated vertical rail (`isVertical={true}`, `flex-col gap-3.5`) on the right side of the screen alongside the central shutter button.
-   - Tooltips in the vertical rail adapt their positioning (`right-full mr-2` or `left-full ml-2`) to avoid screen boundary clipping.
+2. **Two-Handed Landscape Rail Architecture (`CameraScreen.tsx` & `CameraTopBar.tsx`):**
+   - When the phone or browser window enters landscape orientation (`width > height`), controls organize into an ergonomic two-handed layout:
+     - **Left-Hand Settings Rail:** Hosts `CameraTopBar` vertically (`isVertical={true}`, `flex-col gap-3.5`) for quick thumb access to flash, aspect ratio, self-timer, sync indicator, and camera tools.
+     - **Right-Hand Action Rail:** Houses the film roll thumbnail with shots counter at the top, the 78px shutter button with countdown ring in the center, and the flip camera button at the bottom.
+     - **Center Viewfinder:** Houses framing brackets, grid, and centered upright lens pills (`0.5x`, `1x`, `2x`, `3x`) without vertical crowding or control clipping.
+   - Tooltips in the vertical settings rail adapt their positioning (`right-full mr-2` or `left-full ml-2`) to avoid screen boundary clipping.
 
 3. **True Landscape Archival Capture (`geometry.ts` & `useCamera.ts`):**
    - **Dynamic Aspect Ratio Resolution (`resolveCaptureAspect`):** When capturing in landscape orientation (`width > height` or `videoWidth > videoHeight`), portrait aspect ratios automatically map to true landscape dimensions:

@@ -958,58 +958,63 @@ export function CameraScreen({
         </>
       )}
 
-      {/* LANDSCAPE LAYOUT (Side Rail on Right) */}
+      {/* LANDSCAPE LAYOUT (Left Tools Rail + Right Shutter Action Rail) */}
       {isLandscape && (
         <div className="absolute inset-0 z-20 flex justify-between pointer-events-none">
-          {/* Top Left film badge overlay */}
-          <div className="p-4 flex items-center gap-3 pointer-events-auto">
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic([20]);
-                setGalleryOpen(true);
-              }}
-              aria-label={t(lang, "myPhotos")}
-              style={controlRotStyle}
-              className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-300 relative cursor-pointer"
-            >
-              <span className="text-sm">🎞️</span>
-              <span className="absolute bottom-0.5 px-1.5 py-0.2 rounded-full bg-amber-400 text-black font-mono font-bold text-[8px]">
-                {shotsLeft}
-              </span>
-            </button>
+          {/* Left-hand side settings rail (Flash, Aspect, Timer, Sync, Settings) */}
+          <div
+            style={{
+              paddingLeft: "max(env(safe-area-inset-left), 8px)",
+            }}
+            className="h-full flex flex-col items-center justify-center py-4 px-2 pointer-events-auto z-20"
+          >
+            <CameraTopBar
+              rotationDegrees={rotationDegrees}
+              isVertical={true}
+              flashAvailable={hasHardwareFlash || facing === "user"}
+              flashMode={flashMode}
+              onChangeFlashMode={setFlashMode}
+              aspect={cameraAspect}
+              onChangeAspect={setCameraAspect}
+              timerSeconds={timerSeconds}
+              onChangeTimer={setTimerSeconds}
+              pendingCount={pendingCount}
+              syncError={syncError}
+              onOpenSyncStatus={() => setSyncStatusOpen(true)}
+              onOpenSettings={() => setSettingsOpen(true)}
+              onNativeTipClick={() => setShowNativeFlashTip(true)}
+              lang={lang}
+            />
           </div>
 
-          {/* Right-hand side control rail */}
+          {/* Right-hand side action rail (Film Roll, Shutter, Flip Camera) */}
           <div
             style={{
               paddingRight: "max(env(safe-area-inset-right), 12px)",
               width: `${layout.bottomBarHeight}px`,
             }}
-            className="h-full bg-black flex flex-col items-center justify-between py-6 px-2 pointer-events-auto border-l border-zinc-900"
+            className="h-full bg-black flex flex-col items-center justify-between py-4 px-2 pointer-events-auto border-l border-zinc-900"
           >
-            {/* Top controls in rail */}
-            <div className="flex flex-col items-center gap-3">
-              <CameraTopBar
-                rotationDegrees={rotationDegrees}
-                isVertical={true}
-                flashAvailable={hasHardwareFlash || facing === "user"}
-                flashMode={flashMode}
-                onChangeFlashMode={setFlashMode}
-                aspect={cameraAspect}
-                onChangeAspect={setCameraAspect}
-                timerSeconds={timerSeconds}
-                onChangeTimer={setTimerSeconds}
-                pendingCount={pendingCount}
-                syncError={syncError}
-                onOpenSyncStatus={() => setSyncStatusOpen(true)}
-                onOpenSettings={() => setSettingsOpen(true)}
-                onNativeTipClick={() => setShowNativeFlashTip(true)}
-                lang={lang}
-              />
+            {/* Top slot: Film Roll thumbnail with shots counter badge */}
+            <div className="flex items-center justify-center">
+              <button
+                type="button"
+                onClick={() => {
+                  triggerHaptic([20]);
+                  setGalleryOpen(true);
+                }}
+                aria-label={t(lang, "myPhotos")}
+                style={controlRotStyle}
+                className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-400/80 flex flex-col items-center justify-center text-zinc-300 relative cursor-pointer active:scale-95 shadow-md"
+              >
+                <span className="text-sm">🎞️</span>
+                <span className="absolute bottom-0.5 px-1.5 py-0.2 rounded-full bg-amber-400 text-black font-mono font-bold text-[8px]">
+                  {shotsLeft}
+                </span>
+              </button>
             </div>
 
-            {/* Shutter in center of rail */}
+            {/* Center slot: Shutter Button in center of rail */}
             <div className="my-auto">
               <ShutterButton
                 onShoot={handleShoot}
@@ -1020,8 +1025,8 @@ export function CameraScreen({
               />
             </div>
 
-            {/* Bottom controls in rail */}
-            <div className="flex flex-col items-center gap-3">
+            {/* Bottom slot: Flip Camera Button */}
+            <div className="flex items-center justify-center">
               <button
                 type="button"
                 disabled={starting || restarting || isProcessing}
