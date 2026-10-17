@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { QrGeneratorView } from "@/components/admin/QrGeneratorView";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AdminQrPage() {
   await requireAdmin();

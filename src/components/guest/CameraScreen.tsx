@@ -23,6 +23,7 @@ import { LookDial } from "./LookDial";
 import { GuestGalleryModal } from "./GuestGalleryModal";
 import { getLookById, CPM35_LOOK } from "@/lib/imaging/looks/presets";
 import { isBlobBlankOrBlack } from "@/lib/imaging/render";
+import { createTimerScheduler, type TimerScheduler } from "@/lib/camera/timer-cadence";
 export { isBlobBlankOrBlack };
 
 interface CameraScreenProps {
@@ -127,6 +128,8 @@ export function CameraScreen({
     digitalZoom,
     setDigitalZoom,
     hasHardwareFlash,
+    setTorchSafe,
+    pulseTorchSafe,
     flashMode,
     setFlashMode,
     capture,
@@ -164,10 +167,11 @@ export function CameraScreen({
   const [activeReview, setActiveReview] = useState<ReviewSession | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
 
-  // Timer state (0s, 3s, 10s)
+  // Vintage Self-Timer state (0s, 3s, 10s) with flash cadence
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
   const [timerCountdown, setTimerCountdown] = useState<number>(0);
-  const countdownIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [timerCueActive, setTimerCueActive] = useState(false);
+  const timerSchedulerRef = useRef<TimerScheduler | null>(null);
 
   // Camera Settings & Tools
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -192,7 +196,7 @@ export function CameraScreen({
   // Clean up timer on unmount
   useEffect(() => {
     return () => {
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (timerSchedulerRef.current) timerSchedulerRef.current.cancel();
       if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
     };
   }, []);
@@ -276,6 +280,31 @@ export function CameraScreen({
       // AudioContext might be blocked before first user gesture
     }
   }, [soundEnabled]);
+
+  // Web Audio self-timer cadence blip tick
+  const playTimerTick = useCallback(
+    (pitch: number = 880, durationMs: number = 60) => {
+      if (!soundEnabled) return;
+      try {
+        const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(pitch, ctx.currentTime);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + durationMs / 1000);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + durationMs / 1000);
+      } catch {
+        // AudioContext might be blocked before first user gesture
+      }
+    },
+    [soundEnabled]
+  );
 
   // Transient Capture / System feedback toast
   const [captureToast, setCaptureToast] = useState<string | null>(null);
@@ -385,15 +414,17 @@ export function CameraScreen({
     }
   }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, mirrorFront, showToast, lang, unfreezeViewfinder]);
 
-  // Shutter button trigger with timer countdown
+  // Shutter button trigger with vintage timer countdown
   const handleShoot = () => {
     if (shotsLeft <= 0 || isProcessing || !live || isExecutingCaptureRef.current) return;
 
-    if (timerCountdown > 0) {
-      // Cancel active countdown
-      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-      countdownIntervalRef.current = null;
+    if (timerSchedulerRef.current?.isActive() || timerCountdown > 0) {
+      // Cancel active countdown immediately
+      timerSchedulerRef.current?.cancel();
+      timerSchedulerRef.current = null;
       setTimerCountdown(0);
+      setTimerCueActive(false);
+      void setTorchSafe(false);
       return;
     }
 
@@ -402,22 +433,45 @@ export function CameraScreen({
       return;
     }
 
-    // Start countdown
+    // Start precision self-timer scheduler
     triggerHaptic([20]);
-    setTimerCountdown(timerSeconds);
-    let remaining = timerSeconds;
-
-    countdownIntervalRef.current = setInterval(() => {
-      remaining -= 1;
-      setTimerCountdown(remaining);
-      if (remaining > 0) {
-        triggerHaptic([15]);
-      } else {
-        if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
-        countdownIntervalRef.current = null;
+    const scheduler = createTimerScheduler({
+      totalSeconds: timerSeconds,
+      onCountdownUpdate: (remaining) => {
+        setTimerCountdown(remaining);
+      },
+      onCueChange: (active) => {
+        setTimerCueActive(active);
+      },
+      onTorchPulse: (durationMs) => {
+        if (facing === "environment") {
+          void pulseTorchSafe(durationMs);
+        }
+      },
+      onTorchHold: (on) => {
+        if (facing === "environment") {
+          void setTorchSafe(on);
+        }
+      },
+      onCapture: () => {
         void executeCapture();
-      }
-    }, 1000);
+      },
+      onTickAudio: (type) => {
+        if (type === "single") {
+          playTimerTick(880, 70);
+        } else if (type === "double") {
+          playTimerTick(1100, 60);
+        } else if (type === "hold") {
+          playTimerTick(1320, 150);
+        }
+      },
+      onHaptic: (pattern) => {
+        triggerHaptic(pattern);
+      },
+    });
+
+    timerSchedulerRef.current = scheduler;
+    scheduler.start();
   };
 
   const handleKeepPhoto = useCallback(async () => {
@@ -685,6 +739,49 @@ export function CameraScreen({
 
         {/* Retro 4 Corner Brackets (always inside viewfinder, hidden in full-bleed 16:9) */}
         <ViewfinderFrame visible={mode === "banded"} />
+
+        {/* Self-Timer Cadence: Viewfinder border pulse */}
+        <div
+          data-testid="timer-cue-border"
+          className={`absolute inset-0 pointer-events-none transition-opacity duration-100 z-20 ${
+            timerCueActive
+              ? "ring-4 ring-amber-400 ring-inset shadow-[inset_0_0_50px_rgba(251,191,36,0.6)] opacity-100"
+              : "opacity-0"
+          }`}
+          aria-hidden="true"
+        />
+
+        {/* Self-Timer Cadence: Front Camera Selfie Glow during timer blips */}
+        {facing === "user" && (
+          <div
+            data-testid="timer-selfie-glow"
+            className={`absolute inset-0 pointer-events-none transition-opacity duration-100 z-20 ${
+              timerCueActive
+                ? "bg-amber-100/35 backdrop-blur-[0.5px] opacity-100"
+                : "opacity-0"
+            }`}
+            aria-hidden="true"
+          />
+        )}
+
+        {/* Self-Timer Cadence: Viewfinder Top Countdown Badge */}
+        {timerCountdown > 0 && (
+          <div
+            data-testid="timer-countdown-badge"
+            className="absolute top-5 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center"
+          >
+            <div
+              className={`px-4 py-1.5 rounded-2xl bg-black/80 border backdrop-blur-md font-mono font-bold text-2xl shadow-2xl flex items-center gap-2 transition-all duration-100 ${
+                timerCueActive
+                  ? "scale-110 border-amber-300 text-amber-300 shadow-[0_0_25px_rgba(251,191,36,0.8)]"
+                  : "scale-100 border-amber-400/80 text-amber-400 shadow-black/80"
+              }`}
+            >
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+              <span>{timerCountdown}s</span>
+            </div>
+          </div>
+        )}
 
         {/* Starting Spinner (initial entry only, silent seamless switch on flip) */}
         {!hasInitialized && starting && (

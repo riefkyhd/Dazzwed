@@ -87,6 +87,7 @@
 | **Reset All Guest Sessions** | `/admin/settings` | Grants all guests another 15-shot roll without deleting previous photos. | Use during after-parties or when resetting test phones before the wedding. |
 | **Editorial Gallery & Lightbox** | `/admin/photos` & `/admin/guests` | High-definition Retina streaming gallery from Google Drive with zero external CDN costs. Toggle between contact-sheet grid and rolls table, filter by guest roll or horizontal film recipe pills, and open full-screen React Portal lightbox with strict aspect-ratio containment (zero cropping/unwanted zoom on 3:4 portrait or landscape photos), click-outside backdrop dismissal, touch swipe navigation, background scroll-lock, Film Graded vs. RAW Original comparison, and 1-click HD downloads. Features dynamic Crockford Base32 roll code resolution for all guests and graceful dark-room fallback cards for photos removed from Google Drive. | Review all wedding captures, download favorites, or inspect RAW originals. |
 | **Product & Filter Usage Analytics** | `/admin/health` | Audit-safe, zero-PII aggregate insights tracking film recipe popularity, keep-to-retake ratios, guest shooting funnel, and camera hardware capture reliability (`takePhoto` vs `videoFrame`). | Monitor guest engagement and film recipe trends with 0ms added camera latency. |
+| **Vintage Self-Timer (`3s / 10s`) & Instant Settings Sync** | `/e/[slug]` & `/admin/settings` | Authentic 1990s compact camera self-timer cadence (1 blip/sec for 10..4, 2 blips/sec for 3..2, 600ms hold, 400ms Auto-Exposure pause) synchronized with rear torch LED and front selfie screen glow. Multi-layer Next.js cache invalidation (server-side `revalidatePath('/admin', 'layout')` and client-side `router.refresh()`) guarantees `/admin/qr` and A4 posters reflect event title/subtitle/quota updates in 0ms without manual page refreshes. | Group portraits, wedding table photos, and immediate print preview sync. |
 
 ### Admin Navigation Layout (Clean Top Bar + Utility Dropdown)
 The admin navigation uses a streamlined 5-link primary bar with an account popover:
@@ -241,5 +242,25 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 
 5. **Guest Mobile Camera Landing Skeleton (`/e/[slug]/loading.tsx`):**
    - Mobile-first, dark-room camera viewport placeholder (`100dvh`, `bg-black`, `aspect-[3/4]` viewfinder outline, gold corner framing marks, shutter button pulse) displayed instantaneously when wedding guests scan table QR cards on congested ballroom Wi-Fi, completely eliminating white-screen flashes.
+
+---
+
+## 9. Vintage Point-and-Shoot Self-Timer Cadence & Instant Settings Synchronization
+
+1. **Authentic 1990s Film Compact Flash Cadence (`timer-cadence.ts` & `useCamera.ts`):**
+   - **Seconds 10 down to 4 (1 blip/sec):** Single `140ms` torch blip + Web Audio tick + haptic pulse per second.
+   - **Seconds 3 and 2 (Accelerated Double-Time Blips — 2 blips/sec):** Two rapid pulses per second (Blip 1: `+0ms` to `+130ms`, `320ms` hardware driver cooldown gap, Blip 2: `+450ms` to `+580ms`) to signal urgency.
+   - **Final Count 1 (Long Hold + Auto-Exposure Sensor Pause):**
+     - **Long Hold (`0ms -> 600ms`):** Torch LED and viewfinder cue turn ON and hold steady for `600ms` (*"Hold your smile!"*).
+     - **Complete Stop (`600ms -> 1000ms`):** Torch turns completely OFF for `400ms`. This pause prevents overexposed / blown-out photos by allowing the camera sensor's Auto-Exposure and ISP metering to converge cleanly right before capture.
+     - **Shutter Capture (`1000ms`):** Shutter fires! If low-light flash mode is enabled, fires capture flash.
+   - **Multi-Device Compatibility:** Works on rear lenses with physical LED torches (via non-blocking sequential lock in `useCamera.ts`) and on front selfie cameras / ultra-wide lenses via synchronized amber border pulses and selfie screen glow.
+   - **Instant Cancellation:** Tapping the shutter button during countdown immediately clears all scheduled timeouts, terminates the torch, and resets state with 0ms delay.
+
+2. **Multi-Layer Settings & QR Cache Invalidation:**
+   - **Server-Side Path Revalidation (`revalidatePath`):** Saving changes in `/api/admin/settings`, `/api/admin/events/token`, or `/api/admin/settings/reset-sessions` invalidates `/admin` and `/e/[slug]` layout caches on Supabase update.
+   - **Dynamic Un-Cached Pages:** `/admin/qr/page.tsx` and `/admin/settings/page.tsx` export `dynamic = "force-dynamic"` and `revalidate = 0`.
+   - **Client-Side Next.js Router Cache Flush (`router.refresh()`):** Calling `router.refresh()` in `SettingsView.tsx` flushes the browser's prefetched `<Link>` cache immediately upon save, so clicking from `/admin/settings` to `/admin/qr` displays updated event taglines and couple names with zero stale cache lag.
+
 
 

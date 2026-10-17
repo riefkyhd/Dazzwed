@@ -433,6 +433,21 @@ export function AdminGuideView() {
                   : "Tuan rumah dapat memilih dari 20 resep terkalibrasi di /admin/settings atau membiarkan tamu memilih di kamera: Editorial Flash (kilat langsung mode Vogue dengan hitam obsidian pekat), Airy Romantic 400H (hijau mint pastel Fuji Pro 400H dan pendaran renda gaun pengantin), Warm Vintage Heritage (kehangatan emas destinasi, kulit madu, dan bayangan cokelat), Retro 90s Flash (jatuhnya kilat xenon kamera saku 90-an dengan warna chartreuse dan mustard), Classic Chrome (langit teal Kodachrome 64 dokumenter), dan Reala Ace 100 (ketelitian warna alami lapisan sian ke-4)."}
               </p>
             </div>
+
+            {/* Control 10: Vintage Self-Timer Cadence & Instant Settings Invalidation */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Vintage Self-Timer & Instant Settings Sync" : "Self-Timer Vintage & Sinkronisasi Pengaturan Instan"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Camera self-timer (3s / 10s) replicates the authentic cadence of classic 1990s 35mm compact cameras: 1 blip/sec (10..4), 2 accelerated blips/sec (3..2), 600ms steady hold, 400ms Auto-Exposure recovery pause, and capture at 0s, synchronized with hardware torch LED and selfie screen glow. When editing event descriptions, couple names, or limits in /admin/settings, server-side revalidatePath and client-side router cache flushing guarantee /admin/qr and A4 posters reflect changes in 0ms without requiring browser refreshes."
+                  : "Self-timer kamera (3d / 10d) mereplikasi irama otentik kamera saku 35mm tahun 1990-an: 1 kedip/detik (10..4), 2 kedip cepat/detik (3..2), tahan lampu 600ms, jeda pemulihan Auto-Exposure 400ms, dan pemotretan pada 0d, disinkronkan dengan lampu kilat perangkat keras dan pendaran layar swafoto. Saat mengubah deskripsi, nama pasangan, atau kuota di /admin/settings, revalidatePath server dan pembersihan cache router klien memastikan /admin/qr dan poster A4 diperbarui dalam 0ms tanpa perlu muat ulang peramban."}
+              </p>
+            </div>
           </div>
         </div>
       )}

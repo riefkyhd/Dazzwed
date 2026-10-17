@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getAdminUser } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -76,6 +77,11 @@ export async function PATCH(req: Request) {
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
+    }
+
+    revalidatePath("/admin", "layout");
+    if (updated?.slug) {
+      revalidatePath(`/e/${updated.slug}`, "layout");
     }
 
     return NextResponse.json({ ok: true, event: updated });

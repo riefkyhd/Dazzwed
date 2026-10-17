@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { getAdminUser } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -52,6 +53,11 @@ export async function POST(req: Request) {
 
     if (updateErr || !updatedEvent) {
       return NextResponse.json({ error: updateErr?.message || "Failed to update event" }, { status: 500 });
+    }
+
+    revalidatePath("/admin", "layout");
+    if (updatedEvent?.slug) {
+      revalidatePath(`/e/${updatedEvent.slug}`, "layout");
     }
 
     return NextResponse.json({

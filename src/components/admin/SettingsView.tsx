@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatExpirationNotice } from "@/lib/event-token";
 
 interface SettingsViewProps {
@@ -28,6 +29,7 @@ interface SettingsViewProps {
 }
 
 export function SettingsView({ initialEvent }: SettingsViewProps) {
+  const router = useRouter();
   const [coupleNames, setCoupleNames] = useState(initialEvent.couple_names);
   const [shotsPerGuest, setShotsPerGuest] = useState(initialEvent.shots_per_guest);
   const [manuallyClosed, setManuallyClosed] = useState(initialEvent.manually_closed);
@@ -104,6 +106,7 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
       if (data.tokenExpiresAt) {
         setTokenExpiresAt(data.tokenExpiresAt.slice(0, 16));
       }
+      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
@@ -135,6 +138,7 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
         `Token rotated to [${data.accessToken}]! Previous QR codes and links are now deactivated. Remember to download or print new QR codes.`,
       );
       setShowRotateModal(false);
+      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
@@ -168,6 +172,7 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
         "All guest device sessions and cookies have been reset! Every guest will receive a fresh camera roll with full shots on their next visit or refresh.",
       );
       setShowResetModal(false);
+      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
@@ -191,6 +196,7 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
       }
       setSessionResetAt(null);
       setResetSuccessMsg("Reset timestamp cleared. Original session tracking restored.");
+      router.refresh();
     } catch (err) {
       alert(err instanceof Error ? err.message : String(err));
     } finally {
@@ -292,6 +298,7 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
       }
 
       setMessage({ type: "success", text: "Event settings saved successfully!" });
+      router.refresh();
     } catch (err) {
       setMessage({
         type: "error",

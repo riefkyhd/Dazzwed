@@ -78,6 +78,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
   const streamRef = useRef<MediaStream | null>(null);
   const runRef = useRef<() => Promise<void>>(async () => {});
   const zoomQueue = useRef<Promise<void>>(Promise.resolve());
+  const torchQueueRef = useRef<Promise<void>>(Promise.resolve());
   const lookPipelineRef = useRef<LookEnginePipeline | null>(null);
   const isFrozenRef = useRef(false);
   const lastFpsUpdateRef = useRef<number>(0);
@@ -947,6 +948,28 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     }
   }, [torchOn]);
 
+  const setTorchSafe = useCallback(async (on: boolean) => {
+    torchQueueRef.current = torchQueueRef.current.then(async () => {
+      const t = streamRef.current?.getVideoTracks()[0];
+      if (!t) return;
+      try {
+        const caps = (t.getCapabilities?.() ?? {}) as { torch?: boolean };
+        if (!caps.torch) return;
+        await t.applyConstraints({ advanced: [{ torch: on } as MediaTrackConstraintSet] });
+        setTorchOn(on);
+      } catch {
+        // Silently swallow errors on unsupported hardware or drivers
+      }
+    });
+    return torchQueueRef.current;
+  }, []);
+
+  const pulseTorchSafe = useCallback(async (durationMs: number) => {
+    await setTorchSafe(true);
+    await new Promise((r) => setTimeout(r, durationMs));
+    await setTorchSafe(false);
+  }, [setTorchSafe]);
+
   const setActiveLook = useCallback((look: LookRecipe) => {
     setActiveLookState(look);
   }, []);
@@ -1302,6 +1325,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     hasHardwareFlash: hasHardwareFlash && facing === "environment",
     torchOn,
     toggleTorch,
+    setTorchSafe,
+    pulseTorchSafe,
     flashMode,
     setFlashMode,
     capture,

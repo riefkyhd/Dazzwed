@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { SettingsView } from "@/components/admin/SettingsView";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function AdminSettingsPage() {
   await requireAdmin();
