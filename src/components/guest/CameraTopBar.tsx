@@ -21,6 +21,8 @@ interface CameraTopBarProps {
   lang: Lang;
   showSyncTooltip?: boolean;
   syncTooltipFading?: boolean;
+  rotationDegrees?: number;
+  isVertical?: boolean;
 }
 
 export function CameraTopBar({
@@ -39,6 +41,8 @@ export function CameraTopBar({
   lang,
   showSyncTooltip = false,
   syncTooltipFading = false,
+  rotationDegrees = 0,
+  isVertical = false,
 }: CameraTopBarProps) {
   // Cycle flash: auto -> on -> off -> auto
   const cycleFlash = () => {
@@ -68,8 +72,21 @@ export function CameraTopBar({
     else onChangeTimer(0);
   };
 
+  // Smooth rotation style for individual control icons
+  const rotStyle: React.CSSProperties = {
+    transform: `rotate(${rotationDegrees}deg)`,
+    transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+    transformOrigin: "center",
+  };
+
   return (
-    <div className="w-full h-full min-h-[52px] flex items-center justify-between px-3 select-none touch-manipulation z-30 pointer-events-auto">
+    <div
+      className={
+        isVertical
+          ? "w-full flex flex-col items-center justify-between py-2 gap-3.5 select-none touch-manipulation z-30 pointer-events-auto"
+          : "w-full h-full min-h-[52px] flex items-center justify-between px-3 select-none touch-manipulation z-30 pointer-events-auto"
+      }
+    >
       {/* 1. Flash Mode Button (Icon + small badge, >= 48x48 hit target) */}
       <button
         type="button"
@@ -79,6 +96,7 @@ export function CameraTopBar({
         className="w-12 h-12 flex items-center justify-center relative rounded-full text-zinc-300 hover:text-white active:scale-90 transition-transform cursor-pointer"
       >
         <div
+          style={rotStyle}
           className={`w-9 h-9 rounded-full flex items-center justify-center relative transition-colors ${
             flashMode === "on"
               ? "bg-amber-400 text-black shadow-md"
@@ -113,7 +131,10 @@ export function CameraTopBar({
         aria-label="Change aspect ratio"
         className="w-12 h-12 flex items-center justify-center rounded-full text-white active:scale-90 transition-transform cursor-pointer"
       >
-        <span className="px-2.5 py-1 rounded-full bg-black/60 text-zinc-200 font-mono text-[11px] font-bold border border-white/15 backdrop-blur-md shadow-sm">
+        <span
+          style={rotStyle}
+          className="px-2.5 py-1 rounded-full bg-black/60 text-zinc-200 font-mono text-[11px] font-bold border border-white/15 backdrop-blur-md shadow-sm"
+        >
           {aspect === "3:4" ? "3:4" : aspect}
         </span>
       </button>
@@ -127,6 +148,7 @@ export function CameraTopBar({
         className="w-12 h-12 flex items-center justify-center rounded-full text-white active:scale-90 transition-transform cursor-pointer"
       >
         <div
+          style={rotStyle}
           className={`w-9 h-9 flex items-center justify-center rounded-full border font-mono text-[11px] font-bold transition-colors ${
             timerSeconds > 0
               ? "bg-amber-400 text-black border-amber-300 shadow-md"
@@ -154,7 +176,10 @@ export function CameraTopBar({
           aria-label={syncError ? "Sync error" : pendingCount > 0 ? `${pendingCount} photos pending` : "All photos synced"}
           className="w-12 h-12 flex items-center justify-center rounded-full active:scale-90 transition-transform cursor-pointer"
         >
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-950/95 border border-white/15 shadow-md">
+          <div
+            style={rotStyle}
+            className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-950/95 border border-white/15 shadow-md"
+          >
             <span
               className={`w-2 h-2 rounded-full ${
                 syncError
@@ -176,13 +201,25 @@ export function CameraTopBar({
         {showSyncTooltip && (
           <div
             role="tooltip"
-            className={`absolute top-full mt-2 -right-8 sm:right-0 z-50 pointer-events-none transition-all duration-500 ease-out ${
-              syncTooltipFading ? "opacity-0 -translate-y-1" : "opacity-100 translate-y-0"
-            }`}
+            className={
+              isVertical
+                ? `absolute top-0 right-full mr-3 z-50 pointer-events-none transition-all duration-500 ease-out ${
+                    syncTooltipFading ? "opacity-0 translate-x-2" : "opacity-100 translate-x-0"
+                  }`
+                : `absolute top-full mt-2 -right-8 sm:right-0 z-50 pointer-events-none transition-all duration-500 ease-out ${
+                    syncTooltipFading ? "opacity-0 -translate-y-1" : "opacity-100 translate-y-0"
+                  }`
+            }
           >
             <div className="relative bg-zinc-950/95 border border-amber-500/40 text-zinc-100 px-3.5 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md w-56 text-center animate-in fade-in zoom-in-95 duration-200">
-              {/* Caret arrow pointing up to sync indicator */}
-              <div className="absolute -top-1.5 right-12 sm:right-5 w-3 h-3 bg-zinc-950 border-t border-l border-amber-500/40 rotate-45" />
+              {/* Caret arrow */}
+              <div
+                className={
+                  isVertical
+                    ? "absolute top-4 -right-1.5 w-3 h-3 bg-zinc-950 border-t border-r border-amber-500/40 rotate-45"
+                    : "absolute -top-1.5 right-12 sm:right-5 w-3 h-3 bg-zinc-950 border-t border-l border-amber-500/40 rotate-45"
+                }
+              />
               <div className="flex items-center gap-1.5 justify-center mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                 <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
@@ -209,7 +246,10 @@ export function CameraTopBar({
         aria-label="Camera Settings & Tools"
         className="w-12 h-12 flex items-center justify-center rounded-full text-white/90 active:scale-90 transition-transform cursor-pointer"
       >
-        <div className="w-9 h-9 flex items-center justify-center rounded-full bg-zinc-950/95 border border-white/15 shadow-md">
+        <div
+          style={rotStyle}
+          className="w-9 h-9 flex items-center justify-center rounded-full bg-zinc-950/95 border border-white/15 shadow-md"
+        >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
             <path fillRule="evenodd" d="M4.5 12a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Zm6 0a1.5 1.5 0 1 1 3 0 1.5 1.5 0 0 1-3 0Z" clipRule="evenodd" />
           </svg>

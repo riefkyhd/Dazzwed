@@ -24,6 +24,8 @@ import { GuestGalleryModal } from "./GuestGalleryModal";
 import { getLookById, CPM35_LOOK } from "@/lib/imaging/looks/presets";
 import { isBlobBlankOrBlack } from "@/lib/imaging/render";
 import { createTimerScheduler, type TimerScheduler } from "@/lib/camera/timer-cadence";
+import { useDeviceOrientation } from "@/lib/camera/useOrientation";
+import { resolveCaptureAspect } from "@/lib/imaging/geometry";
 export { isBlobBlankOrBlack };
 
 interface CameraScreenProps {
@@ -151,6 +153,15 @@ export function CameraScreen({
 
   // Responsive Layout Engine
   const layout = useViewportLayout(cameraAspect);
+
+  // Dynamic Device Orientation Tracking (smooth upright icon rotation in landscape)
+  const { orientationAngle, rotationDegrees, isLandscape: isOrientationLandscape } = useDeviceOrientation();
+
+  const controlRotStyle: React.CSSProperties = {
+    transform: `rotate(${rotationDegrees}deg)`,
+    transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+    transformOrigin: "center",
+  };
 
   // Shutter & capture state
   const [isShutterActive, setIsShutterActive] = useState(false);
@@ -340,8 +351,11 @@ export function CameraScreen({
     try {
       setIsProcessing(true);
 
+      const isCurrentlyLandscape = layout.isLandscape || isOrientationLandscape;
+      const captureAspect = resolveCaptureAspect(cameraAspect, isCurrentlyLandscape);
+
       const capturePromise = capture(
-        cameraAspect,
+        captureAspect,
         undefined,
         undefined,
         (fastPreview) => {
@@ -400,7 +414,7 @@ export function CameraScreen({
       setIsScreenFlashActive(false);
       isExecutingCaptureRef.current = false;
     }
-  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, mirrorFront, showToast, lang, unfreezeViewfinder]);
+  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, mirrorFront, showToast, lang, unfreezeViewfinder, layout.isLandscape, isOrientationLandscape]);
 
   // Shutter button trigger with vintage timer countdown
   const handleShoot = () => {
@@ -807,6 +821,7 @@ export function CameraScreen({
             onSelectLens={chooseLens}
             onSetZoom={setZoom}
             onSetDigitalZoom={setDigitalZoom}
+            rotationDegrees={rotationDegrees}
           />
         </div>
       )}
@@ -827,6 +842,7 @@ export function CameraScreen({
             }`}
           >
             <CameraTopBar
+              rotationDegrees={rotationDegrees}
               flashAvailable={hasHardwareFlash || facing === "user"}
               flashMode={flashMode}
               onChangeFlashMode={setFlashMode}
@@ -890,6 +906,7 @@ export function CameraScreen({
                     setGalleryOpen(true);
                   }}
                   aria-label={t(lang, "myPhotos")}
+                  style={controlRotStyle}
                   className="w-13 h-13 rounded-2xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-400/80 flex flex-col items-center justify-center text-zinc-300 hover:text-white transition active:scale-95 shadow-md relative overflow-hidden group cursor-pointer"
                 >
                   <span className="text-base">🎞️</span>
@@ -919,6 +936,7 @@ export function CameraScreen({
                     flip();
                   }}
                   aria-label={t(lang, "flip")}
+                  style={controlRotStyle}
                   className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition-transform active:scale-90 touch-manipulation shadow-md disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
                 >
                   <svg
@@ -952,7 +970,8 @@ export function CameraScreen({
                 setGalleryOpen(true);
               }}
               aria-label={t(lang, "myPhotos")}
-              className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-300 relative"
+              style={controlRotStyle}
+              className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-700/80 flex items-center justify-center text-zinc-300 relative cursor-pointer"
             >
               <span className="text-sm">🎞️</span>
               <span className="absolute bottom-0.5 px-1.5 py-0.2 rounded-full bg-amber-400 text-black font-mono font-bold text-[8px]">
@@ -972,6 +991,8 @@ export function CameraScreen({
             {/* Top controls in rail */}
             <div className="flex flex-col items-center gap-3">
               <CameraTopBar
+                rotationDegrees={rotationDegrees}
+                isVertical={true}
                 flashAvailable={hasHardwareFlash || facing === "user"}
                 flashMode={flashMode}
                 onChangeFlashMode={setFlashMode}
@@ -1009,6 +1030,7 @@ export function CameraScreen({
                   flip();
                 }}
                 aria-label={t(lang, "flip")}
+                style={controlRotStyle}
                 className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 active:scale-90 shadow-md disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
               >
                 <svg
@@ -1076,7 +1098,7 @@ export function CameraScreen({
         <ReviewModal
           previewBitmap={activeReview.previewBitmap}
           photoBlob={activeReview.filteredBlob}
-          aspect={cameraAspect}
+          aspect={resolveCaptureAspect(cameraAspect, layout.isLandscape || isOrientationLandscape)}
           lookName={activeLook.name}
           shotsLeft={shotsLeft}
           totalShots={totalShots}

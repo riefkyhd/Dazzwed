@@ -90,8 +90,30 @@ export function cropRect(
       subSw = baseSw;
       subSh = Math.round((baseSw * 2) / 3);
     }
+  } else if (aspect === "4:3") {
+    // 4:3 Landscape framing (width > height)
+    if (isPortrait) {
+      // On portrait source (w < h), crop height to 4:3 landscape
+      subSw = baseSw;
+      subSh = Math.round((baseSw * 3) / 4);
+    } else {
+      // On landscape source (w >= h), full sensor 4:3
+      subSw = baseSw;
+      subSh = baseSh;
+    }
+  } else if (aspect === "3:4") {
+    // 3:4 Portrait framing (width < height)
+    if (!isPortrait) {
+      // On landscape source (w >= h), crop width to 3:4 portrait
+      subSh = baseSh;
+      subSw = Math.round((baseSh * 3) / 4);
+    } else {
+      // On portrait source (w < h), full sensor 3:4
+      subSw = baseSw;
+      subSh = baseSh;
+    }
   } else {
-    // "3:4" or "4:3": exactly the 100% full base frame
+    // Fallback: full base frame
     subSw = baseSw;
     subSh = baseSh;
   }
@@ -111,6 +133,19 @@ export function cropRect(
     sw: Math.min(w, finalSw),
     sh: Math.min(h, finalSh),
   };
+}
+
+/**
+ * Resolves camera aspect ratio for capture considering orientation:
+ * In landscape mode (width > height), "3:4" maps to true "4:3" landscape master frame.
+ */
+export function resolveCaptureAspect(aspect: CameraAspect, isLandscape: boolean): CameraAspect {
+  if (isLandscape) {
+    if (aspect === "3:4") return "4:3";
+    return aspect;
+  }
+  if (aspect === "4:3") return "3:4";
+  return aspect;
 }
 
 /**

@@ -18,6 +18,7 @@ interface LensBarProps {
   onSelectLens: (deviceId: string, targetPreset?: number) => void;
   onSetZoom: (zoom: number) => void;
   onSetDigitalZoom: (zoom: number) => void;
+  rotationDegrees?: number;
 }
 
 export function LensBar({
@@ -29,6 +30,7 @@ export function LensBar({
   onSelectLens,
   onSetZoom,
   onSetDigitalZoom,
+  rotationDegrees = 0,
 }: LensBarProps) {
   // Hide bar only when no rear camera lenses or zoom capabilities exist yet
   if (lenses.length === 0 && !zoomRange) {
@@ -85,6 +87,12 @@ export function LensBar({
   const is2xActive = effectiveZoom >= 1.8 && effectiveZoom < 2.8;
   const is3xActive = effectiveZoom >= 2.8;
 
+  const rotStyle: React.CSSProperties = {
+    transform: `rotate(${rotationDegrees}deg)`,
+    transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+    transformOrigin: "center",
+  };
+
   return (
     <div
       role="group"
@@ -97,6 +105,7 @@ export function LensBar({
       {(ultrawide || hasNativeUltraWideZoom) && (
         <button
           type="button"
+          style={rotStyle}
           onClick={() => handlePresetClick(0.5)}
           aria-label="0.5x Ultra Wide"
           className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
@@ -112,6 +121,7 @@ export function LensBar({
       {/* 1x Main Lens */}
       <button
         type="button"
+        style={rotStyle}
         onClick={() => handlePresetClick(1)}
         aria-label="1x Main Lens"
         className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
@@ -126,6 +136,7 @@ export function LensBar({
       {/* 2x Preset */}
       <button
         type="button"
+        style={rotStyle}
         onClick={() => handlePresetClick(2)}
         aria-label="2x Zoom"
         className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
@@ -140,6 +151,7 @@ export function LensBar({
       {/* 3x Preset */}
       <button
         type="button"
+        style={rotStyle}
         onClick={() => handlePresetClick(3)}
         aria-label="3x Zoom"
         className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${

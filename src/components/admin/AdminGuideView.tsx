@@ -20,7 +20,7 @@ export function AdminGuideView() {
               Host Manual & Best Practices
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
-              v2.6
+              v2.7
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-1">
@@ -476,6 +476,21 @@ export function AdminGuideView() {
                 {lang === "en"
                   ? "Flash illumination operates with a frame-verified convergence state machine: the LED torch is energized with atomic -0.5 EV negative exposure bias, enforces a 240ms hardware warmup floor until frame luminance stabilizes, and holds full power until pixel readout completes (+ 60ms guard tick), eliminating missed flashes and dark frames. Shutter transitions are unified into a single mechanical curtain: the review modal mounts directly with the 100% developed photo (zero preview swapping or color popping). Photos taken with flash receive a dedicated 'Godox Xenon Strobe' grading pass featuring inverse-square radial falloff (cx=0.50, cy=0.46), soft-knee highlight roll-off (luma > 0.78), 5600K xenon daylight balance, and specular jewelry halation, while clean original un-graded captures remain preserved for the admin comparison toggle."
                   : "Pencahayaan lampu kilat beroperasi dengan mesin status konvergensi terverifikasi bingkai: lampu LED dinyalakan dengan bias pencahayaan negatif -0.5 EV atomik, menerapkan ambang pemanasan perangkat keras 240ms hingga luminansi stabil, dan mempertahankan daya penuh hingga pembacaan piksel tuntas (+ 60ms tick pengaman), mencegah kilat terlewat atau foto gelap. Transisi rana disatukan dalam tirai mekanis tunggal: modal pratinjau langsung menampilkan foto matang 100% (tanpa pergantian gambar kasar atau loncatan warna). Foto dengan kilat mendapat polesan 'Godox Xenon Strobe' dengan jatuhnya cahaya kuadrat-terbalik (cx=0.50, cy=0.46), roll-off highlight lembut (luma > 0.78), keseimbangan siang hari xenon 5600K, dan pendaran kilau perhiasan, sementara foto asli tanpa polesan tetap tersimpan rapi untuk tombol perbandingan admin."}
+              </p>
+            </div>
+
+            {/* Control 13: Smooth Landscape Control Rotation & True Landscape Capture */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Smooth Landscape UI Rotation & True Landscape Capture" : "Rotasi UI Lanskap Mulus & Jepretan Lanskap Murni"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "When users rotate their phone into landscape orientation, individual camera controls (top bar action icons, 1x-3x lens pills, film roll thumbnail with counter badge, and flip camera button) rotate smoothly with a 300ms cubic-bezier CSS transform (0°, 90°, -90°) to stay upright relative to user eye-level without causing jumpy layout reflows. In landscape view, the top toolbar reorganizes into a spacious vertical side-rail. Captured photos automatically resolve to true landscape aspect ratios (4:3 or 16:9, width > height) matching viewfinder framing, and the review modal renders them in an expanded hero container (max-w-xl) with zero portrait cropping or letterboxing."
+                  : "Saat tamu memutar ponsel ke posisi lanskap, setiap elemen kontrol kamera (ikon aksi bilah atas, pil lensa 1x-3x, gambar mini rol film beserta lencana hitungan, dan tombol putar kamera) berputar mulus dengan transformasi CSS 300ms cubic-bezier (0°, 90°, -90°) agar tetap tegak sesuai sudut pandang mata tanpa memicu loncatan tata letak. Pada tampilan lanskap, bilah atas ditata ulang menjadi rel vertikal yang lega. Foto yang dijepret secara otomatis menghasilkan rasio aspek lanskap murni (4:3 atau 16:9, lebar > tinggi) sesuai pembingkaian jendela bidik, dan modal pratinjau menampilkannya dalam wadah pahlawan lebar (max-w-xl) tanpa pemotongan potret paksa atau garis hitam berlebih."}
               </p>
             </div>
           </div>

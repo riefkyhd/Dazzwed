@@ -197,6 +197,18 @@ export function ReviewModal({
     }
   };
 
+  const [isImageLandscape, setIsImageLandscape] = useState<boolean>(() => {
+    if (previewBitmap) return previewBitmap.width > previewBitmap.height;
+    if (aspect === "4:3") return true;
+    return typeof window !== "undefined" && window.innerWidth > window.innerHeight;
+  });
+
+  useEffect(() => {
+    if (previewBitmap) {
+      setIsImageLandscape(previewBitmap.width > previewBitmap.height);
+    }
+  }, [previewBitmap]);
+
   const handleRetake = () => {
     if (isKeepingRef.current) return;
     triggerHaptic([25]);
@@ -204,6 +216,8 @@ export function ReviewModal({
   };
 
   // Derive precise CSS styles so card NEVER distorts and always maintains exact aspect ratio
+  const isLandscapeMode = aspect === "4:3" || isImageLandscape;
+
   const aspectStyle = useMemo<React.CSSProperties>(() => {
     if (aspect === "1:1") {
       return {
@@ -214,11 +228,27 @@ export function ReviewModal({
       };
     }
     if (aspect === "16:9") {
+      if (isLandscapeMode) {
+        return {
+          aspectRatio: "16 / 9",
+          width: "min(92vw, calc(64vh * 16 / 9))",
+          height: "auto",
+          maxHeight: "64vh",
+        };
+      }
       return {
         aspectRatio: "9 / 16",
         width: "min(100%, calc(64vh * 9 / 16))",
         height: "auto",
         maxHeight: "64vh",
+      };
+    }
+    if (isLandscapeMode) {
+      return {
+        aspectRatio: "4 / 3",
+        width: "min(92vw, calc(68vh * 4 / 3))",
+        height: "auto",
+        maxHeight: "68vh",
       };
     }
     // Default 3:4 (portrait 3:4 sensor)
@@ -228,7 +258,7 @@ export function ReviewModal({
       height: "auto",
       maxHeight: "68vh",
     };
-  }, [aspect]);
+  }, [aspect, isLandscapeMode]);
 
   // Clean frame number badge (e.g. "EXP 08/15" or "FRAME 08")
   const currentFrame = shotsLeft !== undefined ? totalShots - shotsLeft + 1 : undefined;
@@ -241,14 +271,14 @@ export function ReviewModal({
       className="fixed inset-0 z-50 flex flex-col items-center justify-between bg-black/95 backdrop-blur-xl px-4 pt-3 pb-[calc(env(safe-area-inset-bottom,0px)+16px)] select-none animate-in fade-in duration-200"
     >
       {/* Top Header: Authentic Film Header with Stock & Ratio */}
-      <div className="w-full max-w-md flex items-center justify-between px-1 h-9 shrink-0">
+      <div className={`w-full ${isLandscapeMode ? "max-w-xl" : "max-w-md"} flex items-center justify-between px-1 h-9 shrink-0`}>
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
           <span className="font-mono text-[11px] font-bold tracking-wider uppercase text-zinc-300">
             {lookName}
           </span>
           <span className="font-mono text-[10px] text-zinc-500 font-semibold px-1.5 py-0.5 rounded bg-zinc-850 border border-zinc-700/60">
-            {aspect}
+            {isLandscapeMode && aspect === "3:4" ? "4:3" : aspect}
           </span>
         </div>
         {currentFrame !== undefined && (
@@ -259,7 +289,7 @@ export function ReviewModal({
       </div>
 
       {/* Main Print Stage (Hero the photo with authentic physical print aesthetics) */}
-      <div className="relative w-full max-w-md flex-1 min-h-0 flex items-center justify-center my-auto py-2">
+      <div className={`relative w-full ${isLandscapeMode ? "max-w-xl" : "max-w-md"} flex-1 min-h-0 flex items-center justify-center my-auto py-2`}>
         <div
           style={aspectStyle}
           className={`relative rounded-2xl overflow-hidden shadow-[0_10px_30px_-5px_rgba(0,0,0,0.6)] border border-white/10 bg-zinc-950 flex items-center justify-center transition-all duration-300 ${
@@ -275,7 +305,13 @@ export function ReviewModal({
               src={photoUrl}
               alt="Developed shot"
               onError={handleImageError}
-              onLoad={() => diagnostics.recordMark("t4")}
+              onLoad={(e) => {
+                diagnostics.recordMark("t4");
+                const img = e.currentTarget;
+                if (img.naturalWidth && img.naturalHeight) {
+                  setIsImageLandscape(img.naturalWidth > img.naturalHeight);
+                }
+              }}
               className={`w-full h-full object-cover transition-all duration-700 ease-out ${
                 isDeveloped
                   ? "filter brightness-100 contrast-100 opacity-100 scale-100"
@@ -315,7 +351,7 @@ export function ReviewModal({
       </div>
 
       {/* Bottom Action Area with Status & Ergonomic Buttons */}
-      <div className="w-full max-w-md flex flex-col gap-2 shrink-0 relative z-20">
+      <div className={`w-full ${isLandscapeMode ? "max-w-xl" : "max-w-md"} flex flex-col gap-2 shrink-0 relative z-20`}>
         {/* Error notification if saving failed */}
         {errorMsg && (
           <div className="w-full py-2 px-3 rounded-lg bg-red-950/80 border border-red-800 text-red-200 text-xs text-center font-medium animate-in fade-in duration-150">

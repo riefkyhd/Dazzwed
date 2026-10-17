@@ -290,5 +290,32 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Specular Jewelry Halation:** Specular highlights ($L > 0.88$) receive subtle micro-halation bloom without muddying the rest of the frame.
    - **Preserved Clean RAW Capture:** The Godox Xenon Strobe pass is baked into `filteredBlob`, while `originalBlob` remains the pure, un-graded sensor capture (`intensity: 0`, `flashUsed: false`) so the Admin Gallery's `Film vs. Original` comparison toggle remains 100% accurate.
 
+---
+
+## 11. Smooth Landscape UI Rotation & True Landscape Archival Capture (`4:3` / `16:9`)
+
+1. **Dynamic Orientation Tracking & Upright Control Rotation (`useOrientation.ts` & `CameraScreen.tsx`):**
+   - **Hardware Screen & Window Orientation Listener:** Listens reactively to `window.screen.orientation?.angle` and fallback `window.orientation`, calculating counter-rotation angles (`0°`, `90°`, `-90°`, `180°`).
+   - **Fluid 300ms Cubic-Bezier Icon Transforms:** Individual controls smoothly rotate in place (`rotate(θdeg)`) with `transform-origin: center` and zero layout shift:
+     - Top bar action icons (flash mode, aspect ratio toggle, vintage self-timer, sync indicator, settings sheet trigger)
+     - Lens selector bar (`0.5x`, `1x`, `2x`, `3x` pills) so lens markings remain upright and legible relative to user eye-level
+     - Bottom shutter dock: film roll thumbnail + remaining shots counter badge, and flip camera button
+   - **Non-Blocking Container Geometries:** All button hitboxes and parent flex containers maintain fixed hit zones, preventing touch misalignment, scroll jumps, or reflow jitter during rotation.
+
+2. **Landscape Side-Rail Dock Layout (`CameraScreen.tsx` & `CameraTopBar.tsx`):**
+   - When the phone or browser window enters landscape orientation (`width > height`), the top bar automatically converts into a dedicated vertical rail (`isVertical={true}`, `flex-col gap-3.5`) on the right side of the screen alongside the central shutter button.
+   - Tooltips in the vertical rail adapt their positioning (`right-full mr-2` or `left-full ml-2`) to avoid screen boundary clipping.
+
+3. **True Landscape Archival Capture (`geometry.ts` & `useCamera.ts`):**
+   - **Dynamic Aspect Ratio Resolution (`resolveCaptureAspect`):** When capturing in landscape orientation (`width > height` or `videoWidth > videoHeight`), portrait aspect ratios automatically map to true landscape dimensions:
+     - `"3:4"` maps to `"4:3"` (e.g. `2560x1920` or `1280x960`, `w > h`)
+     - `"9:16"` maps to `"16:9"` (e.g. `2560x1440`, `w > h`)
+     - `"1:1"` remains square (`1920x1920`)
+   - **Zero Forced Portrait Cropping:** Eliminates unwanted portrait letterboxing on photos framed horizontally, rendering and persisting both `filteredBlob` and `originalBlob` in full-resolution landscape orientation.
+
+4. **Expanded Landscape Review Modal Presentation (`ReviewModal.tsx`):**
+   - Dynamic landscape image detection via `previewBitmap`, `aspect === "4:3"`, or loaded natural image dimensions (`naturalWidth > naturalHeight`).
+   - Automatically applies `aspectRatio: "4 / 3"` or `"16 / 9"` and expands the container to `max-w-xl`, giving landscape captures a generous, beautiful hero presentation.
+
 
 

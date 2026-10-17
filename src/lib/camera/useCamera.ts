@@ -19,7 +19,7 @@ import {
 import { CameraError, openStream, type CameraErrorKind } from "./constraints";
 import { pickDefaultLens, pickerLenses, toLens, type Lens } from "./lenses";
 import { renderShot, prewarmCapturePipeline, isCanvasBlankOrBlack, isBlobBlankOrBlack } from "@/lib/imaging/render";
-import { cropForAspectAndZoom, fitLongestEdge, type CameraAspect } from "@/lib/imaging/geometry";
+import { cropForAspectAndZoom, fitLongestEdge, resolveCaptureAspect, type CameraAspect } from "@/lib/imaging/geometry";
 import type { LookRecipe } from "@/lib/imaging/looks/types";
 import { CPM35_LOOK, getLookById } from "@/lib/imaging/looks/presets";
 import type { LookEnginePipeline } from "@/lib/imaging/looks/pipeline";
@@ -1028,7 +1028,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         const track = streamRef.current?.getVideoTracks()[0];
         if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
         isCapturingRef.current = true;
-        const targetAspect = aspectOverride || cameraAspect;
+        const isLandscapeCapture =
+          (v && v.videoWidth > v.videoHeight) ||
+          (typeof window !== "undefined" && window.innerWidth > window.innerHeight);
+        const targetAspect = resolveCaptureAspect(aspectOverride || cameraAspect, isLandscapeCapture);
         const isMirrored = mirrorOverride !== undefined ? mirrorOverride : (actualFacingRef.current === "user" && mirrorFrontRef.current);
 
         // Independent AbortController for this specific capture
