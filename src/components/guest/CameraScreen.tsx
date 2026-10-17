@@ -445,9 +445,16 @@ export function CameraScreen({
       onCueChange: (active) => {
         setTimerCueActive(active);
       },
-      // Do not strobe rear torch during countdown:
-      // Protects camera sensor auto-exposure from severe fluctuations,
-      // prevents blinding guests before capture, and avoids async IPC latency.
+      onTorchPulse: (durationMs) => {
+        if (facing === "environment") {
+          void pulseTorchSafe(durationMs);
+        }
+      },
+      onTorchHold: (on) => {
+        if (facing === "environment") {
+          void setTorchSafe(on);
+        }
+      },
       onCapture: () => {
         void executeCapture();
       },

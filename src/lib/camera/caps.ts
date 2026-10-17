@@ -89,7 +89,7 @@ export async function pulseTorch<T>(
   captureAction: () => Promise<T>,
   options: { maxStabilizeMs?: number } = {}
 ): Promise<T> {
-  const maxWait = options.maxStabilizeMs ?? 80;
+  const maxWait = options.maxStabilizeMs ?? 180;
 
   // Turn torch ON
   let torchActivated = false;

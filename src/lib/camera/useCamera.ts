@@ -1035,8 +1035,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
         const runCapture = async (): Promise<{ filteredBlob: Blob; originalBlob: Blob }> => {
           // Determine whether flash is required
-          const isEnvironment = actualFacingRef.current === "environment";
-          const isUser = actualFacingRef.current === "user";
+          const isEnvironment = actualFacingRef.current === "environment" || facing === "environment";
+          const isUser = actualFacingRef.current === "user" || facing === "user";
           const hasHardwareTorch = isEnvironment && !!track && hasTorch(track);
 
         let shouldFireTorch = false;
@@ -1045,11 +1045,13 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         if (flashMode === "on") {
           if (hasHardwareTorch) shouldFireTorch = true;
           else if (isUser) shouldFireScreenFlash = true;
+          else if (isEnvironment && !hasHardwareTorch) shouldFireScreenFlash = true;
         } else if (flashMode === "auto") {
           const luminance = measureSceneLuminance(v);
           if (luminance < 0.28) {
             if (hasHardwareTorch) shouldFireTorch = true;
             else if (isUser) shouldFireScreenFlash = true;
+            else if (isEnvironment && !hasHardwareTorch) shouldFireScreenFlash = true;
           }
         }
         let frozenSource: ImageBitmap | HTMLVideoElement | HTMLCanvasElement = v;
@@ -1128,46 +1130,27 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             throw new DOMException("Capture aborted", "AbortError");
           }
         } else {
-          // --- Flash Illuminated Capture Pipeline (Gentle, low-latency exposure adaptation) ---
+          // --- Flash Illuminated Capture Pipeline (Reliable hardware torch and screen flash) ---
           let previewBmp: ImageBitmap | null = null;
           const isSoft = flashIntensity === "soft";
 
           if (shouldFireTorch && track) {
-            // Apply highlight protection EV offset if soft flash
-            const prevEV = exposureCompValueRef.current;
-            const ec = exposureCompRange;
-            if (isSoft && ec) {
-              const softEV = Math.max(ec.min, Math.min(ec.max, prevEV - 0.7));
-              try {
-                await applyExposureCompensation(track, softEV);
-              } catch {}
-            }
-
-            try {
-              // Snappy auto-exposure adaptation (75ms soft, 140ms standard)
-              const maxWait = isSoft ? 75 : 140;
-              await pulseTorch(
-                track,
-                async () => {
-                  const snap = await takeFrameSnapshots();
-                  previewBmp = snap.previewBmp;
-                  snapCanvasFallback = snap.snapCanvas;
-                  frozenSource = v;
-                },
-                { maxStabilizeMs: maxWait }
-              );
-            } finally {
-              // Restore user's previous exposure compensation
-              if (isSoft && ec) {
-                try {
-                  await applyExposureCompensation(track, prevEV);
-                } catch {}
-              }
-            }
+            // Reliable hardware torch pulse (180ms soft, 240ms standard)
+            const maxWait = isSoft ? 180 : 240;
+            await pulseTorch(
+              track,
+              async () => {
+                const snap = await takeFrameSnapshots();
+                previewBmp = snap.previewBmp;
+                snapCanvasFallback = snap.snapCanvas;
+                frozenSource = v;
+              },
+              { maxStabilizeMs: maxWait }
+            );
           } else if (shouldFireScreenFlash) {
-            // Front camera warm screen flash with gentle fill adaptation
+            // Front camera screen flash
             callbacks?.onScreenFlash?.(true);
-            const waitMs = isSoft ? 160 : 220;
+            const waitMs = isSoft ? 180 : 240;
             try {
               await new Promise((r) => setTimeout(r, waitMs));
               const snap = await takeFrameSnapshots();
