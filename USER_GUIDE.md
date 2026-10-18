@@ -309,7 +309,6 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
      - Lens selector pills: numbers (`0.5`, `1x`, `2`, `3`) pivot inside stationary circular buttons
      - Bottom shutter dock: Film roll thumbnail + remaining shots counter badge, and Flip camera button
      - Self-timer countdown badge (`3s`, `2s`, `1s`)
-     - Review modal action buttons ("Retake" & "Keep Photo")
 
 3. **True Landscape Archival Capture (`geometry.ts`, `pipeline.ts` & `render.ts`):**
    - **GPU Shader Texture Rotation (`u_rotation`):** When capturing in landscape orientation (`tiltAngle === 90 || tiltAngle === -90`), the WebGL Look Engine rotates sensor texture coordinates by -90° (CCW) or +90° (CW) in the shader pass.
@@ -318,7 +317,8 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 
 4. **Expanded Landscape Review Modal Presentation (`ReviewModal.tsx`):**
    - Automatically detects landscape dimensions (`width > height` or `aspect === "4:3"`).
-   - Adapts the hero print container to `aspectRatio: "4 / 3"` or `"16 / 9"` with `max-w-xl`, presenting photos with zero letterboxing or distortion while action buttons rotate to match holding angle.
+   - Adapts the hero print container to `aspectRatio: "4 / 3"` or `"16 / 9"` with `max-w-xl`, presenting photos with zero letterboxing or distortion.
+   - **Container-Aligned Action Buttons:** Action buttons ("Retake" & "Keep Photo") always follow their horizontal bottom dock without rotating, preserving clean typography, full touch targets, and natural horizontal reading alignment.
 
 
 

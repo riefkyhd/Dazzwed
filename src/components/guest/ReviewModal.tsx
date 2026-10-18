@@ -16,7 +16,6 @@ interface ReviewModalProps {
   lang: Lang;
   onKeep: () => Promise<void>;
   onRetake: () => void;
-  rotationDegrees?: number;
 }
 
 export function ReviewModal({
@@ -29,7 +28,6 @@ export function ReviewModal({
   lang,
   onKeep,
   onRetake,
-  rotationDegrees = 0,
 }: ReviewModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -371,14 +369,7 @@ export function ReviewModal({
             disabled={isKeeping}
             className="flex-1 h-13 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800/90 active:bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white font-semibold text-sm active:scale-[0.98] transition-all disabled:opacity-40 touch-manipulation cursor-pointer flex items-center justify-center shadow-lg"
           >
-            <div
-              style={{
-                transform: `rotate(${rotationDegrees}deg)`,
-                transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
-                transformOrigin: "center",
-              }}
-              className="flex items-center justify-center gap-2"
-            >
+            <div className="flex items-center justify-center gap-2">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 20 20"
@@ -403,14 +394,7 @@ export function ReviewModal({
             disabled={isKeeping}
             className="flex-1 h-13 rounded-2xl bg-amber-400 hover:bg-amber-300 active:bg-amber-400 text-black font-bold text-sm shadow-xl shadow-amber-400/20 active:scale-[0.98] transition-all disabled:opacity-50 touch-manipulation cursor-pointer flex items-center justify-center"
           >
-            <div
-              style={{
-                transform: `rotate(${rotationDegrees}deg)`,
-                transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
-                transformOrigin: "center",
-              }}
-              className="flex items-center justify-center gap-2"
-            >
+            <div className="flex items-center justify-center gap-2">
               {isKeeping ? (
                 <>
                   <div className="w-4.5 h-4.5 rounded-full border-2 border-black border-t-transparent animate-spin" />

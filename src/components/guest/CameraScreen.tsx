@@ -1008,7 +1008,6 @@ export function CameraScreen({
           previewBitmap={activeReview.previewBitmap}
           photoBlob={activeReview.filteredBlob}
           aspect={resolveCaptureAspect(cameraAspect, tiltAngle === 90 || tiltAngle === -90)}
-          rotationDegrees={uiRotationDeg}
           lookName={activeLook.name}
           shotsLeft={shotsLeft}
           totalShots={totalShots}
