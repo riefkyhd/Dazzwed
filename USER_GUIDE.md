@@ -316,14 +316,15 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 
 3. **True Landscape Archival Capture (`geometry.ts`, `pipeline.ts` & `render.ts`):**
    - **GPU Shader Texture Rotation (`u_rotation`):** When capturing in landscape orientation (`tiltAngle === 90 || tiltAngle === -90`), the WebGL Look Engine rotates sensor texture coordinates by -90° (CCW) or +90° (CW) in the shader pass.
-   - **True Landscape Output Dimensions:** Outputs true horizontal images where `width > height` (e.g., `2560 × 1920` for 4:3, `2560 × 1440` for 16:9), applied equally to both the developed `filteredBlob` and raw `originalBlob`.
+   - **True Landscape Output Dimensions:** Outputs true horizontal images where `width > height` (e.g., `1920 × 1440` on iOS or `2560 × 1920` on desktop/Android for 4:3, `1920 × 1080` / `2560 × 1440` for 16:9), applied equally to both the developed `filteredBlob` and raw `originalBlob`.
    - **Corner-Accurate Date Stamp:** Analog orange date stamp and emulsion effects are rendered directly on the landscape canvas, properly anchored to the true bottom-right corner.
+   - **WebKit iOS Memory Safety & Synchronous Sensor Readout:** On iOS MobileSafari (iPhone 13+), WebKit suspends background video frame decoding when covered by opaque overlays or when preview loops pause. Dazzwed captures a full-resolution 2D canvas snapshot (`snapCanvas`) synchronously from the live `<video>` stream *before* shutter curtain closure and freezing, ensuring WebGL never samples empty frames. Furthermore, archival rendering on iOS devices is safely clamped to `1920px` max edge and all temporary canvases are immediately deallocated (`width = height = 0`), preventing WebKit GPU memory ceiling (256MB) crashes and unexpected page reloads on retake.
 
 4. **Expanded Landscape Review Modal Presentation (`ReviewModal.tsx`):**
    - Automatically detects landscape dimensions (`width > height` or `aspect === "4:3"`).
    - Adapts the hero print container to `aspectRatio: "4 / 3"` or `"16 / 9"` with `max-w-xl`, presenting photos with zero letterboxing or distortion.
    - **Container-Aligned Action Buttons:** Action buttons ("Retake" & "Keep Photo") always follow their horizontal bottom dock without rotating, preserving clean typography, full touch targets, and natural horizontal reading alignment.
-   - **Unified Shutter Transition & Rotated Fast Preview:** Fast preview snapshots are pre-rotated to effective landscape coordinates via 2D canvas transform, and the tactile shutter curtain stays closed until final development completes, opening seamlessly to the final developed photo with zero unrotated preview jumps.
+   - **Unified Shutter Transition:** The tactile shutter curtain stays closed during the brief 160ms archival development and opens seamlessly to the final developed photo with zero unrotated preview jumps or black frames.
 
 
 

@@ -1060,6 +1060,11 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             else if (isEnvironment && !hasHardwareTorch) shouldFireScreenFlash = true;
           }
         }
+        const isIOS =
+          typeof navigator !== "undefined" &&
+          (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
         let frozenSource: ImageBitmap | HTMLVideoElement | HTMLCanvasElement = v;
         let snapCanvasFallback: HTMLCanvasElement | null = null;
         const passedFrozenSourceToPreview = false;
@@ -1071,64 +1076,66 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           let previewBmp: ImageBitmap | null = null;
           let snapCanvas: HTMLCanvasElement | null = null;
 
-          const extractRotatedBmp = async (
-            source: CanvasImageSource,
-            srcW: number,
-            srcH: number
-          ): Promise<ImageBitmap | null> => {
-            const isRotated = isLandscapeCapture && srcW < srcH;
-            const effectiveW = isRotated ? srcH : srcW;
-            const effectiveH = isRotated ? srcW : srcH;
-            const crop = cropForAspectAndZoom(effectiveW, effectiveH, targetAspect, 1);
-
-            if (isRotated) {
-              const rotCanvas = document.createElement("canvas");
-              rotCanvas.width = crop.sw;
-              rotCanvas.height = crop.sh;
-              const rCtx = rotCanvas.getContext("2d");
-              if (!rCtx) return null;
-              rCtx.save();
-              rCtx.translate(crop.sw / 2, crop.sh / 2);
-              rCtx.rotate(tiltAngleOverride === 90 ? -Math.PI / 2 : Math.PI / 2);
-              const sX = tiltAngleOverride === 90 ? srcW - (crop.sy + crop.sh) : crop.sy;
-              const sY = tiltAngleOverride === 90 ? crop.sx : srcH - (crop.sx + crop.sw);
-              rCtx.drawImage(source, sX, sY, crop.sh, crop.sw, -crop.sh / 2, -crop.sw / 2, crop.sh, crop.sw);
-              rCtx.restore();
-              return await createImageBitmap(rotCanvas);
-            } else {
-              return await createImageBitmap(source, crop.sx, crop.sy, crop.sw, crop.sh);
-            }
-          };
-
-          // 1. Snapshot from active in-DOM WebGL preview canvas (guaranteed hardware pixels & preserveDrawingBuffer)
-          if (c && c.width > 0 && c.height > 0 && !isCanvasBlankOrBlack(c)) {
+          // 1. Primary snapshot: capture directly from live playing video element into 2D canvas
+          if (v && v.videoWidth > 0 && v.videoHeight > 0) {
             try {
-              // Create a 2D snapshot canvas to guarantee pixels stay preserved regardless of WebKit video lifecycle
+              const maxEdge = isIOS ? 1920 : 3840;
+              const snapSize = fitLongestEdge(v.videoWidth, v.videoHeight, maxEdge);
               snapCanvas = document.createElement("canvas");
-              snapCanvas.width = c.width;
-              snapCanvas.height = c.height;
+              snapCanvas.width = snapSize.width;
+              snapCanvas.height = snapSize.height;
               const sCtx = snapCanvas.getContext("2d");
               if (sCtx) {
-                sCtx.drawImage(c, 0, 0);
+                sCtx.drawImage(v, 0, 0, snapSize.width, snapSize.height);
               }
-              const validSource = snapCanvas && !isCanvasBlankOrBlack(snapCanvas) ? snapCanvas : c;
-              previewBmp = await extractRotatedBmp(validSource, c.width, c.height);
-            } catch {
+            } catch (err) {
+              console.warn("Direct video frame snapshot failed:", err);
+            }
+          }
+
+          // 2. Fallback to active in-DOM WebGL preview canvas if video draw was blank or failed
+          if (!snapCanvas || isCanvasBlankOrBlack(snapCanvas)) {
+            if (c && c.width > 0 && c.height > 0 && !isCanvasBlankOrBlack(c)) {
               try {
-                previewBmp = await extractRotatedBmp(c, c.width, c.height).catch(() => null);
+                if (!snapCanvas) snapCanvas = document.createElement("canvas");
+                snapCanvas.width = c.width;
+                snapCanvas.height = c.height;
+                const sCtx = snapCanvas.getContext("2d");
+                if (sCtx) {
+                  sCtx.drawImage(c, 0, 0);
+                }
               } catch {}
             }
           }
 
-          // 2. If WebGL preview was blank or failed, attempt createImageBitmap directly from video
-          if (!previewBmp && typeof createImageBitmap === "function") {
+          // 3. Fast preview bitmap extraction (avoid on iOS Safari to prevent WebKit ImageBitmap memory leaks and black frame bugs)
+          const validSource = snapCanvas && !isCanvasBlankOrBlack(snapCanvas) ? snapCanvas : c;
+          if (validSource && typeof createImageBitmap === "function" && !isIOS) {
             try {
-              const vw = v.videoWidth || 1920;
-              const vh = v.videoHeight || 1080;
-              previewBmp = await extractRotatedBmp(v, vw, vh);
-            } catch {
-              // fallback
-            }
+              const isRotated = isLandscapeCapture && validSource.width < validSource.height;
+              const effectiveW = isRotated ? validSource.height : validSource.width;
+              const effectiveH = isRotated ? validSource.width : validSource.height;
+              const crop = cropForAspectAndZoom(effectiveW, effectiveH, targetAspect, 1);
+              if (isRotated) {
+                const rotCanvas = document.createElement("canvas");
+                rotCanvas.width = crop.sw;
+                rotCanvas.height = crop.sh;
+                const rCtx = rotCanvas.getContext("2d");
+                if (rCtx) {
+                  rCtx.save();
+                  rCtx.translate(crop.sw / 2, crop.sh / 2);
+                  rCtx.rotate(tiltAngleOverride === 90 ? -Math.PI / 2 : Math.PI / 2);
+                  const sX = tiltAngleOverride === 90 ? validSource.width - (crop.sy + crop.sh) : crop.sy;
+                  const sY = tiltAngleOverride === 90 ? crop.sx : validSource.height - (crop.sx + crop.sw);
+                  rCtx.drawImage(validSource, sX, sY, crop.sh, crop.sw, -crop.sh / 2, -crop.sw / 2, crop.sh, crop.sw);
+                  rCtx.restore();
+                  previewBmp = await createImageBitmap(rotCanvas);
+                  rotCanvas.width = rotCanvas.height = 0;
+                }
+              } else {
+                previewBmp = await createImageBitmap(validSource, crop.sx, crop.sy, crop.sw, crop.sh);
+              }
+            } catch {}
           }
 
           return { previewBmp, snapCanvas };
@@ -1139,9 +1146,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           // 1. Snapshot video and canvas synchronously BEFORE freezing RAF loop
           const { previewBmp, snapCanvas } = await takeFrameSnapshots();
           snapCanvasFallback = snapCanvas;
-          // Prefer live video stream for full sensor resolution (2560px on iOS, 3840px on Android);
-          // if video texture extraction produces black, archival pass will automatically recover from snapCanvasFallback
-          frozenSource = v;
+          frozenSource = snapCanvas && !isCanvasBlankOrBlack(snapCanvas) ? snapCanvas : v;
 
           // 2. Freeze viewfinder immediately
           isFrozenRef.current = true;
@@ -1208,7 +1213,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             const snap = await takeFrameSnapshots();
             previewBmp = snap.previewBmp;
             snapCanvasFallback = snap.snapCanvas;
-            frozenSource = v;
+            frozenSource = snap.snapCanvas && !isCanvasBlankOrBlack(snap.snapCanvas) ? snap.snapCanvas : v;
 
             // 4. Guaranteed Post-Readout Release: 60ms guard tick before turning torch off
             await new Promise((r) => setTimeout(r, 60));
@@ -1245,7 +1250,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               const snap = await takeFrameSnapshots();
               previewBmp = snap.previewBmp;
               snapCanvasFallback = snap.snapCanvas;
-              frozenSource = v;
+              frozenSource = snap.snapCanvas && !isCanvasBlankOrBlack(snap.snapCanvas) ? snap.snapCanvas : v;
             } finally {
               callbacks?.onScreenFlash?.(false);
             }
@@ -1279,27 +1284,22 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             throw new DOMException("Capture aborted", "AbortError");
           }
 
-          // Archival photos rendered at tier high resolution (max 2560px on iOS, 3840px elsewhere)
-          const isIOS =
-            typeof navigator !== "undefined" &&
-            (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
-              (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
-          const safeMaxEdge = isIOS ? 2560 : 3840;
+          // Archival photos rendered at tier high resolution (max 1920px on iOS, 3840px elsewhere)
+          const safeMaxEdge = isIOS ? 1920 : 3840;
 
           const effectiveDigitalZoom = Math.max(1, digitalZoom);
           const swEV = exposureCompRange ? 0 : exposureCompValueRef.current;
-          const isFromSnapCanvas = (frozenSource as unknown) === snapCanvasFallback;
           const flashIlluminated = shouldFireTorch || shouldFireScreenFlash;
 
           let filteredBlob: Blob;
           try {
             filteredBlob = await renderShot(frozenSource, {
-              zoom: isFromSnapCanvas ? 1 : effectiveDigitalZoom,
+              zoom: effectiveDigitalZoom,
               aspect: targetAspect,
-              applyFilter: isFromSnapCanvas ? false : true,
+              applyFilter: true,
               look: activeLook,
               seed: shotSeed,
-              mirror: isFromSnapCanvas ? false : isMirrored,
+              mirror: isMirrored,
               maxEdge: safeMaxEdge,
               quality: 0.92,
               exposureCompensation: swEV,
@@ -1309,10 +1309,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           } catch (err) {
             console.warn("Archival filtered renderShot failed, falling back to clean render:", err);
             filteredBlob = await renderShot(frozenSource, {
-              zoom: isFromSnapCanvas ? 1 : effectiveDigitalZoom,
+              zoom: effectiveDigitalZoom,
               aspect: targetAspect,
               applyFilter: false,
-              mirror: isFromSnapCanvas ? false : isMirrored,
+              mirror: isMirrored,
               maxEdge: Math.min(safeMaxEdge, 1920),
               quality: 0.85,
               flashUsed: false,
@@ -1320,11 +1320,11 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             });
           }
 
-          // Black-Blob Sanity Guard: If filteredBlob was black, recover from snapCanvasFallback
-          if (filteredBlob && (await isBlobBlankOrBlack(filteredBlob)) && snapCanvasFallback) {
-            console.warn("Archival filteredBlob was solid black, recovering from snapCanvasFallback");
+          // Black-Blob Sanity Guard: If filteredBlob was black, recover from preview canvas c
+          if (filteredBlob && (await isBlobBlankOrBlack(filteredBlob)) && c && !isCanvasBlankOrBlack(c)) {
+            console.warn("Archival filteredBlob was solid black, recovering from preview canvas c");
             try {
-              filteredBlob = await renderShot(snapCanvasFallback, {
+              filteredBlob = await renderShot(c, {
                 zoom: 1,
                 aspect: targetAspect,
                 applyFilter: false,
@@ -1344,10 +1344,10 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           let originalBlob: Blob;
           try {
             originalBlob = await renderShot(frozenSource, {
-              zoom: isFromSnapCanvas ? 1 : effectiveDigitalZoom,
+              zoom: effectiveDigitalZoom,
               aspect: targetAspect,
               applyFilter: false,
-              mirror: isFromSnapCanvas ? false : isMirrored,
+              mirror: isMirrored,
               maxEdge: safeMaxEdge,
               quality: 0.92,
               flashUsed: false,
@@ -1366,6 +1366,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
           return { filteredBlob, originalBlob };
         } finally {
           isCapturingRef.current = false;
+          if (snapCanvasFallback) {
+            snapCanvasFallback.width = snapCanvasFallback.height = 0;
+          }
+          if (frozenSource instanceof HTMLCanvasElement && frozenSource !== c) {
+            frozenSource.width = frozenSource.height = 0;
+          }
           if (frozenSource instanceof ImageBitmap && !passedFrozenSourceToPreview) {
             frozenSource.close();
           }

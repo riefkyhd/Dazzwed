@@ -277,12 +277,12 @@ export async function renderShot(
   const targetAspect: CameraAspect = aspect ?? (look?.aspectRatio as CameraAspect) ?? "3:4";
   const crop = cropForAspectAndZoom(effectiveW, effectiveH, targetAspect, zoom);
 
-  // iOS Safari WebKit canvas memory protection: clamp maxEdge to 2560px
+  // iOS Safari WebKit canvas memory protection: clamp maxEdge to 1920px
   const isIOS =
     typeof navigator !== "undefined" &&
     (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
-  const effectiveMaxEdge = isIOS ? Math.min(maxEdge, 2560) : maxEdge;
+  const effectiveMaxEdge = isIOS ? Math.min(maxEdge, 1920) : maxEdge;
   const out = fitLongestEdge(crop.sw, crop.sh, effectiveMaxEdge);
 
   const canvas = document.createElement("canvas");
@@ -299,7 +299,7 @@ export async function renderShot(
 
   // If clean original requested, draw directly without filter
   if (!applyFilter) {
-    if (src instanceof HTMLVideoElement) {
+    if (src instanceof HTMLVideoElement || src instanceof HTMLCanvasElement) {
       try {
         const { pipeline: p, canvas: glCanvas } = getSharedCapturePipeline();
         if (glCanvas.width !== out.width || glCanvas.height !== out.height) {
@@ -317,6 +317,7 @@ export async function renderShot(
           rotation: isRotated ? tiltAngle : 0,
         });
         if (renderedRaw && !isCanvasBlankOrBlack(glCanvas)) {
+          canvas.width = canvas.height = 0;
           return await toBlob(glCanvas, quality);
         }
       } catch (e) {
@@ -350,43 +351,8 @@ export async function renderShot(
     return blob;
   }
 
-  // Intermediate crop canvas if digital zoom applied, video source, or mirroring needed
+  // 1. Run WebGL2 Look Engine pipeline directly on source (WebGL shader handles crop, rotation, and mirror with 0 intermediate canvases)
   const isVideo = src instanceof HTMLVideoElement;
-  let sourceToRender: TexImageSource = src;
-  let interCanvas: HTMLCanvasElement | null = null;
-
-  // For HTMLVideoElement, NEVER draw to a 2D canvas on iOS WebKit (it produces black frames).
-  // Instead, pass the video directly to WebGL and let the shader handle normalized cropRect and mirror.
-  if (!isVideo && (zoom > 1 || crop.sw !== effectiveW || crop.sh !== effectiveH || mirror || isRotated)) {
-    interCanvas = document.createElement("canvas");
-    interCanvas.width = out.width;
-    interCanvas.height = out.height;
-    const iCtx = interCanvas.getContext("2d");
-    if (iCtx) {
-      iCtx.imageSmoothingQuality = "high";
-      if (isRotated) {
-        iCtx.save();
-        iCtx.translate(out.width / 2, out.height / 2);
-        iCtx.rotate(tiltAngle === 90 ? -Math.PI / 2 : Math.PI / 2);
-        if (mirror) iCtx.scale(-1, 1);
-        const sX = tiltAngle === 90 ? w - (crop.sy + crop.sh) : crop.sy;
-        const sY = tiltAngle === 90 ? crop.sx : h - (crop.sx + crop.sw);
-        iCtx.drawImage(src, sX, sY, crop.sh, crop.sw, -out.height / 2, -out.width / 2, out.height, out.width);
-        iCtx.restore();
-      } else if (mirror) {
-        iCtx.save();
-        iCtx.translate(out.width, 0);
-        iCtx.scale(-1, 1);
-        iCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-        iCtx.restore();
-      } else {
-        iCtx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-      }
-      sourceToRender = interCanvas;
-    }
-  }
-
-  // 1. Run WebGL2 Look Engine pipeline (calibrated recipes + native 3D LUT match live viewfinder 1:1)
   let rendered = false;
   let processedCanvas: HTMLCanvasElement | null = null;
   let loadedLut: ParsedCubeLUT | undefined;
@@ -400,7 +366,7 @@ export async function renderShot(
       glCanvas.height = out.height;
     }
 
-    rendered = p.render(sourceToRender, look, {
+    rendered = p.render(src, look, {
       width: out.width,
       height: out.height,
       isCapture: true,
@@ -409,10 +375,10 @@ export async function renderShot(
       intensity: targetIntensity,
       lut: loadedLut,
       exposureCompensation,
-      cropRect: isVideo ? normCropRect : undefined,
-      mirror: isVideo ? mirror : false,
+      cropRect: normCropRect,
+      mirror: mirror,
       flashUsed: flashUsed,
-      rotation: isVideo && isRotated ? tiltAngle : 0,
+      rotation: isRotated ? tiltAngle : 0,
     });
     if (rendered) processedCanvas = glCanvas;
   } catch (err) {
@@ -482,10 +448,6 @@ export async function renderShot(
       seed,
       lut: loadedLut,
     });
-  }
-
-  if (interCanvas) {
-    interCanvas.width = interCanvas.height = 0;
   }
 
   // 3. Post-shader 2D extras pass (Light leaks, dust, date stamp, instant frame)
