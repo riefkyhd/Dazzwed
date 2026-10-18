@@ -89,8 +89,11 @@ export function LensBar({
 
   const rotStyle: React.CSSProperties = {
     transform: `rotate(${rotationDegrees}deg)`,
-    transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+    transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
     transformOrigin: "center",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
   };
 
   return (
@@ -105,62 +108,58 @@ export function LensBar({
       {(ultrawide || hasNativeUltraWideZoom) && (
         <button
           type="button"
-          style={rotStyle}
           onClick={() => handlePresetClick(0.5)}
           aria-label="0.5x Ultra Wide"
-          className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
+          className={`w-8 h-8 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer ${
             is05Active
               ? "bg-amber-400 text-black scale-105 shadow-md shadow-amber-400/25"
               : "text-zinc-200/90 hover:text-white hover:bg-white/10 active:scale-90"
           }`}
         >
-          0.5
+          <span style={rotStyle}>0.5</span>
         </button>
       )}
 
       {/* 1x Main Lens */}
       <button
         type="button"
-        style={rotStyle}
         onClick={() => handlePresetClick(1)}
         aria-label="1x Main Lens"
-        className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
+        className={`w-8 h-8 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer ${
           is1xActive
             ? "bg-amber-400 text-black scale-105 shadow-md shadow-amber-400/25"
             : "text-zinc-200/90 hover:text-white hover:bg-white/10 active:scale-90"
         }`}
       >
-        1x
+        <span style={rotStyle}>1x</span>
       </button>
 
       {/* 2x Preset */}
       <button
         type="button"
-        style={rotStyle}
         onClick={() => handlePresetClick(2)}
         aria-label="2x Zoom"
-        className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
+        className={`w-8 h-8 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer ${
           is2xActive
             ? "bg-amber-400 text-black scale-105 shadow-md shadow-amber-400/25"
             : "text-zinc-200/90 hover:text-white hover:bg-white/10 active:scale-90"
         }`}
       >
-        2
+        <span style={rotStyle}>2</span>
       </button>
 
       {/* 3x Preset */}
       <button
         type="button"
-        style={rotStyle}
         onClick={() => handlePresetClick(3)}
         aria-label="3x Zoom"
-        className={`min-w-8 h-8 px-2 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] cursor-pointer ${
+        className={`w-8 h-8 rounded-full text-xs font-mono font-bold flex items-center justify-center transition-all duration-200 ease-[cubic-bezier(0.22,1,0.36,1)] cursor-pointer ${
           is3xActive
             ? "bg-amber-400 text-black scale-105 shadow-md shadow-amber-400/25"
             : "text-zinc-200/90 hover:text-white hover:bg-white/10 active:scale-90"
         }`}
       >
-        3
+        <span style={rotStyle}>3</span>
       </button>
     </div>
   );

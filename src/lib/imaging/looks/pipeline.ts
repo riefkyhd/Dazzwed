@@ -48,6 +48,7 @@ uniform float u_frameHeight;
 uniform bool u_isNativeCamera;
 uniform vec4 u_cropRect; // xy: offset, zw: scale (in source texture coords)
 uniform bool u_mirror;
+uniform int u_rotation; // 0 = upright, 90 = landscape left, -90/270 = landscape right
 
 // 1. Lens Model
 uniform vec2 u_radialBlur; // r0, r1
@@ -230,7 +231,15 @@ vec2 mapCropUv(vec2 normUv) {
   if (u_mirror) {
     uv.x = 1.0 - uv.x;
   }
-  return clamp(u_cropRect.xy + uv * u_cropRect.zw, vec2(0.0), vec2(1.0));
+  vec2 cropped = u_cropRect.xy + uv * u_cropRect.zw;
+  if (u_rotation == 90) {
+    // 90 deg CCW rotation (landscape left: device top points left)
+    return clamp(vec2(1.0 - cropped.y, cropped.x), vec2(0.0), vec2(1.0));
+  } else if (u_rotation == -90 || u_rotation == 270) {
+    // 90 deg CW rotation (landscape right: device top points right)
+    return clamp(vec2(cropped.y, 1.0 - cropped.x), vec2(0.0), vec2(1.0));
+  }
+  return clamp(cropped, vec2(0.0), vec2(1.0));
 }
 
 void main() {
@@ -628,6 +637,7 @@ export interface LookEngineRenderOptions {
   lut?: ParsedCubeLUT;
   lutStrength?: number;
   flashUsed?: boolean;
+  rotation?: number; // 0, 90, -90, 270
 }
 
 export class LookEnginePipeline {
@@ -654,6 +664,7 @@ export class LookEnginePipeline {
   private uIsNativeCamLoc: WebGLUniformLocation | null = null;
   private uCropRectLoc: WebGLUniformLocation | null = null;
   private uMirrorLoc: WebGLUniformLocation | null = null;
+  private uRotationLoc: WebGLUniformLocation | null = null;
 
   // Lens
   private uRadialBlurLoc: WebGLUniformLocation | null = null;
@@ -824,6 +835,7 @@ export class LookEnginePipeline {
     this.uIsNativeCamLoc = gl.getUniformLocation(prog, "u_isNativeCamera");
     this.uCropRectLoc = gl.getUniformLocation(prog, "u_cropRect");
     this.uMirrorLoc = gl.getUniformLocation(prog, "u_mirror");
+    this.uRotationLoc = gl.getUniformLocation(prog, "u_rotation");
 
     this.uRadialBlurLoc = gl.getUniformLocation(prog, "u_radialBlur");
     this.uCaLoc = gl.getUniformLocation(prog, "u_chromaticAberration");
@@ -955,6 +967,9 @@ export class LookEnginePipeline {
     const cr = options.cropRect ?? { x: 0, y: 0, width: 1, height: 1 };
     gl.uniform4f(this.uCropRectLoc, cr.x, cr.y, cr.width, cr.height);
     gl.uniform1i(this.uMirrorLoc, options.mirror ? 1 : 0);
+    if (this.uRotationLoc) {
+      gl.uniform1i(this.uRotationLoc, options.rotation ?? 0);
+    }
 
     // Runtime intensity & flags
     const intensityVal = options.intensity ?? look.intensity ?? (options.isNativeCamera ? 0.7 : 1.0);

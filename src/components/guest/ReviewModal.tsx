@@ -16,6 +16,7 @@ interface ReviewModalProps {
   lang: Lang;
   onKeep: () => Promise<void>;
   onRetake: () => void;
+  rotationDegrees?: number;
 }
 
 export function ReviewModal({
@@ -28,6 +29,7 @@ export function ReviewModal({
   lang,
   onKeep,
   onRetake,
+  rotationDegrees = 0,
 }: ReviewModalProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
@@ -367,21 +369,30 @@ export function ReviewModal({
             data-testid="retake-button"
             onClick={handleRetake}
             disabled={isKeeping}
-            className="flex-1 h-13 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800/90 active:bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white font-semibold text-sm active:scale-[0.98] transition-all disabled:opacity-40 touch-manipulation cursor-pointer flex items-center justify-center gap-2 shadow-lg"
+            className="flex-1 h-13 rounded-2xl bg-zinc-900/90 hover:bg-zinc-800/90 active:bg-zinc-800 border border-zinc-700/80 text-zinc-300 hover:text-white font-semibold text-sm active:scale-[0.98] transition-all disabled:opacity-40 touch-manipulation cursor-pointer flex items-center justify-center shadow-lg"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              className="w-4.5 h-4.5 text-zinc-400"
+            <div
+              style={{
+                transform: `rotate(${rotationDegrees}deg)`,
+                transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+                transformOrigin: "center",
+              }}
+              className="flex items-center justify-center gap-2"
             >
-              <path
-                fillRule="evenodd"
-                d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0-.75.75v4.482a.75.75 0 0 0 1.5 0v-2.073l.235.234a7 7 0 0 0 11.956-3.136.75.75 0 0 0-1.379-.412ZM4.688 8.576a5.5 5.5 0 0 1 9.201-2.466l.312.311H11.77a.75.75 0 0 0 0 1.5h4.48a.75.75 0 0 0 .75-.75V2.689a.75.75 0 0 0-1.5 0v2.073l-.235-.234A7 7 0 0 0 3.309 7.664a.75.75 0 0 0 1.379.412Z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>{t(lang, "retake")}</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+                className="w-4.5 h-4.5 text-zinc-400"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.466l-.312-.311h2.433a.75.75 0 0 0 0-1.5H3.75a.75.75 0 0 0-.75.75v4.482a.75.75 0 0 0 1.5 0v-2.073l.235.234a7 7 0 0 0 11.956-3.136.75.75 0 0 0-1.379-.412ZM4.688 8.576a5.5 5.5 0 0 1 9.201-2.466l.312.311H11.77a.75.75 0 0 0 0 1.5h4.48a.75.75 0 0 0 .75-.75V2.689a.75.75 0 0 0-1.5 0v2.073l-.235-.234A7 7 0 0 0 3.309 7.664a.75.75 0 0 0 1.379.412Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>{t(lang, "retake")}</span>
+            </div>
           </button>
 
           {/* Keep Button (Enqueues photo & advances roll counter) */}
@@ -390,30 +401,39 @@ export function ReviewModal({
             data-testid="keep-button"
             onClick={handleKeep}
             disabled={isKeeping}
-            className="flex-1 h-13 rounded-2xl bg-amber-400 hover:bg-amber-300 active:bg-amber-400 text-black font-bold text-sm shadow-xl shadow-amber-400/20 active:scale-[0.98] transition-all disabled:opacity-50 touch-manipulation cursor-pointer flex items-center justify-center gap-2"
+            className="flex-1 h-13 rounded-2xl bg-amber-400 hover:bg-amber-300 active:bg-amber-400 text-black font-bold text-sm shadow-xl shadow-amber-400/20 active:scale-[0.98] transition-all disabled:opacity-50 touch-manipulation cursor-pointer flex items-center justify-center"
           >
-            {isKeeping ? (
-              <>
-                <div className="w-4.5 h-4.5 rounded-full border-2 border-black border-t-transparent animate-spin" />
-                <span className="font-mono text-xs uppercase tracking-wider">{t(lang, "processing")}</span>
-              </>
-            ) : (
-              <>
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  className="w-5 h-5 text-black"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span>{t(lang, "keep")}</span>
-              </>
-            )}
+            <div
+              style={{
+                transform: `rotate(${rotationDegrees}deg)`,
+                transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
+                transformOrigin: "center",
+              }}
+              className="flex items-center justify-center gap-2"
+            >
+              {isKeeping ? (
+                <>
+                  <div className="w-4.5 h-4.5 rounded-full border-2 border-black border-t-transparent animate-spin" />
+                  <span className="font-mono text-xs uppercase tracking-wider">{t(lang, "processing")}</span>
+                </>
+              ) : (
+                <>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    className="w-5 h-5 text-black"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z"
+                      clipRule="evenodd"
+                    />
+                  </svg>
+                  <span>{t(lang, "keep")}</span>
+                </>
+              )}
+            </div>
           </button>
         </div>
       </div>

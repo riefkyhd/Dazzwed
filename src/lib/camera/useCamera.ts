@@ -1021,7 +1021,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         callbacks?: {
           onScreenFlash?: (active: boolean) => void;
           onShutterSnap?: () => void;
-        }
+        },
+        tiltAngleOverride?: 0 | 90 | -90
       ): Promise<{ filteredBlob: Blob; originalBlob: Blob }> & { abort: () => void } => {
         const v = videoRef.current;
         const c = canvasRef.current;
@@ -1029,6 +1030,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         if (!v || !streamRef.current || v.readyState < 2) throw new Error("camera not ready");
         isCapturingRef.current = true;
         const isLandscapeCapture =
+          (tiltAngleOverride === 90 || tiltAngleOverride === -90) ||
           (v && v.videoWidth > v.videoHeight) ||
           (typeof window !== "undefined" && window.innerWidth > window.innerHeight);
         const targetAspect = resolveCaptureAspect(aspectOverride || cameraAspect, isLandscapeCapture);
@@ -1278,6 +1280,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               quality: 0.92,
               exposureCompensation: swEV,
               flashUsed: flashIlluminated,
+              tiltAngle: tiltAngleOverride,
             });
           } catch (err) {
             console.warn("Archival filtered renderShot failed, falling back to clean render:", err);
@@ -1289,6 +1292,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               maxEdge: Math.min(safeMaxEdge, 1920),
               quality: 0.85,
               flashUsed: false,
+              tiltAngle: tiltAngleOverride,
             });
           }
 
@@ -1306,6 +1310,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
                 maxEdge: safeMaxEdge,
                 quality: 0.92,
                 flashUsed: false,
+                tiltAngle: tiltAngleOverride,
               });
             } catch {}
           }
@@ -1322,6 +1327,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               maxEdge: safeMaxEdge,
               quality: 0.92,
               flashUsed: false,
+              tiltAngle: tiltAngleOverride,
             });
           } catch (err) {
             console.warn("Archival original renderShot failed, reusing filtered:", err);

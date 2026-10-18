@@ -24,7 +24,7 @@ import { GuestGalleryModal } from "./GuestGalleryModal";
 import { getLookById, CPM35_LOOK } from "@/lib/imaging/looks/presets";
 import { isBlobBlankOrBlack } from "@/lib/imaging/render";
 import { createTimerScheduler, type TimerScheduler } from "@/lib/camera/timer-cadence";
-import { useDeviceOrientation } from "@/lib/camera/useOrientation";
+import { useDeviceTilt } from "@/lib/camera/useDeviceTilt";
 import { resolveCaptureAspect } from "@/lib/imaging/geometry";
 export { isBlobBlankOrBlack };
 
@@ -154,12 +154,12 @@ export function CameraScreen({
   // Responsive Layout Engine
   const layout = useViewportLayout(cameraAspect);
 
-  // Dynamic Device Orientation Tracking (smooth upright icon rotation in landscape)
-  const { orientationAngle, rotationDegrees, isLandscape: isOrientationLandscape } = useDeviceOrientation();
+  // Native Smartphone Gravity-Based Device Tilt Tracking (Works even when OS Auto-Rotate is OFF!)
+  const { tiltAngle, uiRotationDeg, requestMotionPermission } = useDeviceTilt();
 
   const controlRotStyle: React.CSSProperties = {
-    transform: `rotate(${rotationDegrees}deg)`,
-    transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+    transform: `rotate(${uiRotationDeg}deg)`,
+    transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
     transformOrigin: "center",
   };
 
@@ -351,7 +351,7 @@ export function CameraScreen({
     try {
       setIsProcessing(true);
 
-      const isCurrentlyLandscape = layout.isLandscape || isOrientationLandscape;
+      const isCurrentlyLandscape = tiltAngle === 90 || tiltAngle === -90;
       const captureAspect = resolveCaptureAspect(cameraAspect, isCurrentlyLandscape);
 
       const capturePromise = capture(
@@ -388,7 +388,8 @@ export function CameraScreen({
             });
             setTimeout(() => setIsShutterActive(false), 160);
           },
-        }
+        },
+        tiltAngle
       );
 
       // In 95%+ of captures, renderShot completes in ~90-120ms (under the 160ms shutter curtain).
@@ -414,7 +415,7 @@ export function CameraScreen({
       setIsScreenFlashActive(false);
       isExecutingCaptureRef.current = false;
     }
-  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, mirrorFront, showToast, lang, unfreezeViewfinder, layout.isLandscape, isOrientationLandscape]);
+  }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, mirrorFront, showToast, lang, unfreezeViewfinder, tiltAngle]);
 
   // Shutter button trigger with vintage timer countdown
   const handleShoot = () => {
@@ -618,7 +619,10 @@ export function CameraScreen({
   const { isLandscape, mode, viewfinderRect } = layout;
 
   return (
-    <div className="fixed inset-0 w-full h-dvh bg-black overflow-hidden select-none touch-manipulation flex flex-col justify-between">
+    <div
+      onPointerDown={() => void requestMotionPermission()}
+      className="fixed inset-0 w-full h-dvh bg-black overflow-hidden select-none touch-manipulation flex flex-col justify-between"
+    >
       {/* Front camera screen flash overlay */}
       <div
         className={`fixed inset-0 z-45 pointer-events-none transition-opacity duration-150 ${
@@ -775,6 +779,7 @@ export function CameraScreen({
             className="absolute top-5 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center"
           >
             <div
+              style={controlRotStyle}
               className={`px-3.5 py-1.5 rounded-full bg-black/80 border backdrop-blur-sm font-mono font-bold text-xl shadow-xl flex items-center gap-2 transition-colors duration-150 ${
                 timerCueActive
                   ? "border-amber-300 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.4)]"
@@ -806,11 +811,11 @@ export function CameraScreen({
       {facing === "environment" && (
         <div
           style={{
-            bottom: isLandscape ? "16px" : `calc(${layout.bottomBarHeight}px + 14px)`,
-            left: isLandscape ? `calc((100% - ${layout.bottomBarHeight}px) / 2)` : "50%",
+            bottom: `calc(${layout.bottomBarHeight}px + 14px)`,
+            left: "50%",
             transform: "translateX(-50%)",
           }}
-          className="absolute z-20 pointer-events-auto transition-[bottom,left] duration-250 ease-out"
+          className="absolute z-20 pointer-events-auto transition-[bottom] duration-250 ease-out"
         >
           <LensBar
             lenses={lenses}
@@ -821,223 +826,122 @@ export function CameraScreen({
             onSelectLens={chooseLens}
             onSetZoom={setZoom}
             onSetDigitalZoom={setDigitalZoom}
-            rotationDegrees={rotationDegrees}
+            rotationDegrees={uiRotationDeg}
           />
         </div>
       )}
 
-      {/* PORTRAIT LAYOUT */}
-      {!isLandscape && (
-        <>
-          {/* Top Bar Zone (Strict 52px slim single row, NO overlap) */}
-          <header
-            style={{
-              paddingTop: "max(env(safe-area-inset-top), 0px)",
-              height: `${layout.topBarHeight}px`,
-              minHeight: `${layout.topBarHeight}px`,
-              maxHeight: `${layout.topBarHeight}px`,
-            }}
-            className={`relative z-20 flex items-center w-full transition-colors ${
-              mode === "banded" ? "bg-black" : "bg-gradient-to-b from-black/80 via-black/40 to-transparent"
-            }`}
-          >
-            <CameraTopBar
-              rotationDegrees={rotationDegrees}
-              flashAvailable={hasHardwareFlash || facing === "user"}
-              flashMode={flashMode}
-              onChangeFlashMode={setFlashMode}
-              aspect={cameraAspect}
-              onChangeAspect={setCameraAspect}
-              timerSeconds={timerSeconds}
-              onChangeTimer={setTimerSeconds}
-              pendingCount={pendingCount}
-              syncError={syncError}
-              onOpenSyncStatus={() => setSyncStatusOpen(true)}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onNativeTipClick={() => setShowNativeFlashTip(true)}
-              lang={lang}
-              showSyncTooltip={showSyncTooltip}
-              syncTooltipFading={syncTooltipFading}
-            />
-          </header>
+      {/* Top Bar Zone (Strict 52px slim single row, NO overlap) */}
+      <header
+        style={{
+          paddingTop: "max(env(safe-area-inset-top), 0px)",
+          height: `${layout.topBarHeight}px`,
+          minHeight: `${layout.topBarHeight}px`,
+          maxHeight: `${layout.topBarHeight}px`,
+        }}
+        className={`relative z-20 flex items-center w-full transition-colors ${
+          mode === "banded" ? "bg-black" : "bg-gradient-to-b from-black/80 via-black/40 to-transparent"
+        }`}
+      >
+        <CameraTopBar
+          rotationDegrees={uiRotationDeg}
+          flashAvailable={hasHardwareFlash || facing === "user"}
+          flashMode={flashMode}
+          onChangeFlashMode={setFlashMode}
+          aspect={cameraAspect}
+          onChangeAspect={setCameraAspect}
+          timerSeconds={timerSeconds}
+          onChangeTimer={setTimerSeconds}
+          pendingCount={pendingCount}
+          syncError={syncError}
+          onOpenSyncStatus={() => setSyncStatusOpen(true)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          onNativeTipClick={() => setShowNativeFlashTip(true)}
+          lang={lang}
+          showSyncTooltip={showSyncTooltip}
+          syncTooltipFading={syncTooltipFading}
+        />
+      </header>
 
-          {/* Bottom Bar Zone (Streamlined without zoom crowding) */}
-          <footer
-            style={{
-              paddingBottom: "max(env(safe-area-inset-bottom), 16px)",
-              height: `${layout.bottomBarHeight}px`,
-            }}
-            className={`relative z-10 flex flex-col items-center justify-center gap-1.5 w-full px-4 pt-1 transition-colors ${
-              mode === "banded" ? "bg-black" : "bg-gradient-to-t from-black/90 via-black/50 to-transparent"
-            }`}
-          >
-            {/* Transient Look Caption or Capture Error Toast above controls */}
-            <div className="h-5 flex items-center justify-center">
-              {captureToast ? (
-                <div className="px-3 py-0.5 rounded-full bg-red-500 text-white font-mono text-[10px] font-bold tracking-wider animate-in fade-in zoom-in-95 duration-150 shadow-md">
-                  {captureToast}
-                </div>
-              ) : lookCaption ? (
-                <div className="px-3 py-0.5 rounded-full bg-amber-400 text-black font-mono text-[10px] font-bold uppercase tracking-wider animate-in fade-in zoom-in-95 duration-150 shadow-md">
-                  {lookCaption}
-                </div>
-              ) : null}
+      {/* Bottom Bar Zone (Streamlined without zoom crowding) */}
+      <footer
+        style={{
+          paddingBottom: "max(env(safe-area-inset-bottom), 16px)",
+          height: `${layout.bottomBarHeight}px`,
+        }}
+        className={`relative z-10 flex flex-col items-center justify-center gap-1.5 w-full px-4 pt-1 transition-colors ${
+          mode === "banded" ? "bg-black" : "bg-gradient-to-t from-black/90 via-black/50 to-transparent"
+        }`}
+      >
+        {/* Transient Look Caption or Capture Error Toast above controls */}
+        <div className="h-5 flex items-center justify-center">
+          {captureToast ? (
+            <div className="px-3 py-0.5 rounded-full bg-red-500 text-white font-mono text-[10px] font-bold tracking-wider animate-in fade-in zoom-in-95 duration-150 shadow-md">
+              {captureToast}
             </div>
-
-            {/* Look Dial Switcher (Short chips or collapsed drawer trigger) */}
-            <div className="w-full flex justify-center py-0.5">
-              <LookDial
-                activeLook={activeLook}
-                onSelectLook={handleSelectLook}
-                allowedLookIds={allowedLookIds}
-                isCollapsed={layout.density === "L2"}
-                onOpenLookDrawer={() => setLookDrawerOpen(true)}
-              />
+          ) : lookCaption ? (
+            <div className="px-3 py-0.5 rounded-full bg-amber-400 text-black font-mono text-[10px] font-bold uppercase tracking-wider animate-in fade-in zoom-in-95 duration-150 shadow-md">
+              {lookCaption}
             </div>
+          ) : null}
+        </div>
 
-            {/* Shutter Row with Film Badge and Flip Camera */}
-            <div className="flex items-center justify-between w-full max-w-sm px-2 pt-1 pb-1">
-              {/* Left slot: Film Roll thumbnail with shots badge */}
-              <div className="w-16 flex justify-start">
-                <button
-                  type="button"
-                  onClick={() => {
-                    triggerHaptic([20]);
-                    setGalleryOpen(true);
-                  }}
-                  aria-label={t(lang, "myPhotos")}
-                  style={controlRotStyle}
-                  className="w-13 h-13 rounded-2xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-400/80 flex flex-col items-center justify-center text-zinc-300 hover:text-white transition active:scale-95 shadow-md relative overflow-hidden group cursor-pointer"
-                >
-                  <span className="text-base">🎞️</span>
-                  {/* Single Clean Film Shots Counter Badge */}
-                  <span className="absolute bottom-1 px-1.5 py-0.2 rounded-full bg-amber-400 text-black font-mono font-bold text-[9px] leading-tight shadow-sm">
-                    {shotsLeft}
-                  </span>
-                </button>
-              </div>
+        {/* Look Dial Switcher (Short chips or collapsed drawer trigger) */}
+        <div className="w-full flex justify-center py-0.5">
+          <LookDial
+            activeLook={activeLook}
+            onSelectLook={handleSelectLook}
+            allowedLookIds={allowedLookIds}
+            isCollapsed={layout.density === "L2"}
+            onOpenLookDrawer={() => setLookDrawerOpen(true)}
+          />
+        </div>
 
-              {/* Center slot: Shutter Button (78px with countdown ring) */}
-              <ShutterButton
-                onShoot={handleShoot}
-                disabled={shotsLeft <= 0 || !live}
-                isProcessing={isProcessing}
-                timerCountdown={timerCountdown}
-                timerTotal={timerSeconds}
-              />
-
-              {/* Right slot: Flip Camera Button (48x48 hit target) */}
-              <div className="w-16 flex justify-end">
-                <button
-                  type="button"
-                  disabled={starting || restarting || isProcessing}
-                  onClick={() => {
-                    triggerHaptic([20]);
-                    flip();
-                  }}
-                  aria-label={t(lang, "flip")}
-                  style={controlRotStyle}
-                  className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition-transform active:scale-90 touch-manipulation shadow-md disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="w-5 h-5"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4.755 10.059a7.5 7.5 0 0 1 12.548-3.364l1.903 1.903h-3.183a.75.75 0 1 0 0 1.5h4.992a.75.75 0 0 0 .75-.75V4.356a.75.75 0 0 0-1.5 0v3.18l-1.9-1.9A9 9 0 0 0 3.306 9.67a.75.75 0 1 0 1.45.388Zm14.49 3.882a7.5 7.5 0 0 1-12.549 3.364l-1.902-1.903h3.183a.75.75 0 0 0 0-1.5H2.984a.75.75 0 0 0-.75.75v4.992a.75.75 0 0 0 1.5 0v-3.18l1.9 1.9a9 9 0 0 0 14.862-4.004.75.75 0 1 0-1.45-.389Z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </footer>
-        </>
-      )}
-
-      {/* LANDSCAPE LAYOUT (Left Tools Rail + Right Shutter Action Rail) */}
-      {isLandscape && (
-        <div className="absolute inset-0 z-20 flex justify-between pointer-events-none">
-          {/* Left-hand side settings rail (Flash, Aspect, Timer, Sync, Settings) */}
-          <div
-            style={{
-              paddingLeft: "max(env(safe-area-inset-left), 8px)",
-            }}
-            className="h-full flex flex-col items-center justify-center py-4 px-2 pointer-events-auto z-20"
-          >
-            <CameraTopBar
-              rotationDegrees={rotationDegrees}
-              isVertical={true}
-              flashAvailable={hasHardwareFlash || facing === "user"}
-              flashMode={flashMode}
-              onChangeFlashMode={setFlashMode}
-              aspect={cameraAspect}
-              onChangeAspect={setCameraAspect}
-              timerSeconds={timerSeconds}
-              onChangeTimer={setTimerSeconds}
-              pendingCount={pendingCount}
-              syncError={syncError}
-              onOpenSyncStatus={() => setSyncStatusOpen(true)}
-              onOpenSettings={() => setSettingsOpen(true)}
-              onNativeTipClick={() => setShowNativeFlashTip(true)}
-              lang={lang}
-            />
-          </div>
-
-          {/* Right-hand side action rail (Film Roll, Shutter, Flip Camera) */}
-          <div
-            style={{
-              paddingRight: "max(env(safe-area-inset-right), 12px)",
-              width: `${layout.bottomBarHeight}px`,
-            }}
-            className="h-full bg-black flex flex-col items-center justify-between py-4 px-2 pointer-events-auto border-l border-zinc-900"
-          >
-            {/* Top slot: Film Roll thumbnail with shots counter badge */}
-            <div className="flex items-center justify-center">
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic([20]);
-                  setGalleryOpen(true);
-                }}
-                aria-label={t(lang, "myPhotos")}
-                style={controlRotStyle}
-                className="w-12 h-12 rounded-xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-400/80 flex flex-col items-center justify-center text-zinc-300 relative cursor-pointer active:scale-95 shadow-md"
-              >
-                <span className="text-sm">🎞️</span>
-                <span className="absolute bottom-0.5 px-1.5 py-0.2 rounded-full bg-amber-400 text-black font-mono font-bold text-[8px]">
+        {/* Shutter Row with Film Badge and Flip Camera */}
+        <div className="flex items-center justify-between w-full max-w-sm px-2 pt-1 pb-1">
+          {/* Left slot: Film Roll thumbnail with shots badge */}
+          <div className="w-16 flex justify-start">
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic([20]);
+                setGalleryOpen(true);
+              }}
+              aria-label={t(lang, "myPhotos")}
+              className="w-13 h-13 rounded-2xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-400/80 flex flex-col items-center justify-center text-zinc-300 hover:text-white transition active:scale-95 shadow-md relative overflow-hidden group cursor-pointer"
+            >
+              <div style={controlRotStyle} className="flex flex-col items-center justify-center">
+                <span className="text-base">🎞️</span>
+                {/* Single Clean Film Shots Counter Badge */}
+                <span className="absolute bottom-1 px-1.5 py-0.2 rounded-full bg-amber-400 text-black font-mono font-bold text-[9px] leading-tight shadow-sm">
                   {shotsLeft}
                 </span>
-              </button>
-            </div>
+              </div>
+            </button>
+          </div>
 
-            {/* Center slot: Shutter Button in center of rail */}
-            <div className="my-auto">
-              <ShutterButton
-                onShoot={handleShoot}
-                disabled={shotsLeft <= 0 || !live}
-                isProcessing={isProcessing}
-                timerCountdown={timerCountdown}
-                timerTotal={timerSeconds}
-              />
-            </div>
+          {/* Center slot: Shutter Button (78px with countdown ring) */}
+          <ShutterButton
+            onShoot={handleShoot}
+            disabled={shotsLeft <= 0 || !live}
+            isProcessing={isProcessing}
+            timerCountdown={timerCountdown}
+            timerTotal={timerSeconds}
+          />
 
-            {/* Bottom slot: Flip Camera Button */}
-            <div className="flex items-center justify-center">
-              <button
-                type="button"
-                disabled={starting || restarting || isProcessing}
-                onClick={() => {
-                  triggerHaptic([20]);
-                  flip();
-                }}
-                aria-label={t(lang, "flip")}
-                style={controlRotStyle}
-                className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 active:scale-90 shadow-md disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
-              >
+          {/* Right slot: Flip Camera Button (48x48 hit target) */}
+          <div className="w-16 flex justify-end">
+            <button
+              type="button"
+              disabled={starting || restarting || isProcessing}
+              onClick={() => {
+                triggerHaptic([20]);
+                flip();
+              }}
+              aria-label={t(lang, "flip")}
+              className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60 transition-transform active:scale-90 touch-manipulation shadow-md disabled:opacity-40 disabled:pointer-events-none cursor-pointer"
+            >
+              <div style={controlRotStyle} className="flex items-center justify-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -1050,11 +954,11 @@ export function CameraScreen({
                     clipRule="evenodd"
                   />
                 </svg>
-              </button>
-            </div>
+              </div>
+            </button>
           </div>
         </div>
-      )}
+      </footer>
 
       {/* Camera Settings / Tools Sheet */}
       <CameraSettingsSheet
@@ -1103,7 +1007,8 @@ export function CameraScreen({
         <ReviewModal
           previewBitmap={activeReview.previewBitmap}
           photoBlob={activeReview.filteredBlob}
-          aspect={resolveCaptureAspect(cameraAspect, layout.isLandscape || isOrientationLandscape)}
+          aspect={resolveCaptureAspect(cameraAspect, tiltAngle === 90 || tiltAngle === -90)}
+          rotationDegrees={uiRotationDeg}
           lookName={activeLook.name}
           shotsLeft={shotsLeft}
           totalShots={totalShots}

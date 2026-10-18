@@ -44,69 +44,29 @@ export function calculateLayout(
   aspect: CameraAspect,
   safeArea = { top: 0, bottom: 0, left: 0, right: 0 }
 ): ViewportLayout {
-  const isLandscape = vw > vh;
-
-  // Available space excluding notches / home indicators
-  const availW = Math.max(280, vw - safeArea.left - safeArea.right);
+  // Zero Layout Reflow: camera layout is permanently locked to portrait mobile shell
+  const effectiveVw = vw > vh ? Math.min(vw, Math.round(vh * 0.5625)) : vw;
+  const availW = Math.max(280, effectiveVw - safeArea.left - safeArea.right);
   const availH = Math.max(380, vh - safeArea.top - safeArea.bottom);
+  const horizontalOffset = vw > vh ? Math.round((vw - effectiveVw) / 2) : 0;
 
-  // Target aspect ratio (w / h)
+  // Target aspect ratio (w / h) — strictly portrait framing at all times
   let targetRatio: number;
   if (aspect === "1:1") {
     targetRatio = 1.0;
   } else if (aspect === "16:9") {
-    targetRatio = isLandscape ? 16 / 9 : 9 / 16;
+    targetRatio = 9 / 16;
   } else if (aspect === "3:2") {
-    targetRatio = isLandscape ? 3 / 2 : 2 / 3;
+    targetRatio = 2 / 3;
   } else {
     // "3:4" (default full sensor)
-    targetRatio = isLandscape ? 4 / 3 : 3 / 4;
+    targetRatio = 3 / 4;
   }
 
   // Slim unified top bar height with comfortable breathing room (68px + safeArea.top)
   const topBarH = 68 + safeArea.top;
 
-  if (isLandscape) {
-    // Landscape Mode: Side rail layout (rail on the right, 96px width)
-    const railWidth = 96 + safeArea.right;
-    const maxVfW = availW - 96;
-    let vfH = availH;
-    let vfW = Math.round(vfH * targetRatio);
-    if (vfW > maxVfW) {
-      vfW = maxVfW;
-      vfH = Math.round(vfW / targetRatio);
-    }
-
-    const top = safeArea.top + Math.round((availH - vfH) / 2);
-    const left = safeArea.left + Math.round((maxVfW - vfW) / 2);
-
-    const baselineRect = {
-      width: vfW,
-      height: vfH,
-      top: Math.max(0, top),
-      left: Math.max(0, left),
-    };
-
-    return {
-      width: vw,
-      height: vh,
-      isLandscape: true,
-      safeArea,
-      mode: "banded",
-      density: "L0",
-      viewfinderRect: {
-        width: vfW,
-        height: vfH,
-        top: Math.max(0, top),
-        left: Math.max(0, left),
-      },
-      baselineRect,
-      topBarHeight: 0,
-      bottomBarHeight: railWidth,
-    };
-  }
-
-  // Portrait Mode:
+  // Portrait Mode (Permanent Fixed Camera Geometry):
   // 1. Calculate the master 3:4 baseline frame first.
   // All button positions (Top Bar, Zoom Toggle, LookDial, Shutter) remain strictly locked to this 3:4 baseline.
   const minBottomReserved = 120 + safeArea.bottom;
@@ -123,9 +83,9 @@ export function calculateLayout(
   const top34 = topBarH;
   const bottomBarH = Math.max(0, vh - (top34 + baselineVfH));
   const centerY = top34 + baselineVfH / 2;
-  const centerX = safeArea.left + availW / 2;
+  const centerX = safeArea.left + horizontalOffset + availW / 2;
 
-  const baselineLeft = safeArea.left + Math.round((availW - baselineVfW) / 2);
+  const baselineLeft = safeArea.left + horizontalOffset + Math.round((availW - baselineVfW) / 2);
   const baselineRect = {
     width: baselineVfW,
     height: baselineVfH,
@@ -156,7 +116,7 @@ export function calculateLayout(
     if (top < 0) top = 0;
     if (top + vfH > vh) top = vh - vfH;
 
-    const left = safeArea.left + Math.round((availW - vfW) / 2);
+    const left = safeArea.left + horizontalOffset + Math.round((availW - vfW) / 2);
 
     return {
       width: vw,
@@ -182,7 +142,7 @@ export function calculateLayout(
     const vfW = baselineVfW;
     const vfH = vfW;
     const top = Math.round(centerY - vfH / 2);
-    const left = safeArea.left + Math.round((availW - vfW) / 2);
+    const left = safeArea.left + horizontalOffset + Math.round((availW - vfW) / 2);
 
     return {
       width: vw,
@@ -230,7 +190,7 @@ export function calculateLayout(
   }
 
   // 3:4 default baseline
-  const left = safeArea.left + Math.round((availW - baselineVfW) / 2);
+  const left = safeArea.left + horizontalOffset + Math.round((availW - baselineVfW) / 2);
 
   return {
     width: vw,

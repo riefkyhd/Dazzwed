@@ -22,7 +22,6 @@ interface CameraTopBarProps {
   showSyncTooltip?: boolean;
   syncTooltipFading?: boolean;
   rotationDegrees?: number;
-  isVertical?: boolean;
 }
 
 export function CameraTopBar({
@@ -42,7 +41,6 @@ export function CameraTopBar({
   showSyncTooltip = false,
   syncTooltipFading = false,
   rotationDegrees = 0,
-  isVertical = false,
 }: CameraTopBarProps) {
   // Cycle flash: auto -> on -> off -> auto
   const cycleFlash = () => {
@@ -75,18 +73,12 @@ export function CameraTopBar({
   // Smooth rotation style for individual control icons
   const rotStyle: React.CSSProperties = {
     transform: `rotate(${rotationDegrees}deg)`,
-    transition: "transform 300ms cubic-bezier(0.32, 0.72, 0, 1)",
+    transition: "transform 300ms cubic-bezier(0.22, 1, 0.36, 1)",
     transformOrigin: "center",
   };
 
   return (
-    <div
-      className={
-        isVertical
-          ? "w-full flex flex-col items-center justify-between py-2 gap-3.5 select-none touch-manipulation z-30 pointer-events-auto"
-          : "w-full h-full min-h-[52px] flex items-center justify-between px-3 select-none touch-manipulation z-30 pointer-events-auto"
-      }
-    >
+    <div className="w-full h-full min-h-[52px] flex items-center justify-between px-3 select-none touch-manipulation z-30 pointer-events-auto">
       {/* 1. Flash Mode Button (Icon + small badge, >= 48x48 hit target) */}
       <button
         type="button"
@@ -201,25 +193,13 @@ export function CameraTopBar({
         {showSyncTooltip && (
           <div
             role="tooltip"
-            className={
-              isVertical
-                ? `absolute top-0 right-full mr-3 z-50 pointer-events-none transition-all duration-500 ease-out ${
-                    syncTooltipFading ? "opacity-0 translate-x-2" : "opacity-100 translate-x-0"
-                  }`
-                : `absolute top-full mt-2 -right-8 sm:right-0 z-50 pointer-events-none transition-all duration-500 ease-out ${
-                    syncTooltipFading ? "opacity-0 -translate-y-1" : "opacity-100 translate-y-0"
-                  }`
-            }
+            className={`absolute top-full mt-2 -right-8 sm:right-0 z-50 pointer-events-none transition-all duration-500 ease-out ${
+              syncTooltipFading ? "opacity-0 -translate-y-1" : "opacity-100 translate-y-0"
+            }`}
           >
             <div className="relative bg-zinc-950/95 border border-amber-500/40 text-zinc-100 px-3.5 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md w-56 text-center animate-in fade-in zoom-in-95 duration-200">
               {/* Caret arrow */}
-              <div
-                className={
-                  isVertical
-                    ? "absolute top-4 -right-1.5 w-3 h-3 bg-zinc-950 border-t border-r border-amber-500/40 rotate-45"
-                    : "absolute -top-1.5 right-12 sm:right-5 w-3 h-3 bg-zinc-950 border-t border-l border-amber-500/40 rotate-45"
-                }
-              />
+              <div className="absolute -top-1.5 right-12 sm:right-5 w-3 h-3 bg-zinc-950 border-t border-l border-amber-500/40 rotate-45" />
               <div className="flex items-center gap-1.5 justify-center mb-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
                 <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">

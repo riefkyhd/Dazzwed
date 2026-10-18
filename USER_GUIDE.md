@@ -292,33 +292,34 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 
 ---
 
-## 11. Smooth Landscape UI Rotation & True Landscape Archival Capture (`4:3` / `16:9`)
+## 11. Native Smartphone Gravity-Based Icon Rotation & True Landscape Archival Capture (`4:3` / `16:9`)
 
-1. **Dynamic Orientation Tracking & Upright Control Rotation (`useOrientation.ts` & `CameraScreen.tsx`):**
-   - **Hardware Screen & Window Orientation Listener:** Listens reactively to `window.screen.orientation?.angle` and fallback `window.orientation`, calculating counter-rotation angles (`0°`, `90°`, `-90°`, `180°`).
-   - **Fluid 300ms Cubic-Bezier Icon Transforms:** Individual controls smoothly rotate in place (`rotate(θdeg)`) with `transform-origin: center` and zero layout shift:
-     - Top bar action icons (flash mode, aspect ratio toggle, vintage self-timer, sync indicator, settings sheet trigger)
-     - Lens selector bar (`0.5x`, `1x`, `2x`, `3x` pills) so lens markings remain upright and legible relative to user eye-level
-     - Bottom shutter dock: film roll thumbnail + remaining shots counter badge, and flip camera button
-   - **Non-Blocking Container Geometries:** All button hitboxes and parent flex containers maintain fixed hit zones, preventing touch misalignment, scroll jumps, or reflow jitter during rotation.
+1. **Gravity Accelerometer Tilt Detection (`useDeviceTilt.ts` & `CameraScreen.tsx`):**
+   - **Portrait Orientation Lock Compatibility:** Unlike browser `screen.orientation` which fails when a user has system Portrait Lock enabled, Dazzwed reads real-time gravity vectors from `DeviceMotionEvent.accelerationIncludingGravity`:
+     - **Portrait Upright (`0°`):** `|y| > |x|` (standard holding angle).
+     - **Landscape Left (`90°`):** `x > 4.5 m/s²` with `|x| > |y| * 1.3` (phone tilted CCW, top pointing left).
+     - **Landscape Right (`-90°`):** `x < -4.5 m/s²` with `|x| > |y| * 1.3` (phone tilted CW, top pointing right).
+   - **Deadzone Hysteresis & Flat-Surface Filter:** Requires holding angles to sustain for $\ge 200\text{ms}$ to prevent jitter around 45° thresholds. When resting flat on a table (`|z| > 7.0 m/s²`), the last stable angle is preserved.
+   - **Permission Piggybacking:** On iOS 13+, `DeviceMotionEvent.requestPermission` is requested seamlessly on the user's first touch/interaction without blocking camera initialization.
 
-2. **Two-Handed Landscape Rail Architecture (`CameraScreen.tsx` & `CameraTopBar.tsx`):**
-   - When the phone or browser window enters landscape orientation (`width > height`), controls organize into an ergonomic two-handed layout:
-     - **Left-Hand Settings Rail:** Hosts `CameraTopBar` vertically (`isVertical={true}`, `flex-col gap-3.5`) for quick thumb access to flash, aspect ratio, self-timer, sync indicator, and camera tools.
-     - **Right-Hand Action Rail:** Houses the film roll thumbnail with shots counter at the top, the 78px shutter button with countdown ring in the center, and the flip camera button at the bottom.
-     - **Center Viewfinder:** Houses framing brackets, grid, and centered upright lens pills (`0.5x`, `1x`, `2x`, `3x`) without vertical crowding or control clipping.
-   - Tooltips in the vertical settings rail adapt their positioning (`right-full mr-2` or `left-full ml-2`) to avoid screen boundary clipping.
+2. **Zero Layout Reflow Invariant:**
+   - The camera container structure NEVER rearranges, reflows, or creates horizontal side rails. The top bar, viewfinder box, lens dock, and bottom shutter dock remain permanently fixed in their ergonomic mobile positions.
+   - **In-Place Icon Pivoting (`300ms cubic-bezier(0.22, 1, 0.36, 1)`):**
+     - Top bar action icons (Flash mode, Aspect ratio, Vintage self-timer, Sync indicator, Settings trigger)
+     - Lens selector pills: numbers (`0.5`, `1x`, `2`, `3`) pivot inside stationary circular buttons
+     - Bottom shutter dock: Film roll thumbnail + remaining shots counter badge, and Flip camera button
+     - Self-timer countdown badge (`3s`, `2s`, `1s`)
+     - Review modal action buttons ("Retake" & "Keep Photo")
 
-3. **True Landscape Archival Capture (`geometry.ts` & `useCamera.ts`):**
-   - **Dynamic Aspect Ratio Resolution (`resolveCaptureAspect`):** When capturing in landscape orientation (`width > height` or `videoWidth > videoHeight`), portrait aspect ratios automatically map to true landscape dimensions:
-     - `"3:4"` maps to `"4:3"` (e.g. `2560x1920` or `1280x960`, `w > h`)
-     - `"9:16"` maps to `"16:9"` (e.g. `2560x1440`, `w > h`)
-     - `"1:1"` remains square (`1920x1920`)
-   - **Zero Forced Portrait Cropping:** Eliminates unwanted portrait letterboxing on photos framed horizontally, rendering and persisting both `filteredBlob` and `originalBlob` in full-resolution landscape orientation.
+3. **True Landscape Archival Capture (`geometry.ts`, `pipeline.ts` & `render.ts`):**
+   - **GPU Shader Texture Rotation (`u_rotation`):** When capturing in landscape orientation (`tiltAngle === 90 || tiltAngle === -90`), the WebGL Look Engine rotates sensor texture coordinates by -90° (CCW) or +90° (CW) in the shader pass.
+   - **True Landscape Output Dimensions:** Outputs true horizontal images where `width > height` (e.g., `2560 × 1920` for 4:3, `2560 × 1440` for 16:9), applied equally to both the developed `filteredBlob` and raw `originalBlob`.
+   - **Corner-Accurate Date Stamp:** Analog orange date stamp and emulsion effects are rendered directly on the landscape canvas, properly anchored to the true bottom-right corner.
 
 4. **Expanded Landscape Review Modal Presentation (`ReviewModal.tsx`):**
-   - Dynamic landscape image detection via `previewBitmap`, `aspect === "4:3"`, or loaded natural image dimensions (`naturalWidth > naturalHeight`).
-   - Automatically applies `aspectRatio: "4 / 3"` or `"16 / 9"` and expands the container to `max-w-xl`, giving landscape captures a generous, beautiful hero presentation.
+   - Automatically detects landscape dimensions (`width > height` or `aspect === "4:3"`).
+   - Adapts the hero print container to `aspectRatio: "4 / 3"` or `"16 / 9"` with `max-w-xl`, presenting photos with zero letterboxing or distortion while action buttons rotate to match holding angle.
+
 
 
 

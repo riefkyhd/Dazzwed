@@ -78,13 +78,13 @@ describe("Camera Viewport Layout Engine", () => {
     expect(l360x640.density).toBe("L2");
   });
 
-  it("handles landscape orientation with right-hand side rail", () => {
+  it("preserves portrait camera structure even on wide viewports (zero layout reflow)", () => {
     const layout = calculateLayout(844, 390, "3:4", { top: 0, bottom: 0, left: 47, right: 34 });
-    expect(layout.isLandscape).toBe(true);
+    expect(layout.isLandscape).toBe(false);
     expect(layout.viewfinderRect.width).toBeGreaterThan(0);
     expect(layout.viewfinderRect.height).toBeGreaterThan(0);
-    expect(layout.bottomBarHeight).toBeGreaterThanOrEqual(96);
-    expect(layout.viewfinderRect.left + layout.viewfinderRect.width).toBeLessThanOrEqual(844 - 96 + 1);
+    expect(layout.topBarHeight).toBe(68);
+    expect(layout.bottomBarHeight).toBeGreaterThan(0);
   });
 
   it("chooses full-bleed mode for 16:9 aspect on modern tall smartphones", () => {

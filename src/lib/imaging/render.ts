@@ -211,6 +211,8 @@ export interface RenderOptions {
   exposureCompensation?: number;
   /** Whether shot was illuminated by flash (applies Godox Xenon Strobe direct-flash grading pass) */
   flashUsed?: boolean;
+  /** Physical tilt holding angle (0 = portrait upright, 90 = landscape left, -90 = landscape right) */
+  tiltAngle?: 0 | 90 | -90;
 }
 
 let sharedCapturePipeline: LookEnginePipeline | null = null;
@@ -259,15 +261,21 @@ export async function renderShot(
     mirror = false,
     exposureCompensation,
     flashUsed = false,
+    tiltAngle,
   }: RenderOptions & { maxEdge?: number; quality?: number; applyFilter?: boolean } = {}
 ): Promise<Blob> {
   const { w, h } = sourceSize(src);
   if (!w || !h) throw new Error("source has no size");
 
+  // Determine if rotation is needed to produce true landscape output from portrait sensor
+  const isRotated = (tiltAngle === 90 || tiltAngle === -90) && w < h;
+  const effectiveW = isRotated ? h : w;
+  const effectiveH = isRotated ? w : h;
+
   // Aspect ratio: in-app shots explicitly supply `aspect` (e.g. "3:4", "9:16", "1:1").
   // If none supplied, default to "3:4" (full sensor) or look's format if defined.
   const targetAspect: CameraAspect = aspect ?? (look?.aspectRatio as CameraAspect) ?? "3:4";
-  const crop = cropForAspectAndZoom(w, h, targetAspect, zoom);
+  const crop = cropForAspectAndZoom(effectiveW, effectiveH, targetAspect, zoom);
 
   // iOS Safari WebKit canvas memory protection: clamp maxEdge to 2560px
   const isIOS =
@@ -280,6 +288,14 @@ export async function renderShot(
   const canvas = document.createElement("canvas");
   canvas.width = out.width;
   canvas.height = out.height;
+
+  // Normalized crop rectangle in effective coordinates
+  const normCropRect = {
+    x: crop.sx / effectiveW,
+    y: crop.sy / effectiveH,
+    width: crop.sw / effectiveW,
+    height: crop.sh / effectiveH,
+  };
 
   // If clean original requested, draw directly without filter
   if (!applyFilter) {
@@ -296,13 +312,9 @@ export async function renderShot(
           isCapture: true,
           intensity: 0,
           flashUsed: false,
-          cropRect: {
-            x: crop.sx / w,
-            y: crop.sy / h,
-            width: crop.sw / w,
-            height: crop.sh / h,
-          },
+          cropRect: normCropRect,
           mirror,
+          rotation: isRotated ? tiltAngle : 0,
         });
         if (renderedRaw && !isCanvasBlankOrBlack(glCanvas)) {
           return await toBlob(glCanvas, quality);
@@ -315,7 +327,16 @@ export async function renderShot(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("no 2d context");
     ctx.imageSmoothingQuality = "high";
-    if (mirror) {
+    if (isRotated) {
+      ctx.save();
+      ctx.translate(out.width / 2, out.height / 2);
+      ctx.rotate(tiltAngle === 90 ? -Math.PI / 2 : Math.PI / 2);
+      if (mirror) ctx.scale(-1, 1);
+      const sX = tiltAngle === 90 ? w - (crop.sy + crop.sh) : crop.sy;
+      const sY = tiltAngle === 90 ? crop.sx : h - (crop.sx + crop.sw);
+      ctx.drawImage(src, sX, sY, crop.sh, crop.sw, -out.height / 2, -out.width / 2, out.height, out.width);
+      ctx.restore();
+    } else if (mirror) {
       ctx.save();
       ctx.translate(out.width, 0);
       ctx.scale(-1, 1);
@@ -336,14 +357,23 @@ export async function renderShot(
 
   // For HTMLVideoElement, NEVER draw to a 2D canvas on iOS WebKit (it produces black frames).
   // Instead, pass the video directly to WebGL and let the shader handle normalized cropRect and mirror.
-  if (!isVideo && (zoom > 1 || crop.sw !== w || crop.sh !== h || mirror)) {
+  if (!isVideo && (zoom > 1 || crop.sw !== effectiveW || crop.sh !== effectiveH || mirror || isRotated)) {
     interCanvas = document.createElement("canvas");
     interCanvas.width = out.width;
     interCanvas.height = out.height;
     const iCtx = interCanvas.getContext("2d");
     if (iCtx) {
       iCtx.imageSmoothingQuality = "high";
-      if (mirror) {
+      if (isRotated) {
+        iCtx.save();
+        iCtx.translate(out.width / 2, out.height / 2);
+        iCtx.rotate(tiltAngle === 90 ? -Math.PI / 2 : Math.PI / 2);
+        if (mirror) iCtx.scale(-1, 1);
+        const sX = tiltAngle === 90 ? w - (crop.sy + crop.sh) : crop.sy;
+        const sY = tiltAngle === 90 ? crop.sx : h - (crop.sx + crop.sw);
+        iCtx.drawImage(src, sX, sY, crop.sh, crop.sw, -out.height / 2, -out.width / 2, out.height, out.width);
+        iCtx.restore();
+      } else if (mirror) {
         iCtx.save();
         iCtx.translate(out.width, 0);
         iCtx.scale(-1, 1);
@@ -369,14 +399,6 @@ export async function renderShot(
       glCanvas.width = out.width;
       glCanvas.height = out.height;
     }
-    const normCropRect = isVideo
-      ? {
-          x: crop.sx / w,
-          y: crop.sy / h,
-          width: crop.sw / w,
-          height: crop.sh / h,
-        }
-      : undefined;
 
     rendered = p.render(sourceToRender, look, {
       width: out.width,
@@ -387,9 +409,10 @@ export async function renderShot(
       intensity: targetIntensity,
       lut: loadedLut,
       exposureCompensation,
-      cropRect: normCropRect,
+      cropRect: isVideo ? normCropRect : undefined,
       mirror: isVideo ? mirror : false,
       flashUsed: flashUsed,
+      rotation: isVideo && isRotated ? tiltAngle : 0,
     });
     if (rendered) processedCanvas = glCanvas;
   } catch (err) {
@@ -408,7 +431,16 @@ export async function renderShot(
     // only attempt 2D CPU fallback if src is NOT HTMLVideoElement (2D canvas can't draw WebKit video)
     if (isCanvasBlankOrBlack(canvas) && !isVideo) {
       console.warn("Rendered WebGL canvas was blank/black, falling back to 2D CPU LookRecipe pipeline");
-      if (mirror) {
+      if (isRotated) {
+        ctx2d.save();
+        ctx2d.translate(out.width / 2, out.height / 2);
+        ctx2d.rotate(tiltAngle === 90 ? -Math.PI / 2 : Math.PI / 2);
+        if (mirror) ctx2d.scale(-1, 1);
+        const sX = tiltAngle === 90 ? w - (crop.sy + crop.sh) : crop.sy;
+        const sY = tiltAngle === 90 ? crop.sx : h - (crop.sx + crop.sw);
+        ctx2d.drawImage(src, sX, sY, crop.sh, crop.sw, -out.height / 2, -out.width / 2, out.height, out.width);
+        ctx2d.restore();
+      } else if (mirror) {
         ctx2d.save();
         ctx2d.translate(out.width, 0);
         ctx2d.scale(-1, 1);
@@ -426,7 +458,16 @@ export async function renderShot(
     }
   } else {
     // Fallback 2D if WebGL unavailable — uses the exact same LookRecipe color science
-    if (mirror) {
+    if (isRotated) {
+      ctx2d.save();
+      ctx2d.translate(out.width / 2, out.height / 2);
+      ctx2d.rotate(tiltAngle === 90 ? -Math.PI / 2 : Math.PI / 2);
+      if (mirror) ctx2d.scale(-1, 1);
+      const sX = tiltAngle === 90 ? w - (crop.sy + crop.sh) : crop.sy;
+      const sY = tiltAngle === 90 ? crop.sx : h - (crop.sx + crop.sw);
+      ctx2d.drawImage(src, sX, sY, crop.sh, crop.sw, -out.height / 2, -out.width / 2, out.height, out.width);
+      ctx2d.restore();
+    } else if (mirror) {
       ctx2d.save();
       ctx2d.translate(out.width, 0);
       ctx2d.scale(-1, 1);
