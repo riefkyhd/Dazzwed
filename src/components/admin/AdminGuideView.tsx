@@ -616,6 +616,19 @@ export function AdminGuideView() {
                 : "Aset transparan resmi `/Unveiled_logo_horizontal_transparent.png` digunakan pada header gelap (Navbar Admin, Login Admin, Halaman Utama) tanpa teks berulang, sedangkan `/Unveiled_logo_horizontal.png` dengan latar krem gading dikonfigurasi untuk kartu pratinjau media sosial (OpenGraph & Twitter)."}
             </p>
           </div>
+
+          <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+            <h4 className="text-sm font-bold text-white">
+              {lang === "en"
+                ? "Q: How does Dazzwed ensure front camera selfies and rear camera photos in landscape are always saved right-side up?"
+                : "T: Bagaimana Dazzwed memastikan swafoto kamera depan dan foto kamera belakang dalam mode lanskap selalu tersimpan tegak (tidak terbalik)?"}
+            </h4>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {lang === "en"
+                ? "On mobile smartphones (iOS & Android), the front camera sensor is mounted facing the user, opposite the rear camera. When holding the phone in landscape, Dazzwed's WebGL shader Look Engine (`mapCropUv`) uses dedicated physical sensor coordinate transforms: front-facing selfies map the user's head directly to the top edge without vertical inversion in both Landscape Left (90°) and Landscape Right (-90°), while maintaining natural mirror symmetry and keeping rear camera captures 100% upright."
+                : "Pada ponsel pintar (iOS & Android), sensor kamera depan menghadap pengguna, berlawanan dengan kamera belakang. Saat memegang ponsel secara lanskap, mesin shader WebGL Dazzwed (`mapCropUv`) menerapkan transformasi koordinat sensor fisik khusus: swafoto kamera depan memetakan kepala pengguna langsung ke tepi atas tanpa pembalikan vertikal baik di Lanskap Kiri (90°) maupun Lanskap Kanan (-90°), sambil mempertahankan simetri cermin alami dan menjaga foto kamera belakang tetap 100% tegak lurus."}
+            </p>
+          </div>
         </div>
       )}
 

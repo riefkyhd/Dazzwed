@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculateControlRotation } from "@/lib/camera/useOrientation";
-import { resolveCaptureAspect, cropRect, cropForAspectAndZoom } from "@/lib/imaging/geometry";
+import { resolveCaptureAspect, cropRect, cropForAspectAndZoom, mapCropUvCoordinates } from "@/lib/imaging/geometry";
 
 describe("Landscape Orientation & Capture Mechanics", () => {
   describe("calculateControlRotation", () => {
@@ -102,6 +102,77 @@ describe("Landscape Orientation & Capture Mechanics", () => {
       expect(crop2x.sh).toBe(1500);
       expect(crop2x.sx).toBe(1000);
       expect(crop2x.sy).toBe(750);
+    });
+  });
+
+  describe("mapCropUvCoordinates (WebGL Shader Transformation)", () => {
+    const fullCropRect = { x: 0, y: 0, width: 1, height: 1 };
+
+    it("Portrait Rear: maps (0,0) -> (0,0), (1,1) -> (1,1) upright unmirrored", () => {
+      const topLeft = mapCropUvCoordinates({ x: 0, y: 0 }, fullCropRect, 0, false);
+      const bottomRight = mapCropUvCoordinates({ x: 1, y: 1 }, fullCropRect, 0, false);
+      expect(topLeft).toEqual({ s: 0, t: 0 });
+      expect(bottomRight).toEqual({ s: 1, t: 1 });
+    });
+
+    it("Portrait Front: maps (0,0) -> (1,0) (mirrored X, upright Y)", () => {
+      const topLeft = mapCropUvCoordinates({ x: 0, y: 0 }, fullCropRect, 0, true);
+      const topRight = mapCropUvCoordinates({ x: 1, y: 0 }, fullCropRect, 0, true);
+      const bottomCenter = mapCropUvCoordinates({ x: 0.5, y: 1 }, fullCropRect, 0, true);
+      expect(topLeft).toEqual({ s: 1, t: 0 });
+      expect(topRight).toEqual({ s: 0, t: 0 });
+      expect(bottomCenter.t).toBe(1); // Y/T is bottom
+    });
+
+    it("Landscape Left Rear (90 deg): ceiling (y=0) maps to s=1 (right edge of phone)", () => {
+      const topCenter = mapCropUvCoordinates({ x: 0.5, y: 0 }, fullCropRect, 90, false);
+      const bottomCenter = mapCropUvCoordinates({ x: 0.5, y: 1 }, fullCropRect, 90, false);
+      expect(topCenter.s).toBe(1); // Ceiling at top
+      expect(bottomCenter.s).toBe(0); // Floor at bottom
+    });
+
+    it("Landscape Right Rear (-90 deg): ceiling (y=0) maps to s=0 (left edge of phone)", () => {
+      const topCenter = mapCropUvCoordinates({ x: 0.5, y: 0 }, fullCropRect, -90, false);
+      const bottomCenter = mapCropUvCoordinates({ x: 0.5, y: 1 }, fullCropRect, -90, false);
+      expect(topCenter.s).toBe(0); // Ceiling at top
+      expect(bottomCenter.s).toBe(1); // Floor at bottom
+    });
+
+    it("Landscape Left Front (90 deg, mirror): ceiling / head (y=0) maps to s=0 (upright!) and NEVER inverted", () => {
+      const topLeft = mapCropUvCoordinates({ x: 0, y: 0 }, fullCropRect, 90, true);
+      const topRight = mapCropUvCoordinates({ x: 1, y: 0 }, fullCropRect, 90, true);
+      const bottomLeft = mapCropUvCoordinates({ x: 0, y: 1 }, fullCropRect, 90, true);
+      const bottomRight = mapCropUvCoordinates({ x: 1, y: 1 }, fullCropRect, 90, true);
+
+      // Top of output photo must sample user's head (s = 0), NOT inverted floor (s = 1)!
+      expect(topLeft.s).toBe(0);
+      expect(topRight.s).toBe(0);
+      // Bottom of output photo must sample user's torso (s = 1)
+      expect(bottomLeft.s).toBe(1);
+      expect(bottomRight.s).toBe(1);
+
+      // Left of photo (x=0) must sample user's left (t=0)
+      expect(topLeft.t).toBe(0);
+      // Right of photo (x=1) must sample user's right (t=1)
+      expect(topRight.t).toBe(1);
+    });
+
+    it("Landscape Right Front (-90 deg, mirror): ceiling / head (y=0) maps to s=1 (upright!) and NEVER inverted", () => {
+      const topLeft = mapCropUvCoordinates({ x: 0, y: 0 }, fullCropRect, -90, true);
+      const topRight = mapCropUvCoordinates({ x: 1, y: 0 }, fullCropRect, -90, true);
+      const bottomLeft = mapCropUvCoordinates({ x: 0, y: 1 }, fullCropRect, -90, true);
+      const bottomRight = mapCropUvCoordinates({ x: 1, y: 1 }, fullCropRect, -90, true);
+
+      // Top of output photo must sample user's head (s = 1), NOT inverted floor (s = 0)!
+      expect(topLeft.s).toBe(1);
+      expect(topRight.s).toBe(1);
+      // Bottom of output photo must sample user's torso (s = 0)
+      expect(bottomLeft.s).toBe(0);
+      expect(bottomRight.s).toBe(0);
+
+      // Mirror reflection in landscape right:
+      expect(topLeft.t).toBe(1);
+      expect(topRight.t).toBe(0);
     });
   });
 });

@@ -227,17 +227,39 @@ float evalChannelCurve(float x, vec4 curve, int shoulderType) {
 }
 
 vec2 mapCropUv(vec2 normUv) {
-  vec2 uv = normUv;
-  if (u_mirror) {
-    uv.x = 1.0 - uv.x;
-  }
-  vec2 cropped = u_cropRect.xy + uv * u_cropRect.zw;
+  vec2 cropped = u_cropRect.xy + normUv * u_cropRect.zw;
   if (u_rotation == 90) {
-    // 90 deg CCW rotation (landscape left: device top points left)
-    return clamp(vec2(1.0 - cropped.y, cropped.x), vec2(0.0), vec2(1.0));
+    if (u_mirror) {
+      // Landscape left (device top points left) with front camera mirror:
+      // Front camera faces user, so right long edge of phone (upwards / ceiling) is texture s = 0.
+      // Top of landscape photo (normUv.y = 0) maps to s = 0 (cropped.y = 0, head upright).
+      // Bottom of photo (normUv.y = 1) maps to s = 1 (cropped.y = 1, torso).
+      // Left of photo (normUv.x = 0) maps to t = 0 (cropped.x = 0), right to t = 1 (cropped.x = 1).
+      return clamp(vec2(cropped.y, cropped.x), vec2(0.0), vec2(1.0));
+    } else {
+      // Landscape left (device top points left) with rear camera:
+      // Rear camera faces outward, so right long edge of phone is texture s = 1 (ceiling).
+      // Top of landscape photo (normUv.y = 0) maps to s = 1 (1.0 - cropped.y, upright).
+      return clamp(vec2(1.0 - cropped.y, cropped.x), vec2(0.0), vec2(1.0));
+    }
   } else if (u_rotation == -90 || u_rotation == 270) {
-    // 90 deg CW rotation (landscape right: device top points right)
-    return clamp(vec2(cropped.y, 1.0 - cropped.x), vec2(0.0), vec2(1.0));
+    if (u_mirror) {
+      // Landscape right (device top points right) with front camera mirror:
+      // Left long edge of phone (upwards / ceiling) is texture s = 1.
+      // Top of landscape photo (normUv.y = 0) maps to s = 1 (1.0 - cropped.y, head upright).
+      // Bottom of photo (normUv.y = 1) maps to s = 0 (cropped.y = 1, torso).
+      // Left of photo (normUv.x = 0) maps to t = 1 (1.0 - cropped.x), right to t = 0 (1.0 - cropped.x = 0).
+      return clamp(vec2(1.0 - cropped.y, 1.0 - cropped.x), vec2(0.0), vec2(1.0));
+    } else {
+      // Landscape right (device top points right) with rear camera:
+      // Left long edge of phone is texture s = 0 (ceiling).
+      return clamp(vec2(cropped.y, 1.0 - cropped.x), vec2(0.0), vec2(1.0));
+    }
+  }
+
+  // Portrait (rotation == 0)
+  if (u_mirror) {
+    return clamp(vec2(u_cropRect.x + (1.0 - normUv.x) * u_cropRect.z, cropped.y), vec2(0.0), vec2(1.0));
   }
   return clamp(cropped, vec2(0.0), vec2(1.0));
 }

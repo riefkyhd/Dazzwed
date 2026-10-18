@@ -175,3 +175,77 @@ export const TIER_CONFIG: Record<OutputTier, TierConfig> = {
 /** Quality ladder used when progressive compression is required */
 export const QUALITY_STEPS = [0.92, 0.85, 0.80, 0.72] as const;
 export const MAX_EDGE = 4096;
+
+export interface CropRectNorm {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Pure coordinate mapping function matching WebGL shader mapCropUv:
+ * Maps normalized output UV coordinates (0..1) to normalized input texture coordinates (0..1).
+ */
+export function mapCropUvCoordinates(
+  normUv: { x: number; y: number },
+  cropRect: CropRectNorm,
+  rotation: 0 | 90 | -90 | 270,
+  mirror: boolean
+): { s: number; t: number } {
+  const croppedX = cropRect.x + normUv.x * cropRect.width;
+  const croppedY = cropRect.y + normUv.y * cropRect.height;
+
+  if (rotation === 90) {
+    if (mirror) {
+      // Landscape left (device top points left) with front camera mirror:
+      // Front camera faces user, so right long edge of phone (upwards / ceiling) is texture s = 0.
+      // Top of landscape photo (normUv.y = 0) maps to s = 0 (croppedY = 0, head upright).
+      // Bottom of photo (normUv.y = 1) maps to s = 1 (croppedY = 1, torso).
+      // Left of photo (normUv.x = 0) maps to t = 0 (croppedX = 0), right to t = 1 (croppedX = 1).
+      return {
+        s: Math.max(0, Math.min(1, croppedY)),
+        t: Math.max(0, Math.min(1, croppedX)),
+      };
+    } else {
+      // Landscape left (device top points left) with rear camera:
+      // Rear camera faces outward, so right long edge of phone is texture s = 1 (ceiling).
+      // Top of landscape photo (normUv.y = 0) maps to s = 1 (1.0 - croppedY, upright).
+      return {
+        s: Math.max(0, Math.min(1, 1.0 - croppedY)),
+        t: Math.max(0, Math.min(1, croppedX)),
+      };
+    }
+  } else if (rotation === -90 || rotation === 270) {
+    if (mirror) {
+      // Landscape right (device top points right) with front camera mirror:
+      // Left long edge of phone (upwards / ceiling) is texture s = 1.
+      // Top of landscape photo (normUv.y = 0) maps to s = 1 (1.0 - croppedY, head upright).
+      // Bottom of photo (normUv.y = 1) maps to s = 0 (croppedY = 1, torso).
+      // Left of photo (normUv.x = 0) maps to t = 1 (1.0 - croppedX), right to t = 0 (1.0 - croppedX = 0).
+      return {
+        s: Math.max(0, Math.min(1, 1.0 - croppedY)),
+        t: Math.max(0, Math.min(1, 1.0 - croppedX)),
+      };
+    } else {
+      // Landscape right (device top points right) with rear camera:
+      // Left long edge of phone is texture s = 0 (ceiling).
+      return {
+        s: Math.max(0, Math.min(1, croppedY)),
+        t: Math.max(0, Math.min(1, 1.0 - croppedX)),
+      };
+    }
+  }
+
+  // Portrait (rotation == 0)
+  if (mirror) {
+    return {
+      s: Math.max(0, Math.min(1, cropRect.x + (1.0 - normUv.x) * cropRect.width)),
+      t: Math.max(0, Math.min(1, croppedY)),
+    };
+  }
+  return {
+    s: Math.max(0, Math.min(1, croppedX)),
+    t: Math.max(0, Math.min(1, croppedY)),
+  };
+}

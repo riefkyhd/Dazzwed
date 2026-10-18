@@ -240,6 +240,56 @@ export function prewarmCapturePipeline(): void {
   }
 }
 
+function drawRotatedSource(
+  ctx: CanvasRenderingContext2D,
+  src: CanvasImageSource,
+  w: number,
+  h: number,
+  crop: { sx: number; sy: number; sw: number; sh: number },
+  outW: number,
+  outH: number,
+  isRotated: boolean,
+  tiltAngle: number | undefined,
+  mirror: boolean
+) {
+  if (isRotated) {
+    ctx.save();
+    ctx.translate(outW / 2, outH / 2);
+    if (mirror) {
+      if (tiltAngle === 90) {
+        // Front camera Landscape Left (device top points left):
+        // Front sensor faces user: s = 0 is head (crop.sy), t = 0 is left (crop.sx).
+        ctx.rotate(Math.PI / 2);
+        ctx.scale(1, -1);
+        const sX = crop.sy;
+        const sY = crop.sx;
+        ctx.drawImage(src, sX, sY, crop.sh, crop.sw, -outH / 2, -outW / 2, outH, outW);
+      } else {
+        // Front camera Landscape Right (device top points right):
+        ctx.rotate(-Math.PI / 2);
+        ctx.scale(1, -1);
+        const sX = w - (crop.sy + crop.sh);
+        const sY = h - (crop.sx + crop.sw);
+        ctx.drawImage(src, sX, sY, crop.sh, crop.sw, -outH / 2, -outW / 2, outH, outW);
+      }
+    } else {
+      ctx.rotate(tiltAngle === 90 ? -Math.PI / 2 : Math.PI / 2);
+      const sX = tiltAngle === 90 ? w - (crop.sy + crop.sh) : crop.sy;
+      const sY = tiltAngle === 90 ? crop.sx : h - (crop.sx + crop.sw);
+      ctx.drawImage(src, sX, sY, crop.sh, crop.sw, -outH / 2, -outW / 2, outH, outW);
+    }
+    ctx.restore();
+  } else if (mirror) {
+    ctx.save();
+    ctx.translate(outW, 0);
+    ctx.scale(-1, 1);
+    ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, outW, outH);
+    ctx.restore();
+  } else {
+    ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, outW, outH);
+  }
+}
+
 /**
  * Crop → resize → Look Engine WebGL shader (or CPU LookRecipe fallback) → 2D extras → JPEG.
  * Re-encoding through canvas drops all EXIF/GPS metadata.
@@ -328,24 +378,7 @@ export async function renderShot(
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("no 2d context");
     ctx.imageSmoothingQuality = "high";
-    if (isRotated) {
-      ctx.save();
-      ctx.translate(out.width / 2, out.height / 2);
-      ctx.rotate(tiltAngle === 90 ? -Math.PI / 2 : Math.PI / 2);
-      if (mirror) ctx.scale(-1, 1);
-      const sX = tiltAngle === 90 ? w - (crop.sy + crop.sh) : crop.sy;
-      const sY = tiltAngle === 90 ? crop.sx : h - (crop.sx + crop.sw);
-      ctx.drawImage(src, sX, sY, crop.sh, crop.sw, -out.height / 2, -out.width / 2, out.height, out.width);
-      ctx.restore();
-    } else if (mirror) {
-      ctx.save();
-      ctx.translate(out.width, 0);
-      ctx.scale(-1, 1);
-      ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-      ctx.restore();
-    } else {
-      ctx.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-    }
+    drawRotatedSource(ctx, src, w, h, crop, out.width, out.height, isRotated, tiltAngle, mirror);
     const blob = await toBlob(canvas, quality);
     canvas.width = canvas.height = 0;
     return blob;
@@ -397,24 +430,7 @@ export async function renderShot(
     // only attempt 2D CPU fallback if src is NOT HTMLVideoElement (2D canvas can't draw WebKit video)
     if (isCanvasBlankOrBlack(canvas) && !isVideo) {
       console.warn("Rendered WebGL canvas was blank/black, falling back to 2D CPU LookRecipe pipeline");
-      if (isRotated) {
-        ctx2d.save();
-        ctx2d.translate(out.width / 2, out.height / 2);
-        ctx2d.rotate(tiltAngle === 90 ? -Math.PI / 2 : Math.PI / 2);
-        if (mirror) ctx2d.scale(-1, 1);
-        const sX = tiltAngle === 90 ? w - (crop.sy + crop.sh) : crop.sy;
-        const sY = tiltAngle === 90 ? crop.sx : h - (crop.sx + crop.sw);
-        ctx2d.drawImage(src, sX, sY, crop.sh, crop.sw, -out.height / 2, -out.width / 2, out.height, out.width);
-        ctx2d.restore();
-      } else if (mirror) {
-        ctx2d.save();
-        ctx2d.translate(out.width, 0);
-        ctx2d.scale(-1, 1);
-        ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-        ctx2d.restore();
-      } else {
-        ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-      }
+      drawRotatedSource(ctx2d, src, w, h, crop, out.width, out.height, isRotated, tiltAngle, mirror);
       applyLookToCanvas2D(ctx2d, out.width, out.height, look, {
         isNativeCamera: sourceType === "native",
         intensity: targetIntensity,
@@ -424,24 +440,7 @@ export async function renderShot(
     }
   } else {
     // Fallback 2D if WebGL unavailable — uses the exact same LookRecipe color science
-    if (isRotated) {
-      ctx2d.save();
-      ctx2d.translate(out.width / 2, out.height / 2);
-      ctx2d.rotate(tiltAngle === 90 ? -Math.PI / 2 : Math.PI / 2);
-      if (mirror) ctx2d.scale(-1, 1);
-      const sX = tiltAngle === 90 ? w - (crop.sy + crop.sh) : crop.sy;
-      const sY = tiltAngle === 90 ? crop.sx : h - (crop.sx + crop.sw);
-      ctx2d.drawImage(src, sX, sY, crop.sh, crop.sw, -out.height / 2, -out.width / 2, out.height, out.width);
-      ctx2d.restore();
-    } else if (mirror) {
-      ctx2d.save();
-      ctx2d.translate(out.width, 0);
-      ctx2d.scale(-1, 1);
-      ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-      ctx2d.restore();
-    } else {
-      ctx2d.drawImage(src, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, out.width, out.height);
-    }
+    drawRotatedSource(ctx2d, src, w, h, crop, out.width, out.height, isRotated, tiltAngle, mirror);
     applyLookToCanvas2D(ctx2d, out.width, out.height, look, {
       isNativeCamera: sourceType === "native",
       intensity: targetIntensity,

@@ -1124,13 +1124,43 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
                 if (rCtx) {
                   rCtx.save();
                   rCtx.translate(crop.sw / 2, crop.sh / 2);
-                  rCtx.rotate(tiltAngleOverride === 90 ? -Math.PI / 2 : Math.PI / 2);
-                  const sX = tiltAngleOverride === 90 ? validSource.width - (crop.sy + crop.sh) : crop.sy;
-                  const sY = tiltAngleOverride === 90 ? crop.sx : validSource.height - (crop.sx + crop.sw);
-                  rCtx.drawImage(validSource, sX, sY, crop.sh, crop.sw, -crop.sh / 2, -crop.sw / 2, crop.sh, crop.sw);
+                  if (isMirrored) {
+                    if (tiltAngleOverride === 90) {
+                      rCtx.rotate(Math.PI / 2);
+                      rCtx.scale(1, -1);
+                      const sX = crop.sy;
+                      const sY = crop.sx;
+                      rCtx.drawImage(validSource, sX, sY, crop.sh, crop.sw, -crop.sh / 2, -crop.sw / 2, crop.sh, crop.sw);
+                    } else {
+                      rCtx.rotate(-Math.PI / 2);
+                      rCtx.scale(1, -1);
+                      const sX = validSource.width - (crop.sy + crop.sh);
+                      const sY = validSource.height - (crop.sx + crop.sw);
+                      rCtx.drawImage(validSource, sX, sY, crop.sh, crop.sw, -crop.sh / 2, -crop.sw / 2, crop.sh, crop.sw);
+                    }
+                  } else {
+                    rCtx.rotate(tiltAngleOverride === 90 ? -Math.PI / 2 : Math.PI / 2);
+                    const sX = tiltAngleOverride === 90 ? validSource.width - (crop.sy + crop.sh) : crop.sy;
+                    const sY = tiltAngleOverride === 90 ? crop.sx : validSource.height - (crop.sx + crop.sw);
+                    rCtx.drawImage(validSource, sX, sY, crop.sh, crop.sw, -crop.sh / 2, -crop.sw / 2, crop.sh, crop.sw);
+                  }
                   rCtx.restore();
                   previewBmp = await createImageBitmap(rotCanvas);
                   rotCanvas.width = rotCanvas.height = 0;
+                }
+              } else if (isMirrored) {
+                const mirCanvas = document.createElement("canvas");
+                mirCanvas.width = crop.sw;
+                mirCanvas.height = crop.sh;
+                const mCtx = mirCanvas.getContext("2d");
+                if (mCtx) {
+                  mCtx.save();
+                  mCtx.translate(crop.sw, 0);
+                  mCtx.scale(-1, 1);
+                  mCtx.drawImage(validSource, crop.sx, crop.sy, crop.sw, crop.sh, 0, 0, crop.sw, crop.sh);
+                  mCtx.restore();
+                  previewBmp = await createImageBitmap(mirCanvas);
+                  mirCanvas.width = mirCanvas.height = 0;
                 }
               } else {
                 previewBmp = await createImageBitmap(validSource, crop.sx, crop.sy, crop.sw, crop.sh);
