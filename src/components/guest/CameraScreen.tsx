@@ -120,6 +120,7 @@ export function CameraScreen({
     starting,
     restarting,
     facing,
+    actualFacing,
     flip,
     lenses,
     activeId,
@@ -837,7 +838,7 @@ export function CameraScreen({
       </div>
 
       {/* Floating Lens Zoom Toggle anchored consistently above bottom control bar across all aspect ratios */}
-      {facing === "environment" && (
+      {facing === "environment" && actualFacing === "environment" && (
         <div
           style={{
             bottom: `calc(${layout.bottomBarHeight}px + 14px)`,

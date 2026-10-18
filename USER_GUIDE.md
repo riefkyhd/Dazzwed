@@ -187,6 +187,10 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **In-DOM WebGL Viewfinder Snapshot with `preserveDrawingBuffer: true`:** On iOS Safari WebKit, offscreen WebGL contexts cannot reliably bind hardware video textures from active WebRTC streams. The active in-DOM WebGL viewfinder canvas is configured with `preserveDrawingBuffer: true`, allowing synchronous snapshots to a static 2D canvas at shutter press that are immune to WebKit compositor frame clears.
    - **Dual Black-Blob Sanity Guard (`isBlobBlankOrBlack`):** When the user taps **"Keep Photo"**, `CameraScreen` inspects the rendered JPEG blob using downscaled pixel sampling with `new Image()` and `createImageBitmap` fallback. If the rendered blob is ever solid black `(<=10)`, it is immediately rejected and the verified high-definition `previewBitmap` (which is already displayed in the review modal) is converted and uploaded to Google Drive, mathematically guaranteeing that a black photo can never be saved to the guest's roll or the event archive.
 
+4. **Persistent Multi-Lens Cache & Zero Pop-In Camera Flip Transition:**
+   - **Persistent Module-Level Cache:** Device capabilities and rear optical lenses (`cachedBackLenses` and `cachedKnownDevices`) are proactively enumerated and cached across the lifetime of the session. When flipping between the front selfie camera and the rear camera, lens definitions are never wiped to empty.
+   - **Hardware-Confirmed Mounting (`actualFacing`):** The floating lens toggle is synchronized with the confirmed active hardware stream (`actualFacing === "environment"`) rather than premature UI intent. This completely eliminates the jarring pop-in bug on iPhone 13 and multi-sensor Android devices where `1x-3x` briefly flashed before the ultra-wide `0.5x` button snapped into view.
+
 ---
 
 ## 7. Editorial Admin Gallery & Analog Emulation Science

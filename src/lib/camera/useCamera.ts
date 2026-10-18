@@ -69,6 +69,9 @@ function recordEnumeratedInputs(
   diagnostics.setVideoInputs(mapped);
 }
 
+let cachedKnownDevices: MediaDeviceInfo[] = [];
+let cachedBackLenses: Lens[] = [];
+
 /**
  * In-app camera. Never assumes lenses/zoom/torch exist: everything is feature-detected after
  * permission is granted. Restarts itself after interruptions; the shot counter lives in the parent
@@ -91,6 +94,22 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
   useEffect(() => {
     prewarmCapturePipeline();
+    // Proactively discover rear lenses if permissions were already granted in this session
+    if (typeof navigator !== "undefined" && navigator.mediaDevices?.enumerateDevices) {
+      navigator.mediaDevices
+        .enumerateDevices()
+        .then((devices) => {
+          if (devices && devices.length > 0) {
+            cachedKnownDevices = devices;
+            const back = pickerLenses(devices);
+            if (back.length > 0) {
+              cachedBackLenses = back;
+              setLenses(back);
+            }
+          }
+        })
+        .catch(() => {});
+    }
   }, []);
 
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -134,7 +153,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
   const [actualFacing, setActualFacing] = useState<Facing>("environment");
   const actualFacingRef = useRef<Facing>("environment");
   const [lensChoice, setLensChoice] = useState<string | undefined>(undefined);
-  const [lenses, setLenses] = useState<Lens[]>([]);
+  const [lenses, setLenses] = useState<Lens[]>(() => cachedBackLenses);
   const [activeId, setActiveId] = useState<string | undefined>();
   const [zoomRange, setZoomRange] = useState<ZoomRange | null>(null);
   const [zoom, setZoomValue] = useState(1);
@@ -197,7 +216,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     let restartTimer: ReturnType<typeof setTimeout> | undefined;
     let first = true;
 
-    let knownDevices: MediaDeviceInfo[] = [];
+    let knownDevices: MediaDeviceInfo[] = cachedKnownDevices;
 
     const scheduleRestart = (delay = 300) => {
       clearTimeout(restartTimer);
@@ -251,6 +270,12 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         if (knownDevices.length === 0 && typeof navigator !== "undefined" && navigator.mediaDevices?.enumerateDevices) {
           try {
             knownDevices = await navigator.mediaDevices.enumerateDevices();
+            cachedKnownDevices = knownDevices;
+            const detected = pickerLenses(knownDevices);
+            if (detected.length > 0) {
+              cachedBackLenses = detected;
+              setLenses(detected);
+            }
           } catch {
             /* ignore */
           }
@@ -268,6 +293,11 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         // Refresh device list now that permissions are guaranteed
         try {
           knownDevices = await navigator.mediaDevices.enumerateDevices();
+          cachedKnownDevices = knownDevices;
+          const detected = pickerLenses(knownDevices);
+          if (detected.length > 0) {
+            cachedBackLenses = detected;
+          }
         } catch {
           /* no lens info: stay on whatever we got */
         }
@@ -301,8 +331,13 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         activeIdRef.current = newDeviceId;
         setActiveId(newDeviceId);
         setReportedTrackSettings(settingsAfter);
-        const picker = facing === "environment" ? pickerLenses(knownDevices) : [];
-        setLenses(picker);
+        const picker = pickerLenses(knownDevices);
+        if (picker.length > 0) {
+          cachedBackLenses = picker;
+          setLenses(picker);
+        } else if (cachedBackLenses.length > 0) {
+          setLenses(cachedBackLenses);
+        }
         const zr = readZoomRange(track);
         zoomRangeRef.current = zr;
         setZoomRange(zr);
@@ -596,10 +631,14 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         const devices = await navigator.mediaDevices.enumerateDevices();
         if (cancelled) return;
         knownDevices = devices;
-        const picker = facing === "environment" ? pickerLenses(devices) : [];
-        if (facing === "environment") setLenses(picker);
+        cachedKnownDevices = devices;
+        const picker = pickerLenses(devices);
+        if (picker.length > 0) {
+          cachedBackLenses = picker;
+          setLenses(picker);
+        }
         const id = streamRef.current?.getVideoTracks()[0]?.getSettings().deviceId;
-        recordEnumeratedInputs(devices, id, picker);
+        recordEnumeratedInputs(devices, id, picker.length > 0 ? picker : cachedBackLenses);
         if (id && !devices.some((d) => d.deviceId === id)) scheduleRestart(0);
       } catch {
         /* ignore */
@@ -1457,6 +1496,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     exposureCompRange,
     setExposureCompensation,
     facing,
+    actualFacing,
     flip: () => {
       if (starting || restarting) return;
       pendingPresetZoomRef.current = null;
