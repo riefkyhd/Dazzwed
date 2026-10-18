@@ -94,7 +94,9 @@ export function useDeviceTilt(): DeviceTiltState & { requestMotionPermission: ()
   });
 
   const stateRef = useRef(state);
-  stateRef.current = state;
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   const candidateRef = useRef<{ angle: TiltAngle; since: number }>({
     angle: 0,

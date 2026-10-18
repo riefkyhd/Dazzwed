@@ -197,17 +197,14 @@ export function ReviewModal({
     }
   };
 
-  const [isImageLandscape, setIsImageLandscape] = useState<boolean>(() => {
-    if (previewBitmap) return previewBitmap.width > previewBitmap.height;
-    if (aspect === "4:3") return true;
-    return typeof window !== "undefined" && window.innerWidth > window.innerHeight;
-  });
+  const [imgAspectLandscape, setImgAspectLandscape] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    if (previewBitmap) {
-      setIsImageLandscape(previewBitmap.width > previewBitmap.height);
-    }
-  }, [previewBitmap]);
+  const isImageLandscape = useMemo(() => {
+    if (aspect === "4:3") return true;
+    if (imgAspectLandscape !== null) return imgAspectLandscape;
+    if (previewBitmap) return previewBitmap.width > previewBitmap.height;
+    return typeof window !== "undefined" && window.innerWidth > window.innerHeight;
+  }, [aspect, imgAspectLandscape, previewBitmap]);
 
   const handleRetake = () => {
     if (isKeepingRef.current) return;
@@ -309,7 +306,7 @@ export function ReviewModal({
                 diagnostics.recordMark("t4");
                 const img = e.currentTarget;
                 if (img.naturalWidth && img.naturalHeight) {
-                  setIsImageLandscape(img.naturalWidth > img.naturalHeight);
+                  setImgAspectLandscape(img.naturalWidth > img.naturalHeight);
                 }
               }}
               className={`w-full h-full object-cover transition-all duration-700 ease-out ${

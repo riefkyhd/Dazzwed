@@ -1062,7 +1062,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         }
         let frozenSource: ImageBitmap | HTMLVideoElement | HTMLCanvasElement = v;
         let snapCanvasFallback: HTMLCanvasElement | null = null;
-        let passedFrozenSourceToPreview = false;
+        const passedFrozenSourceToPreview = false;
 
         const takeFrameSnapshots = async (): Promise<{
           previewBmp: ImageBitmap | null;
@@ -1070,6 +1070,35 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
         }> => {
           let previewBmp: ImageBitmap | null = null;
           let snapCanvas: HTMLCanvasElement | null = null;
+
+          const extractRotatedBmp = async (
+            source: CanvasImageSource,
+            srcW: number,
+            srcH: number
+          ): Promise<ImageBitmap | null> => {
+            const isRotated = isLandscapeCapture && srcW < srcH;
+            const effectiveW = isRotated ? srcH : srcW;
+            const effectiveH = isRotated ? srcW : srcH;
+            const crop = cropForAspectAndZoom(effectiveW, effectiveH, targetAspect, 1);
+
+            if (isRotated) {
+              const rotCanvas = document.createElement("canvas");
+              rotCanvas.width = crop.sw;
+              rotCanvas.height = crop.sh;
+              const rCtx = rotCanvas.getContext("2d");
+              if (!rCtx) return null;
+              rCtx.save();
+              rCtx.translate(crop.sw / 2, crop.sh / 2);
+              rCtx.rotate(tiltAngleOverride === 90 ? -Math.PI / 2 : Math.PI / 2);
+              const sX = tiltAngleOverride === 90 ? srcW - (crop.sy + crop.sh) : crop.sy;
+              const sY = tiltAngleOverride === 90 ? crop.sx : srcH - (crop.sx + crop.sw);
+              rCtx.drawImage(source, sX, sY, crop.sh, crop.sw, -crop.sh / 2, -crop.sw / 2, crop.sh, crop.sw);
+              rCtx.restore();
+              return await createImageBitmap(rotCanvas);
+            } else {
+              return await createImageBitmap(source, crop.sx, crop.sy, crop.sw, crop.sh);
+            }
+          };
 
           // 1. Snapshot from active in-DOM WebGL preview canvas (guaranteed hardware pixels & preserveDrawingBuffer)
           if (c && c.width > 0 && c.height > 0 && !isCanvasBlankOrBlack(c)) {
@@ -1082,15 +1111,11 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
               if (sCtx) {
                 sCtx.drawImage(c, 0, 0);
               }
-              const crop = cropForAspectAndZoom(c.width, c.height, targetAspect, 1);
-              if (snapCanvas && !isCanvasBlankOrBlack(snapCanvas)) {
-                previewBmp = await createImageBitmap(snapCanvas, crop.sx, crop.sy, crop.sw, crop.sh);
-              } else {
-                previewBmp = await createImageBitmap(c, crop.sx, crop.sy, crop.sw, crop.sh);
-              }
+              const validSource = snapCanvas && !isCanvasBlankOrBlack(snapCanvas) ? snapCanvas : c;
+              previewBmp = await extractRotatedBmp(validSource, c.width, c.height);
             } catch {
               try {
-                previewBmp = await createImageBitmap(c).catch(() => null);
+                previewBmp = await extractRotatedBmp(c, c.width, c.height).catch(() => null);
               } catch {}
             }
           }
@@ -1100,8 +1125,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
             try {
               const vw = v.videoWidth || 1920;
               const vh = v.videoHeight || 1080;
-              const crop = cropForAspectAndZoom(vw, vh, targetAspect, 1);
-              previewBmp = await createImageBitmap(v, crop.sx, crop.sy, crop.sw, crop.sh);
+              previewBmp = await extractRotatedBmp(v, vw, vh);
             } catch {
               // fallback
             }

@@ -354,6 +354,23 @@ export function CameraScreen({
       const isCurrentlyLandscape = tiltAngle === 90 || tiltAngle === -90;
       const captureAspect = resolveCaptureAspect(cameraAspect, isCurrentlyLandscape);
 
+      let shutterOpened = false;
+      let shutterCloseTimestamp = 0;
+      const minShutterDuration = 160;
+
+      const finishTransition = (reviewData: ReviewSession) => {
+        if (shutterOpened) return;
+        shutterOpened = true;
+        const elapsed = shutterCloseTimestamp > 0 ? Date.now() - shutterCloseTimestamp : minShutterDuration;
+        const delay = Math.max(0, minShutterDuration - elapsed);
+        setTimeout(() => {
+          if (activeSessionIdRef.current === sessionId) {
+            setActiveReview(reviewData);
+            setIsShutterActive(false);
+          }
+        }, delay);
+      };
+
       const capturePromise = capture(
         captureAspect,
         undefined,
@@ -365,28 +382,33 @@ export function CameraScreen({
             }
             return;
           }
-          // Fast fallback preview: if archival takes unexpectedly long (> 200ms on older devices),
-          // mount review with fast preview so the guest is never left waiting
+          // Fast fallback preview: if archival takes unexpectedly long (> 350ms on low-end devices),
+          // mount review with fast preview (which is guaranteed correctly rotated)
           setTimeout(() => {
-            if (activeSessionIdRef.current === sessionId) {
-              setActiveReview((prev) => {
-                if (prev) return prev;
-                return fastPreview instanceof ImageBitmap
+            if (activeSessionIdRef.current === sessionId && !shutterOpened) {
+              finishTransition(
+                fastPreview instanceof ImageBitmap
                   ? { previewBitmap: fastPreview, blobsPromise: capturePromise, abortCapture: capturePromise.abort }
-                  : { filteredBlob: fastPreview, blobsPromise: capturePromise, abortCapture: capturePromise.abort };
-              });
+                  : { filteredBlob: fastPreview, blobsPromise: capturePromise, abortCapture: capturePromise.abort }
+              );
             }
-          }, 200);
+          }, 350);
         },
         {
           onScreenFlash: (active) => setIsScreenFlashActive(active),
           onShutterSnap: () => {
             playShutterSound();
+            shutterCloseTimestamp = Date.now();
             setIsShutterActive(true);
             requestAnimationFrame(() => {
               diagnostics.recordMark("t1");
             });
-            setTimeout(() => setIsShutterActive(false), 160);
+            // Safety timeout to lift curtain in case capture aborts/hangs
+            setTimeout(() => {
+              if (!shutterOpened && activeSessionIdRef.current === sessionId) {
+                setIsShutterActive(false);
+              }
+            }, 1000);
           },
         },
         tiltAngle
@@ -397,7 +419,7 @@ export function CameraScreen({
       const { filteredBlob, originalBlob } = await capturePromise;
 
       if (activeSessionIdRef.current === sessionId && filteredBlob && filteredBlob.size > 0) {
-        setActiveReview({
+        finishTransition({
           filteredBlob,
           originalBlob: originalBlob ?? undefined,
           blobsPromise: capturePromise,

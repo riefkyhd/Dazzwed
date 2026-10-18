@@ -319,6 +319,7 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - Automatically detects landscape dimensions (`width > height` or `aspect === "4:3"`).
    - Adapts the hero print container to `aspectRatio: "4 / 3"` or `"16 / 9"` with `max-w-xl`, presenting photos with zero letterboxing or distortion.
    - **Container-Aligned Action Buttons:** Action buttons ("Retake" & "Keep Photo") always follow their horizontal bottom dock without rotating, preserving clean typography, full touch targets, and natural horizontal reading alignment.
+   - **Unified Shutter Transition & Rotated Fast Preview:** Fast preview snapshots are pre-rotated to effective landscape coordinates via 2D canvas transform, and the tactile shutter curtain stays closed until final development completes, opening seamlessly to the final developed photo with zero unrotated preview jumps.
 
 
 
