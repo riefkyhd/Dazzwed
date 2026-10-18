@@ -11,18 +11,44 @@ export interface DeviceTiltState {
   uiRotationDeg: number;
   /** True when phone is resting flat on a surface */
   isFlat: boolean;
+  /** True on iOS WebKit when motion permission is required before sensor data is provided */
+  needsPermission: boolean;
+  /** True once permission is granted (or on platforms where permission is not required) */
+  permissionGranted: boolean;
+}
+
+/**
+ * Detects whether running on an Apple iOS / iPadOS device (iPhone, iPad, iPod)
+ * where WebKit CoreMotion requires explicit user permission and inverts the gravity vector.
+ */
+export function isIOSPlatform(): boolean {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  const isAppleTouch = /iPad|iPhone|iPod/.test(ua);
+  const isIPadOS = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  const hasDMEPermission =
+    typeof (window as unknown as { DeviceMotionEvent?: { requestPermission?: unknown } })
+      .DeviceMotionEvent?.requestPermission === "function";
+  return isAppleTouch || isIPadOS || hasDMEPermission;
 }
 
 /**
  * Calculates candidate tilt angle from gravity acceleration vector (m/s²).
  * Includes deadzone hysteresis so 45° holding angles never cause rapid jitter.
+ * Automatically handles iOS CoreMotion inverted sign convention.
  */
 export function calculateTiltAngleFromGravity(
-  x: number,
-  y: number,
-  z: number,
-  currentAngle: TiltAngle = 0
+  rawX: number,
+  rawY: number,
+  rawZ: number,
+  currentAngle: TiltAngle = 0,
+  isIOS: boolean = false
 ): { angle: TiltAngle; isFlat: boolean } {
+  // Normalize iOS WebKit CoreMotion inverted gravity vector to standard W3C frame
+  const x = isIOS ? -rawX : rawX;
+  const y = isIOS ? -rawY : rawY;
+  const z = isIOS ? -rawZ : rawZ;
+
   const absX = Math.abs(x);
   const absY = Math.abs(y);
   const absZ = Math.abs(z);
@@ -35,13 +61,13 @@ export function calculateTiltAngleFromGravity(
   }
 
   // Landscape Left (device turned 90° counter-clockwise, top of phone pointing left)
-  // Gravity pulls along the positive x-axis
+  // Gravity pulls along the positive x-axis (normalized)
   if (x > 4.5 && absX > absY * 1.3) {
     return { angle: 90, isFlat: false };
   }
 
   // Landscape Right (device turned 90° clockwise, top of phone pointing right)
-  // Gravity pulls along the negative x-axis
+  // Gravity pulls along the negative x-axis (normalized)
   if (x < -4.5 && absX > absY * 1.3) {
     return { angle: -90, isFlat: false };
   }
@@ -85,13 +111,17 @@ export function calculateTiltAngleFromOrientation(
 /**
  * Hook to track physical device tilt angle in real time via accelerometer / gravity.
  * Works even when the user's phone has OS Portrait Orientation Lock enabled.
+ * Cross-platform compatible with Android Chrome and iOS Safari.
  */
 export function useDeviceTilt(): DeviceTiltState & { requestMotionPermission: () => Promise<boolean> } {
-  const [state, setState] = useState<DeviceTiltState>({
+  const isIOS = isIOSPlatform();
+  const [state, setState] = useState<DeviceTiltState>(() => ({
     tiltAngle: 0,
     uiRotationDeg: 0,
     isFlat: false,
-  });
+    needsPermission: isIOS,
+    permissionGranted: !isIOS,
+  }));
 
   const stateRef = useRef(state);
   useEffect(() => {
@@ -125,28 +155,56 @@ export function useDeviceTilt(): DeviceTiltState & { requestMotionPermission: ()
 
     // Require new angle to hold steady for at least 200ms
     if (now - candidateRef.current.since >= 200) {
-      setState({
+      setState((prev) => ({
+        ...prev,
         tiltAngle: newAngle,
         uiRotationDeg: newAngle,
         isFlat,
-      });
+      }));
     }
   }, []);
 
   const requestMotionPermission = useCallback(async (): Promise<boolean> => {
-    if (typeof window === "undefined") return false;
+    if (typeof window === "undefined") return true;
+
     const DME = window.DeviceMotionEvent as unknown as {
       requestPermission?: () => Promise<"granted" | "denied">;
     };
-    if (typeof DME?.requestPermission === "function") {
-      try {
-        const res = await DME.requestPermission();
-        return res === "granted";
-      } catch {
-        return false;
-      }
+    const DOE = window.DeviceOrientationEvent as unknown as {
+      requestPermission?: () => Promise<"granted" | "denied">;
+    };
+
+    if (typeof DME?.requestPermission !== "function" && typeof DOE?.requestPermission !== "function") {
+      setState((prev) => ({ ...prev, permissionGranted: true, needsPermission: false }));
+      return true;
     }
-    return true;
+
+    try {
+      let granted = false;
+      if (typeof DME?.requestPermission === "function") {
+        const res = await DME.requestPermission();
+        if (res === "granted") granted = true;
+      }
+
+      if (typeof DOE?.requestPermission === "function") {
+        try {
+          const res = await DOE.requestPermission();
+          if (res === "granted") granted = true;
+        } catch {
+          // Non-fatal if motion permission was processed
+        }
+      }
+
+      setState((prev) => ({
+        ...prev,
+        permissionGranted: granted,
+        needsPermission: !granted,
+      }));
+      return granted;
+    } catch (err) {
+      console.warn("Motion permission request error:", err);
+      return false;
+    }
   }, []);
 
   useEffect(() => {
@@ -158,12 +216,17 @@ export function useDeviceTilt(): DeviceTiltState & { requestMotionPermission: ()
       if (!acc || acc.x === null || acc.y === null) return;
       hasMotionDataRef.current = true;
 
-      const x = acc.x;
-      const y = acc.y;
-      const z = acc.z ?? 0;
+      const rawX = acc.x;
+      const rawY = acc.y;
+      const rawZ = acc.z ?? 0;
 
-      const result = calculateTiltAngleFromGravity(x, y, z, stateRef.current.tiltAngle);
+      const result = calculateTiltAngleFromGravity(rawX, rawY, rawZ, stateRef.current.tiltAngle, isIOS);
       considerAngleChange(result.angle, result.isFlat);
+
+      // If we are actively receiving motion data, permission is granted
+      if (!stateRef.current.permissionGranted) {
+        setState((prev) => ({ ...prev, permissionGranted: true, needsPermission: false }));
+      }
     };
 
     // 2. Secondary fallback: DeviceOrientationEvent (beta, gamma)
@@ -195,24 +258,44 @@ export function useDeviceTilt(): DeviceTiltState & { requestMotionPermission: ()
     window.screen?.orientation?.addEventListener?.("change", handleScreenOrientation);
     window.addEventListener("orientationchange", handleScreenOrientation, { passive: true });
 
-    // iOS 13+ auto-request permission on first user tap/click
-    const onFirstUserGesture = () => {
-      void requestMotionPermission();
-      window.removeEventListener("touchstart", onFirstUserGesture);
-      window.removeEventListener("click", onFirstUserGesture);
+    // iOS 13+ auto-request permission on user interaction:
+    // MUST bind to CLICK and TOUCHEND (NOT touchstart, which throws NotAllowedError in WebKit).
+    let isRequesting = false;
+    const handleUserActivation = async () => {
+      if (isRequesting || stateRef.current.permissionGranted) return;
+      const DME = window.DeviceMotionEvent as unknown as {
+        requestPermission?: () => Promise<"granted" | "denied">;
+      };
+      if (typeof DME?.requestPermission !== "function") return;
+
+      isRequesting = true;
+      try {
+        const granted = await requestMotionPermission();
+        if (granted) {
+          window.removeEventListener("click", handleUserActivation);
+          window.removeEventListener("touchend", handleUserActivation);
+        }
+      } finally {
+        isRequesting = false;
+      }
     };
-    window.addEventListener("touchstart", onFirstUserGesture, { passive: true, once: true });
-    window.addEventListener("click", onFirstUserGesture, { passive: true, once: true });
+
+    if (isIOS) {
+      window.addEventListener("click", handleUserActivation);
+      window.addEventListener("touchend", handleUserActivation);
+    }
 
     return () => {
       window.removeEventListener("devicemotion", handleMotion);
       window.removeEventListener("deviceorientation", handleOrientation);
       window.screen?.orientation?.removeEventListener?.("change", handleScreenOrientation);
       window.removeEventListener("orientationchange", handleScreenOrientation);
-      window.removeEventListener("touchstart", onFirstUserGesture);
-      window.removeEventListener("click", onFirstUserGesture);
+      if (isIOS) {
+        window.removeEventListener("click", handleUserActivation);
+        window.removeEventListener("touchend", handleUserActivation);
+      }
     };
-  }, [considerAngleChange, requestMotionPermission]);
+  }, [considerAngleChange, isIOS, requestMotionPermission]);
 
   return { ...state, requestMotionPermission };
 }

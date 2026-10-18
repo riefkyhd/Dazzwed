@@ -59,6 +59,16 @@ export function LandingScreen({
       return;
     }
     setConsentError(false);
+
+    // On iOS Safari, form submission is a direct user activation: trigger motion permission early
+    if (typeof window !== "undefined") {
+      const DME = (window as unknown as { DeviceMotionEvent?: { requestPermission?: () => Promise<string> } })
+        .DeviceMotionEvent;
+      if (typeof DME?.requestPermission === "function") {
+        void DME.requestPermission().catch(() => {});
+      }
+    }
+
     onStartCamera(name.trim(), {
       album: consentAlbum,
       telemetry: consentTelemetry,

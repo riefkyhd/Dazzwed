@@ -299,8 +299,12 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
      - **Portrait Upright (`0°`):** `|y| > |x|` (standard holding angle).
      - **Landscape Left (`90°`):** `x > 4.5 m/s²` with `|x| > |y| * 1.3` (phone tilted CCW, top pointing left).
      - **Landscape Right (`-90°`):** `x < -4.5 m/s²` with `|x| > |y| * 1.3` (phone tilted CW, top pointing right).
+   - **iOS CoreMotion Inverted Vector Normalization:** Apple WebKit/CoreMotion measures reaction force relative to the screen frame, inverting the coordinate sign convention compared to Android (`x`, `y`, and `z` are negated). Dazzwed detects iOS platforms (`isIOSPlatform()`) and automatically normalizes the vector (`x = -rawX`, `y = -rawY`, `z = -rawZ`) so Landscape Left (90°) and Landscape Right (-90°) orient with identical precision across all operating systems.
    - **Deadzone Hysteresis & Flat-Surface Filter:** Requires holding angles to sustain for $\ge 200\text{ms}$ to prevent jitter around 45° thresholds. When resting flat on a table (`|z| > 7.0 m/s²`), the last stable angle is preserved.
-   - **Permission Piggybacking:** On iOS 13+, `DeviceMotionEvent.requestPermission` is requested seamlessly on the user's first touch/interaction without blocking camera initialization.
+   - **Safari Transient User Activation (iOS 13+):** WebKit strictly requires direct user interaction (`click` or `touchend`) to request motion permission and will reject with `NotAllowedError` if invoked on page load or `touchstart`. Dazzwed automatically requests motion permission:
+     1. During the user's form submission ("Start Camera") on the Landing Screen.
+     2. On the guest's first tap/touch on the camera viewfinder or controls.
+     3. Via an elegant amber pill (`[🔄 Tap to enable tilt rotation]`) if the user opens the camera directly without prior permissions.
 
 2. **Zero Layout Reflow Invariant:**
    - The camera container structure NEVER rearranges, reflows, or creates horizontal side rails. The top bar, viewfinder box, lens dock, and bottom shutter dock remain permanently fixed in their ergonomic mobile positions.

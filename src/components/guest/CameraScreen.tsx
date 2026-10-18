@@ -155,7 +155,13 @@ export function CameraScreen({
   const layout = useViewportLayout(cameraAspect);
 
   // Native Smartphone Gravity-Based Device Tilt Tracking (Works even when OS Auto-Rotate is OFF!)
-  const { tiltAngle, uiRotationDeg, requestMotionPermission } = useDeviceTilt();
+  const {
+    tiltAngle,
+    uiRotationDeg,
+    requestMotionPermission,
+    needsPermission,
+    permissionGranted,
+  } = useDeviceTilt();
 
   const controlRotStyle: React.CSSProperties = {
     transform: `rotate(${uiRotationDeg}deg)`,
@@ -642,7 +648,8 @@ export function CameraScreen({
 
   return (
     <div
-      onPointerDown={() => void requestMotionPermission()}
+      onClick={() => void requestMotionPermission()}
+      onTouchEnd={() => void requestMotionPermission()}
       className="fixed inset-0 w-full h-dvh bg-black overflow-hidden select-none touch-manipulation flex flex-col justify-between"
     >
       {/* Front camera screen flash overlay */}
@@ -884,6 +891,24 @@ export function CameraScreen({
           syncTooltipFading={syncTooltipFading}
         />
       </header>
+
+      {/* iOS Motion & Orientation permission banner (transient activation helper) */}
+      {needsPermission && !permissionGranted && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            void requestMotionPermission();
+          }}
+          className="absolute top-16 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full bg-zinc-900/95 border border-amber-400/60 text-amber-200 text-xs font-mono shadow-2xl flex items-center gap-2 active:scale-95 transition-all cursor-pointer"
+        >
+          <svg className="w-3.5 h-3.5 text-amber-400 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ animationDuration: "3s" }}>
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" />
+            <path d="M21 3v5h-5" />
+          </svg>
+          <span>{lang === "id" ? "Ketuk untuk aktifkan rotasi" : "Tap to enable tilt rotation"}</span>
+        </button>
+      )}
 
       {/* Bottom Bar Zone (Streamlined without zoom crowding) */}
       <footer

@@ -48,6 +48,40 @@ describe("Gravity Accelerometer Tilt Detection & Zero Reflow Mechanics", () => {
       const ambiguousFrom90 = calculateTiltAngleFromGravity(5.0, 4.8, 1.0, 90);
       expect(ambiguousFrom90.angle).toBe(90); // retains current angle
     });
+
+    describe("iOS CoreMotion Coordinate Normalization", () => {
+      it("detects portrait upright on iOS when raw gravity pulls along negative y-axis (y ≈ -9.8)", () => {
+        // iPhone held upright: rawX ≈ 0, rawY ≈ -9.8, rawZ ≈ 0
+        const result = calculateTiltAngleFromGravity(0.1, -9.8, 0.5, 0, true);
+        expect(result.angle).toBe(0);
+        expect(result.isFlat).toBe(false);
+      });
+
+      it("detects landscape left on iOS (tilt CCW, top points left) when raw x is negative (x ≈ -9.8)", () => {
+        // iPhone held in Landscape Left: rawX ≈ -8.8, rawY ≈ 0.8, rawZ ≈ 0.5
+        const result = calculateTiltAngleFromGravity(-8.8, 0.8, 0.5, 0, true);
+        expect(result.angle).toBe(90);
+        expect(result.isFlat).toBe(false);
+      });
+
+      it("detects landscape right on iOS (tilt CW, top points right) when raw x is positive (x ≈ +9.8)", () => {
+        // iPhone held in Landscape Right: rawX ≈ +8.8, rawY ≈ 0.8, rawZ ≈ 0.5
+        const result = calculateTiltAngleFromGravity(8.8, 0.8, 0.5, 0, true);
+        expect(result.angle).toBe(-90);
+        expect(result.isFlat).toBe(false);
+      });
+
+      it("detects flat surface on iOS (screen facing up, raw z ≈ -9.8)", () => {
+        const flatOnTable = calculateTiltAngleFromGravity(0.2, 0.3, -9.8, 0, true);
+        expect(flatOnTable.isFlat).toBe(true);
+        expect(flatOnTable.angle).toBe(0);
+      });
+
+      it("enforces deadzone hysteresis on iOS at 45° holding angles", () => {
+        const ambiguous = calculateTiltAngleFromGravity(-5.0, -4.8, 0.5, 0, true);
+        expect(ambiguous.angle).toBe(0);
+      });
+    });
   });
 
   describe("calculateTiltAngleFromOrientation (DeviceOrientation fallback)", () => {
