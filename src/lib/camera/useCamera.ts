@@ -84,6 +84,7 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
   const runRef = useRef<() => Promise<void>>(async () => {});
   const zoomQueue = useRef<Promise<void>>(Promise.resolve());
   const torchQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const timerTorchLockedOutRef = useRef(false);
   const lookPipelineRef = useRef<LookEnginePipeline | null>(null);
   const isFrozenRef = useRef(false);
   const lastFpsUpdateRef = useRef<number>(0);
@@ -1027,6 +1028,39 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     await setTorchSafe(false);
   }, [setTorchSafe]);
 
+  const setTimerTorchLocked = useCallback((locked: boolean) => {
+    timerTorchLockedOutRef.current = locked;
+    if (locked) {
+      void setTorchSafe(false);
+    }
+  }, [setTorchSafe]);
+
+  const pulseSoftTimerTorch = useCallback(
+    async (mode: "sustained" | "fast") => {
+      // 1. Guard before firing: if locked out, bail immediately
+      if (timerTorchLockedOutRef.current) return;
+
+      // Single crisp sub-saturation micro-pulse (45ms-55ms) to prevent Android Camera2 queue backlog
+      const pulseDuration = mode === "fast" ? 50 : 55;
+
+      await setTorchSafe(true);
+
+      // 2. Critical Safeguard: check immediately after applyConstraints resolves!
+      // If onTorchKill locked out the timer while the 'true' constraint was in-flight,
+      // immediately force torch off and bail.
+      if (timerTorchLockedOutRef.current) {
+        await setTorchSafe(false);
+        return;
+      }
+
+      await new Promise((r) => setTimeout(r, pulseDuration));
+
+      // Always turn off
+      await setTorchSafe(false);
+    },
+    [setTorchSafe]
+  );
+
   const setActiveLook = useCallback((look: LookRecipe) => {
     setActiveLookState(look);
   }, []);
@@ -1524,6 +1558,8 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
     toggleTorch,
     setTorchSafe,
     pulseTorchSafe,
+    pulseSoftTimerTorch,
+    setTimerTorchLocked,
     flashMode,
     setFlashMode,
     flashIntensity,

@@ -62,11 +62,12 @@ export function CameraTopBar({
     else onChangeAspect("3:4");
   };
 
-  // Cycle timer: 0s -> 3s -> 10s -> 0s
+  // Cycle timer: 0s -> 3s -> 5s -> 10s -> 0s
   const cycleTimer = () => {
     triggerHaptic([20]);
     if (timerSeconds === 0) onChangeTimer(3);
-    else if (timerSeconds === 3) onChangeTimer(10);
+    else if (timerSeconds === 3) onChangeTimer(5);
+    else if (timerSeconds === 5) onChangeTimer(10);
     else onChangeTimer(0);
   };
 
@@ -136,7 +137,7 @@ export function CameraTopBar({
         type="button"
         data-testid="timer-button"
         onClick={cycleTimer}
-        aria-label="Countdown Timer"
+        aria-label={timerSeconds > 0 ? `Countdown Timer: ${timerSeconds}s` : "Countdown Timer: Off"}
         className="w-12 h-12 flex items-center justify-center rounded-full text-white active:scale-90 transition-transform cursor-pointer"
       >
         <div

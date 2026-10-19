@@ -133,6 +133,8 @@ export function CameraScreen({
     hasHardwareFlash,
     setTorchSafe,
     pulseTorchSafe,
+    pulseSoftTimerTorch,
+    setTimerTorchLocked,
     flashMode,
     setFlashMode,
     flashIntensity,
@@ -217,9 +219,11 @@ export function CameraScreen({
   useEffect(() => {
     return () => {
       if (timerSchedulerRef.current) timerSchedulerRef.current.cancel();
+      setTimerTorchLocked(false);
+      void setTorchSafe(false);
       if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
     };
-  }, []);
+  }, [setTimerTorchLocked, setTorchSafe]);
 
   // Ensure scroll is at 0, 0 and suppress iOS Safari page zoom gestures while camera is active
   useEffect(() => {
@@ -446,7 +450,7 @@ export function CameraScreen({
     }
   }, [shotsLeft, isProcessing, live, playShutterSound, capture, cameraAspect, facing, mirrorFront, showToast, lang, unfreezeViewfinder, tiltAngle]);
 
-  // Shutter button trigger with vintage timer countdown
+  // Shutter button trigger with Google Pixel 10 timer countdown
   const handleShoot = () => {
     if (shotsLeft <= 0 || isProcessing || !live || isExecutingCaptureRef.current) return;
 
@@ -456,6 +460,7 @@ export function CameraScreen({
       timerSchedulerRef.current = null;
       setTimerCountdown(0);
       setTimerCueActive(false);
+      setTimerTorchLocked(false);
       void setTorchSafe(false);
       return;
     }
@@ -466,6 +471,7 @@ export function CameraScreen({
     }
 
     // Start precision self-timer scheduler
+    setTimerTorchLocked(false);
     triggerHaptic([20]);
     const scheduler = createTimerScheduler({
       totalSeconds: timerSeconds,
@@ -475,26 +481,25 @@ export function CameraScreen({
       onCueChange: (active) => {
         setTimerCueActive(active);
       },
-      onTorchPulse: (durationMs) => {
+      onTorchMode: (mode) => {
         if (facing === "environment") {
-          void pulseTorchSafe(durationMs);
+          void pulseSoftTimerTorch(mode);
         }
       },
-      onTorchHold: (on) => {
+      onTorchKill: () => {
         if (facing === "environment") {
-          void setTorchSafe(on);
+          setTimerTorchLocked(true);
         }
       },
       onCapture: () => {
+        setTimerTorchLocked(false);
         void executeCapture();
       },
       onTickAudio: (type) => {
-        if (type === "single") {
-          playTimerTick(880, 70);
-        } else if (type === "double") {
-          playTimerTick(1100, 60);
-        } else if (type === "hold") {
-          playTimerTick(1320, 150);
+        if (type === "single" || type === "sustained") {
+          playTimerTick(880, 80);
+        } else if (type === "double" || type === "fast") {
+          playTimerTick(1100, 50);
         }
       },
       onHaptic: (pattern) => {

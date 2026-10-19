@@ -434,18 +434,18 @@ export function AdminGuideView() {
               </p>
             </div>
 
-            {/* Control 10: Vintage Self-Timer Cadence & Instant Settings Invalidation */}
+            {/* Control 10: Google Pixel 10 Self-Timer Cadence & Instant Settings Invalidation */}
             <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-amber-400" />
                 <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
-                  {lang === "en" ? "Vintage Self-Timer & Instant Settings Sync" : "Self-Timer Vintage & Sinkronisasi Pengaturan Instan"}
+                  {lang === "en" ? "Google Pixel 10 Self-Timer (3s / 5s / 10s) & Instant Settings Sync" : "Self-Timer Google Pixel 10 (3d / 5d / 10d) & Sinkronisasi Pengaturan Instan"}
                 </h4>
               </div>
               <p className="text-xs text-zinc-300 leading-relaxed">
                 {lang === "en"
-                  ? "Camera self-timer (3s / 10s) replicates the authentic cadence of classic 1990s 35mm compact cameras: 1 tick/sec (10..4), 2 accelerated ticks/sec (3..2), and a steady confirmation tone on second 1 with instant 0ms shutter snap. Countdown keeps the camera sensor's Auto Exposure stable and clean with zero torch blinding. When editing event descriptions, couple names, or limits in /admin/settings, server-side revalidatePath and client-side router cache flushing guarantee /admin/qr and A4 posters reflect changes in 0ms without requiring browser refreshes."
-                  : "Self-timer kamera (3d / 10d) mereplikasi irama otentik kamera saku 35mm tahun 1990-an: 1 detak/detik (10..4), 2 detak cepat/detik (3..2), dan nada konfirmasi mantap pada detik ke-1 dengan jepretan instan 0ms. Hitung mundur menjaga Auto-Exposure sensor kamera tetap stabil tanpa kilauan lampu yang menyilaukan. Saat mengubah deskripsi, nama pasangan, atau kuota di /admin/settings, revalidatePath server dan pembersihan cache router klien memastikan /admin/qr dan poster A4 diperbarui dalam 0ms tanpa perlu muat ulang peramban."}
+                  ? "Camera self-timer cycles cleanly through Off (0s) -> 3s -> 5s -> 10s -> Off (0s), featuring the authentic Google Pixel 10 countdown cadence: sustained 1 beat/sec (>3s) with a 450ms warm-amber on-screen glow and eye-safe sub-saturation micro-pulses (45ms–55ms) that eliminate blinding full-power burns; 2 double-time fast blips/sec (3s & 2s); and complete stillness on the final second (1s). A hard hardware torch lockout at 1,450ms before shutter capture ensures 0% residual flash bleed when Flash is OFF, allowing camera sensor Auto-Exposure and Auto-White-Balance to settle completely before 0s capture. When editing event descriptions, couple names, or limits in /admin/settings, multi-layer cache invalidation guarantees /admin/qr and A4 posters reflect changes in 0ms without requiring browser refreshes."
+                  : "Self-timer kamera berpindah mulus melalui Mati (0d) -> 3d -> 5d -> 10d -> Mati (0d), mengadopsi irama Google Pixel 10: 1 ketukan/detik (>3d) dengan pendaran hangat 450ms di layar dan denyut mikro perangkat keras yang ramah mata (45ms–55ms) untuk mencegah kilau menyilaukan; 2 detak cepat/detik (3d & 2d); serta ketenangan total pada detik terakhir (1d). Penguncian keras lampu kilat pada 1.450ms sebelum jepretan memastikan 0% kebocoran sisa cahaya kilat saat Flash OFF, memberi waktu sensor kamera dan Auto-Exposure/White-Balance stabil sempurna sebelum jepretan 0d. Saat mengubah deskripsi, nama pasangan, atau kuota di /admin/settings, pembersihan cache memastikan /admin/qr dan poster A4 diperbarui dalam 0ms tanpa perlu muat ulang peramban."}
               </p>
             </div>
 
