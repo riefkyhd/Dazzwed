@@ -348,6 +348,35 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Container-Aligned Action Buttons:** Action buttons ("Retake" & "Keep Photo") always follow their horizontal bottom dock without rotating, preserving clean typography, full touch targets, and natural horizontal reading alignment.
    - **Unified Shutter Transition:** The tactile shutter curtain stays closed during the brief 160ms archival development and opens seamlessly to the final developed photo with zero unrotated preview jumps or black frames.
 
+---
 
+## 12. Stage 1 SaaS Multi-Event Isolation, Event Switcher & Anti-Tamper Quota Locks
 
+1. **Multi-Event Data Isolation:**
+   - Multiple client weddings, parties, and corporate celebrations (e.g. past `"Tasyakuran 2026"` vs. current `"Wedding"`) can run concurrently on a single Dazzwed instance with complete data isolation.
+   - Each event row in `public.events` maintains its own:
+     - Unique URL slug (`/e/[slug]`)
+     - Independent rotating cryptographic access token (`access_token`, `token_expires_at`, `token_duration_hours`)
+     - Dedicated Google Drive root folder (`drive_root_folder_id`)
+     - Isolated guest table rows (`event_id` foreign key) and photo streams (`event_id` foreign key)
+     - Custom branding theme, welcome notes, and active color recipe defaults.
 
+2. **Admin Event Switcher & Event Creation:**
+   - The Admin navigation bar (`AdminNavbar.tsx`) features an **Event Switcher** pill displaying the active event name and status badge (`ACTIVE` green, `PAUSED` yellow, `ARCHIVED` zinc).
+   - Clicking the pill opens a menu of all registered events, allowing instantaneous switching with Next.js router revalidation.
+   - The **`+ New Event`** modal lets administrators spin up a new wedding or event in seconds, configuring couple names, URL slug, and roll shot capacity.
+
+3. **Event Lifecycle States:**
+   - **`active`:** Full guest entry, real-time photo reservations, and background uploads enabled.
+   - **`paused`:** Used for wedding speeches, dinner intermissions, or temporary maintenance. Guests navigating to `/e/[slug]` receive a friendly intermission screen (`"Intermission — Camera Paused"`), and photo upload APIs (`/api/photos/init`) reject new reservations with `403 EVENT_PAUSED`.
+   - **`archived`:** Concluded event state. Guests are presented with a celebratory conclusion screen, and all guest creation (`/api/guests`) and upload APIs are closed (`403 EVENT_ARCHIVED`).
+
+4. **Package Tiers & Server-Side Anti-Tamper Quota Locks:**
+   - Events are assigned a package tier:
+     - `pocket_roll`: Designed for small gatherings (max 50 guests, 15 shots/guest).
+     - `classic_35mm`: Standard wedding package (max 150 guests, 25 shots/guest).
+     - `grand_archive`: High-capacity luxury wedding (max 500 guests, 50 shots/guest).
+     - `owner_unlimited`: Unrestricted administrative / studio tier.
+   - **Server-Side Enforcement:**
+     - `/api/admin/settings`: Settings updates for `shots_per_guest` are strictly clamped at `package_max_shots_per_guest`. Client hosts cannot exceed their purchased entitlement.
+     - `/api/guests`: Enforces `package_max_guests`. If registrations reach the package limit, further creations are blocked with `403 PACKAGE_GUEST_LIMIT_REACHED`.

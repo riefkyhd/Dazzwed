@@ -58,6 +58,21 @@ export async function POST(req: Request) {
 
   const ev = await getEventBySlug(eventSlug);
   if (!ev) return NextResponse.json({ error: "event_not_found" }, { status: 404 });
+
+  // Event lifecycle status enforcement
+  if (ev.status === "paused") {
+    return NextResponse.json(
+      { error: "Event photo uploads are currently paused for an intermission", code: "EVENT_PAUSED" },
+      { status: 403 }
+    );
+  }
+  if (ev.status === "archived") {
+    return NextResponse.json(
+      { error: "Event camera has been concluded and archived", code: "EVENT_ARCHIVED" },
+      { status: 403 }
+    );
+  }
+
   const status = eventStatus(ev);
   if (status !== "open") return NextResponse.json({ error: "closed", status }, { status: 403 });
 
@@ -70,6 +85,21 @@ export async function POST(req: Request) {
   }
 
   const sb = supabaseAdmin();
+
+  // Enforce package guest cap if set
+  if (typeof ev.package_max_guests === "number" && ev.package_max_guests > 0) {
+    const { count: currentGuestCount } = await sb
+      .from("guests")
+      .select("*", { count: "exact", head: true })
+      .eq("event_id", ev.id);
+
+    if (currentGuestCount !== null && currentGuestCount >= ev.package_max_guests) {
+      return NextResponse.json(
+        { error: "Guest registration quota for this event has been reached", code: "PACKAGE_GUEST_LIMIT_REACHED" },
+        { status: 403 }
+      );
+    }
+  }
   const cookieHeader = req.headers.get("cookie") ?? "";
   const cookieId = cookieHeader
     .split(/;\s*/)

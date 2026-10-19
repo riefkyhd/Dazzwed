@@ -124,6 +124,14 @@ export async function POST(req: Request) {
     // Event lookup
     const event = await getEventBySlug(slugParsed.data);
     if (!event) return NextResponse.json({ error: "Event not found" }, { status: 404 });
+
+    if (event.status === "paused") {
+      return NextResponse.json({ error: "Event photo uploads are currently paused for an intermission", code: "EVENT_PAUSED" }, { status: 403 });
+    }
+    if (event.status === "archived") {
+      return NextResponse.json({ error: "Event camera has been concluded and archived", code: "EVENT_ARCHIVED" }, { status: 403 });
+    }
+
     if (eventStatus(event) !== "open") {
       return NextResponse.json({ error: "Event is closed for photos" }, { status: 403 });
     }

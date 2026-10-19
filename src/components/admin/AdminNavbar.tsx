@@ -5,12 +5,15 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { triggerHaptic } from "@/lib/camera/haptics";
+import { EventSwitcher, type EventItem } from "@/components/admin/EventSwitcher";
 
 interface AdminNavbarProps {
   userEmail: string;
+  currentEvent?: EventItem;
+  allEvents?: EventItem[];
 }
 
-export function AdminNavbar({ userEmail }: AdminNavbarProps) {
+export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarProps) {
   const pathname = usePathname();
   const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -224,8 +227,12 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
             })}
           </nav>
 
-          {/* Right Side (Desktop >= lg): ? Guide Pill + Account Dropdown */}
+          {/* Right Side (Desktop >= lg): EventSwitcher + ? Guide Pill + Account Dropdown */}
           <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+            {currentEvent && allEvents && (
+              <EventSwitcher currentEvent={currentEvent} allEvents={allEvents} />
+            )}
+
             {/* ? Guide Pill Button */}
             <Link
               href="/admin/guide"
@@ -242,7 +249,6 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
               </span>
               <span>Guide</span>
             </Link>
-
 
             {/* Account & System Dropdown Menu */}
             <div className="relative" ref={accountMenuRef}>
@@ -370,8 +376,11 @@ export function AdminNavbar({ userEmail }: AdminNavbarProps) {
             </div>
           </div>
 
-          {/* Right Side Mobile & Tablet (< lg): Quick Guide link & Sign out */}
-          <div className="flex lg:hidden items-center gap-2 shrink-0">
+          {/* Right Side Mobile & Tablet (< lg): EventSwitcher, Quick Guide link & Sign out */}
+          <div className="flex lg:hidden items-center gap-1.5 shrink-0">
+            {currentEvent && allEvents && (
+              <EventSwitcher currentEvent={currentEvent} allEvents={allEvents} />
+            )}
             <Link
               href="/admin/guide"
               prefetch={true}

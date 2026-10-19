@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getAdaptiveStorageGuard } from "@/lib/drive/health";
 import { HealthView } from "@/components/admin/HealthView";
+import { getActiveAdminEvent } from "@/lib/events/active";
 
 export const dynamic = "force-dynamic";
 
@@ -11,13 +12,8 @@ export default async function AdminHealthPage() {
 
   const sb = supabaseAdmin();
 
-  // 1. Fetch current event
-  const { data: event } = await sb
-    .from("events")
-    .select("id, slug, couple_names, shots_per_guest")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .single();
+  // 1. Fetch current event dynamically
+  const event = await getActiveAdminEvent();
 
   if (!event) {
     return <div className="p-8 text-center text-zinc-400">Event not found.</div>;

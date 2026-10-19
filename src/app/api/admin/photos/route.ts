@@ -12,23 +12,32 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const statusFilter = searchParams.get("status"); // all | confirmed | hidden | failed | pending
+  const eventIdParam = searchParams.get("eventId");
+
+  const { getActiveAdminEvent } = await import("@/lib/events/active");
+  const activeEvent = await getActiveAdminEvent(eventIdParam);
+  if (!activeEvent) {
+    return NextResponse.json({ error: "Event not found" }, { status: 404 });
+  }
 
   const sb = supabaseAdmin();
 
-  // 1. Fetch guests with counts
+  // 1. Fetch guests with counts for the active event
   const { data: guests, error: guestsErr } = await sb
     .from("guests")
     .select("id, display_name, drive_folder_id, created_at, last_seen_at")
+    .eq("event_id", activeEvent.id)
     .order("created_at", { ascending: false });
 
   if (guestsErr) {
     return NextResponse.json({ error: guestsErr.message }, { status: 500 });
   }
 
-  // 2. Fetch photos
+  // 2. Fetch photos for the active event
   let photosQuery = sb
     .from("photos")
     .select("id, guest_id, shot_id, drive_file_id, original_drive_file_id, preset_id, look_id, size_bytes, status, created_at, updated_at")
+    .eq("event_id", activeEvent.id)
     .order("created_at", { ascending: false });
 
   if (statusFilter && statusFilter !== "all") {
@@ -40,6 +49,7 @@ export async function GET(req: Request) {
     let fallbackQuery = sb
       .from("photos")
       .select("id, guest_id, shot_id, drive_file_id, original_drive_file_id, look_id, size_bytes, status, created_at, updated_at")
+      .eq("event_id", activeEvent.id)
       .order("created_at", { ascending: false });
     if (statusFilter && statusFilter !== "all") {
       fallbackQuery = fallbackQuery.eq("status", statusFilter);
@@ -54,10 +64,11 @@ export async function GET(req: Request) {
     })) as typeof photos;
   }
 
-  // 3. Compute metrics
+  // 3. Compute metrics for the active event
   const { data: allPhotos, error: allErr } = await sb
     .from("photos")
-    .select("status, size_bytes");
+    .select("status, size_bytes")
+    .eq("event_id", activeEvent.id);
 
   if (allErr) {
     return NextResponse.json({ error: allErr.message }, { status: 500 });

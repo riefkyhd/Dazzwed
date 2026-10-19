@@ -344,10 +344,10 @@ export function DashboardView({
             </svg>
           </div>
           <h3 className="text-base font-bold text-white group-hover:text-amber-300 transition-colors">
-            QR Generator & A6 Card &rarr;
+            QR Print Studio (A4 Sheets & Cards) &rarr;
           </h3>
           <p className="text-xs text-zinc-400 mt-1">
-            Download crisp PNG/SVG QR codes and print elegant A6 wedding table cards.
+            Download crisp PNG/SVG QR codes and print elegant A4 sheet table cards and guest invites.
           </p>
         </Link>
 

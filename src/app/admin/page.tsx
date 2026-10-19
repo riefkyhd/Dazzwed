@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { DashboardView } from "@/components/admin/DashboardView";
 
 import { getAdaptiveStorageGuard } from "@/lib/drive/health";
+import { getActiveAdminEvent } from "@/lib/events/active";
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +13,8 @@ export default async function AdminDashboardPage() {
 
   const sb = supabaseAdmin();
 
-  // 1. Fetch active event
-  const { data: event } = await sb
-    .from("events")
-    .select("id, slug, couple_names, shots_per_guest, opens_at, closes_at, manually_closed, drive_root_folder_id, access_token")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .single();
+  // 1. Fetch active event dynamically
+  const event = await getActiveAdminEvent();
 
   if (!event) {
     return (

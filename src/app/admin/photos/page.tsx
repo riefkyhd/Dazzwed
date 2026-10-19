@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { PhotosManagementView } from "@/components/admin/PhotosManagementView";
 
 import { computeRollCodeFromGuestId } from "@/lib/guest/session";
+import { getActiveAdminEvent } from "@/lib/events/active";
 
 export const dynamic = "force-dynamic";
 
@@ -12,13 +13,8 @@ export default async function AdminPhotosPage() {
 
   const sb = supabaseAdmin();
 
-  // 1. Fetch active event
-  const { data: event } = await sb
-    .from("events")
-    .select("id, slug, shots_per_guest, drive_root_folder_id")
-    .order("created_at", { ascending: true })
-    .limit(1)
-    .single();
+  // 1. Fetch active event dynamically
+  const event = await getActiveAdminEvent();
 
   if (!event) {
     return <div className="p-8 text-center text-zinc-400">Event not found.</div>;

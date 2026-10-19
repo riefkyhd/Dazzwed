@@ -517,6 +517,21 @@ export function AdminGuideView() {
                   : "Unduh seluruh foto acara resolusi penuh dalam satu arsip .ZIP terstruktur hanya dengan satu klik (dari /admin/photos atau tombol aksi cepat dasbor /admin). Didukung oleh mesin PKZIP STORE (Metode 0) langsung di peramban yang bebas batas waktu serverless (zero-timeout). Menyediakan dua struktur kategorisasi folder: 'Folder Per Tamu' (gaya Google Drive di mana hasil ekstrak tersusun dalam folder Nama (KodeRoll)/ dengan subfolder originals/) dan 'Berdasarkan Varian' (dikelompokkan dalam folder Film/ dan Original/). Pilih antara foto Film Developed (resep analog, grain & date stamp), Foto Asli Sensor RAW, atau Keduanya. Dilengkapi pemantau progres langsung, batas konkurensi (4 pekerja paralel) untuk mencegah batas kuota Google Drive, penanganan fail-soft jika ada file yang dihapus, serta tombol Batal yang responsif."}
               </p>
             </div>
+
+            {/* Control 15: Multi-Event SaaS Isolation, Event Switcher & Anti-Tamper Quota Locks */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Multi-Event SaaS Isolation & Quota Locks" : "Isolasi Multi-Acara SaaS & Kunci Kuota"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Host multiple weddings and celebrations simultaneously with complete data isolation. Use the Event Switcher dropdown in the top navigation bar to seamlessly switch between events or create a new event. Each event has its own independent QR link, rotating cryptographic access token (?t=<token>), dedicated Google Drive folder structure, guest rolls, and photo gallery. Features formal lifecycle management (Active, Paused for intermission, or Archived) and server-side package quota locks (Pocket Roll, Classic 35mm, Grand Archive, or Owner Unlimited) that prevent guest counts and shots per roll from exceeding purchased package entitlements."
+                  : "Kelola berbagai acara pernikahan dan perayaan sekaligus dengan isolasi data yang menyeluruh. Gunakan dropdown Event Switcher di bilah navigasi atas untuk berpindah acara atau membuat acara baru dengan mudah. Setiap acara memiliki tautan QR mandiri, token akses kriptografis berputar (?t=<token>), struktur folder Google Drive khusus, rol tamu, dan galeri foto terpisah. Dilengkapi manajemen siklus acara (Aktif, Dijeda untuk istirahat, atau Diarsipkan) serta kunci kuota paket di sisi server (Pocket Roll, Classic 35mm, Grand Archive, atau Owner Unlimited) yang memastikan batas tamu dan jepretan per rol tidak melampaui paket yang disewa."}
+              </p>
+            </div>
           </div>
         </div>
       )}

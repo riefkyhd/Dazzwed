@@ -13,6 +13,10 @@ interface SettingsViewProps {
     opens_at: string | null;
     closes_at: string | null;
     manually_closed: boolean;
+    status?: "active" | "paused" | "archived";
+    package_tier?: string;
+    package_max_guests?: number | null;
+    package_max_shots_per_guest?: number;
     access_token?: string;
     token_expires_at?: string | null;
     token_duration_hours?: number;
@@ -370,19 +374,24 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
 
           <div>
             <label className="block text-xs text-zinc-400 mb-1.5 font-medium">
-              Shots Per Guest (Limit enforced atomically)
+              Shots Per Guest (Film Roll Capacity)
             </label>
-            <input
-              type="number"
-              min={1}
-              max={100}
-              required
-              value={shotsPerGuest}
-              onChange={(e) => setShotsPerGuest(parseInt(e.target.value, 10) || 1)}
-              className="w-full sm:w-48 px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-sm font-mono text-zinc-100"
-            />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <input
+                type="number"
+                min={1}
+                max={initialEvent.package_max_shots_per_guest || 100}
+                required
+                value={shotsPerGuest}
+                onChange={(e) => setShotsPerGuest(parseInt(e.target.value, 10) || 1)}
+                className="w-full sm:w-48 px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-sm font-mono text-zinc-100"
+              />
+              <span className="text-[11px] font-mono text-amber-400/90 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1.5 rounded-lg w-fit">
+                Package Quota: Max {initialEvent.package_max_shots_per_guest || 100} shots ({initialEvent.package_tier || "owner_unlimited"})
+              </span>
+            </div>
             <p className="text-[11px] text-zinc-500 mt-1">
-              Standard disposable camera has 15 or 27 exposures.
+              Standard disposable camera has 15 or 27 exposures. Capped by your client package entitlement.
             </p>
           </div>
         </div>
