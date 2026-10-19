@@ -129,6 +129,17 @@ export function DashboardView({
 
         <div className="flex items-center gap-2">
           <Link
+            href="/admin/photos?export=1"
+            className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-200 hover:text-amber-300 hover:border-amber-400/40 transition-all flex items-center gap-1.5"
+            title="Download all event photos as .ZIP archive"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-amber-400">
+              <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+              <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+            </svg>
+            <span>Download All (.ZIP)</span>
+          </Link>
+          <Link
             href={`/e/${event.slug}${event.access_token ? `?t=${event.access_token}` : ""}`}
             target="_blank"
             className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-200 transition-all flex items-center gap-1.5"

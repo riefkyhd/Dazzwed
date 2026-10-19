@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { computeRollCodeFromGuestId } from "@/lib/guest/session";
 import { AdminPhotoLightbox } from "./AdminPhotoLightbox";
+import { createStoredZipBlob, downloadBlobInBrowser, ZipEntry } from "@/lib/export/zip";
 
 export interface GuestItem {
   id: string;
@@ -34,6 +35,7 @@ interface PhotosManagementViewProps {
   initialPhotos: PhotoItem[];
   rootFolderId: string | null;
   shotsPerGuest: number;
+  eventSlug?: string;
 }
 
 export function PhotosManagementView({
@@ -41,6 +43,7 @@ export function PhotosManagementView({
   initialPhotos,
   rootFolderId,
   shotsPerGuest,
+  eventSlug = "wedding",
 }: PhotosManagementViewProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>(initialPhotos);
   const [viewMode, setViewMode] = useState<"editorial" | "table">("editorial");
@@ -179,6 +182,184 @@ export function PhotosManagementView({
     }
   }, [activeLightboxIndex]);
 
+  // Bulk ZIP Export State
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportVariant, setExportVariant] = useState<"both" | "film" | "original">("both");
+  const [exportScope, setExportScope] = useState<"all" | "filtered">("all");
+  const [exportProgress, setExportProgress] = useState<{
+    active: boolean;
+    current: number;
+    total: number;
+    currentName: string;
+    failedCount: number;
+  } | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("export") === "1" || params.get("export") === "true") {
+        setIsExportModalOpen(true);
+      }
+    }
+  }, []);
+
+  const cancelBulkExport = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setExportProgress(null);
+  }, []);
+
+  const startBulkExport = useCallback(
+    async (variant: "both" | "film" | "original", scope: "all" | "filtered") => {
+      const sourcePhotos = scope === "filtered" ? filteredPhotos : photos;
+      const targetPhotos = sourcePhotos.filter((p) => !!p.drive_file_id);
+
+      if (targetPhotos.length === 0) {
+        setNotification("No uploaded photos available to download in this selection.");
+        return;
+      }
+
+      interface ExportTask {
+        photo: PhotoItem;
+        index: number;
+        type: "filtered" | "original";
+        targetSubfolder: "Film" | "Original" | null;
+      }
+
+      const tasks: ExportTask[] = [];
+      targetPhotos.forEach((photo, idx) => {
+        if (variant === "film") {
+          tasks.push({ photo, index: idx, type: "filtered", targetSubfolder: null });
+        } else if (variant === "original") {
+          tasks.push({ photo, index: idx, type: "original", targetSubfolder: null });
+        } else {
+          tasks.push({ photo, index: idx, type: "filtered", targetSubfolder: "Film" });
+          tasks.push({ photo, index: idx, type: "original", targetSubfolder: "Original" });
+        }
+      });
+
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
+
+      setExportProgress({
+        active: true,
+        current: 0,
+        total: tasks.length,
+        currentName: "Starting download pool...",
+        failedCount: 0,
+      });
+
+      const CONCURRENCY = 4;
+      const zipEntries: ZipEntry[] = [];
+      let taskIndex = 0;
+      let completedCount = 0;
+      let failedCount = 0;
+
+      async function worker() {
+        while (taskIndex < tasks.length) {
+          if (abortController.signal.aborted) break;
+          const currentTask = tasks[taskIndex++];
+          if (!currentTask) break;
+
+          const { photo, index, type, targetSubfolder } = currentTask;
+          const meta = guestMetaMap.get(photo.guest_id);
+          const guestName = meta?.name || `Roll_${meta?.rollCode || "Guest"}`;
+          const safeGuest = guestName.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 20);
+          const shortId = (photo.shot_id || photo.id).slice(0, 6);
+          const paddedIndex = String(index + 1).padStart(3, "0");
+          const filenameSuffix = type === "filtered" ? "film" : "raw";
+
+          let relativePath = `${paddedIndex}_${safeGuest}_${shortId}_${filenameSuffix}.jpg`;
+          if (targetSubfolder) {
+            relativePath = `${targetSubfolder}/${relativePath}`;
+          }
+
+          setExportProgress((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  currentName: relativePath,
+                }
+              : null
+          );
+
+          try {
+            const url = `/api/admin/photos/${photo.id}?size=original&type=${type}`;
+            const res = await fetch(url, { signal: abortController.signal });
+            if (!res.ok) {
+              console.warn(`[BulkExport] Skipping photo ${photo.id} (${res.status})`);
+              failedCount++;
+            } else {
+              const blob = await res.blob();
+              const arrayBuf = await blob.arrayBuffer();
+              zipEntries.push({
+                filename: relativePath,
+                data: new Uint8Array(arrayBuf),
+                lastModified: new Date(photo.created_at || Date.now()),
+              });
+            }
+          } catch (err: any) {
+            if (err?.name === "AbortError" || abortController.signal.aborted) {
+              return;
+            }
+            console.warn(`[BulkExport] Error downloading photo ${photo.id}:`, err);
+            failedCount++;
+          } finally {
+            completedCount++;
+            setExportProgress((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    current: completedCount,
+                    failedCount,
+                  }
+                : null
+            );
+          }
+        }
+      }
+
+      const workers = Array.from({ length: Math.min(CONCURRENCY, tasks.length) }, () => worker());
+      await Promise.all(workers);
+
+      if (abortController.signal.aborted) {
+        setExportProgress(null);
+        setNotification("Export cancelled by host.");
+        return;
+      }
+
+      if (zipEntries.length === 0) {
+        setExportProgress(null);
+        setNotification("No photos could be retrieved from Google Drive.");
+        return;
+      }
+
+      setExportProgress((prev) =>
+        prev ? { ...prev, currentName: "Assembling .ZIP archive in memory..." } : null
+      );
+
+      await new Promise((r) => setTimeout(r, 60));
+
+      const zipBlob = createStoredZipBlob(zipEntries);
+      const todayStr = new Date().toISOString().split("T")[0];
+      const zipFilename = `${eventSlug || "dazzwed"}-photos-${variant}-${todayStr}.zip`;
+
+      downloadBlobInBrowser(zipBlob, zipFilename);
+
+      setExportProgress(null);
+      setIsExportModalOpen(false);
+      const sizeMb = (zipBlob.size / (1024 * 1024)).toFixed(1);
+      setNotification(
+        `✓ Downloaded ${zipEntries.length} photos (${sizeMb} MB) in ${zipFilename}` +
+          (failedCount > 0 ? ` (${failedCount} files skipped)` : "")
+      );
+    },
+    [filteredPhotos, photos, guestMetaMap, eventSlug]
+  );
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Header Bar */}
@@ -217,6 +398,24 @@ export function PhotosManagementView({
               <span>Guest Rolls Table</span>
             </button>
           </div>
+
+          {/* Download All (.ZIP) Button */}
+          <button
+            type="button"
+            onClick={() => setIsExportModalOpen(true)}
+            disabled={exportProgress?.active}
+            className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer shrink-0"
+            title="Download All Photos as .ZIP archive"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
+              <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+              <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+            </svg>
+            <span>Download All (.ZIP)</span>
+            <span className="px-1.5 py-0.5 bg-black/15 text-black rounded text-[10px] font-mono font-bold">
+              {photos.filter((p) => !!p.drive_file_id).length}
+            </span>
+          </button>
 
           {rootFolderId && (
             <a
@@ -671,6 +870,231 @@ export function PhotosManagementView({
                 </tbody>
               </table>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* BULK EXPORT MODAL & LIVE PROGRESS DIALOG */}
+      {isExportModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-stone-900 border border-stone-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl text-stone-200 space-y-6">
+            {!exportProgress ? (
+              <>
+                {/* Modal Header */}
+                <div className="flex items-start justify-between border-b border-stone-800 pb-4">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-mono uppercase tracking-widest text-amber-400">Bulk Photo Export</span>
+                      <span className="px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 text-[10px] font-mono border border-amber-400/20">
+                        PKZIP STORE
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-serif font-bold text-white mt-1">Download All Photos (.ZIP)</h2>
+                    <p className="text-xs text-stone-400 mt-1">
+                      Download full-resolution wedding captures directly in your browser without compression degradation.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsExportModalOpen(false)}
+                    className="p-1 rounded-lg text-stone-400 hover:text-white hover:bg-stone-800 transition-colors cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Scope Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-mono text-stone-400 uppercase tracking-wider block">
+                    1. Select Photo Scope
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setExportScope("all")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        exportScope === "all"
+                          ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
+                          : "bg-stone-950/60 border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-white">All Event Photos</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-800 text-amber-300">
+                          {photos.filter((p) => !!p.drive_file_id).length} shots
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-400 mt-1">Every uploaded photo across all guest rolls.</p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setExportScope("filtered")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        exportScope === "filtered"
+                          ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
+                          : "bg-stone-950/60 border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-white">Current Filter</span>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-stone-800 text-amber-300">
+                          {filteredPhotos.filter((p) => !!p.drive_file_id).length} shots
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-400 mt-1">
+                        {statusFilter !== "all" || guestFilter !== "all" || presetFilter !== "all"
+                          ? "Filtered by active view selection."
+                          : "Matches current view (same as all)."}
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Variant Selection Cards */}
+                <div className="space-y-2">
+                  <label className="text-xs font-mono text-stone-400 uppercase tracking-wider block">
+                    2. Select Photo Variant
+                  </label>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => setExportVariant("both")}
+                      className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                        exportVariant === "both"
+                          ? "bg-amber-400/10 border-amber-400/60 text-amber-200"
+                          : "bg-stone-950/60 border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-300"
+                      }`}
+                    >
+                      <span className="text-base mt-0.5">✦+◯</span>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-xs text-white">Both Film & Clean Originals</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">
+                            Recommended
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-stone-400 mt-0.5">
+                          Organized cleanly into <code className="text-stone-300">Film/</code> and <code className="text-stone-300">Original/</code> subfolders inside the ZIP archive.
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setExportVariant("film")}
+                      className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                        exportVariant === "film"
+                          ? "bg-amber-400/10 border-amber-400/60 text-amber-200"
+                          : "bg-stone-950/60 border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-300"
+                      }`}
+                    >
+                      <span className="text-base mt-0.5">✦</span>
+                      <div className="flex-1">
+                        <span className="font-semibold text-xs text-white">Film Developed Photos Only</span>
+                        <p className="text-[11px] text-stone-400 mt-0.5">
+                          Analog color graded photos with film recipes, emulsion grain, and vintage date stamps.
+                        </p>
+                      </div>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setExportVariant("original")}
+                      className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                        exportVariant === "original"
+                          ? "bg-amber-400/10 border-amber-400/60 text-amber-200"
+                          : "bg-stone-950/60 border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-300"
+                      }`}
+                    >
+                      <span className="text-base mt-0.5">◯</span>
+                      <div className="flex-1">
+                        <span className="font-semibold text-xs text-white">Clean RAW Sensor Originals Only</span>
+                        <p className="text-[11px] text-stone-400 mt-0.5">
+                          Unfiltered camera sensor captures before any recipe processing or date stamp.
+                        </p>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div className="flex items-center justify-end gap-3 pt-3 border-t border-stone-800">
+                  <button
+                    type="button"
+                    onClick={() => setIsExportModalOpen(false)}
+                    className="px-4 py-2 rounded-xl text-stone-400 hover:text-white text-xs font-medium cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void startBulkExport(exportVariant, exportScope)}
+                    className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+                      <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+                    </svg>
+                    <span>Start Bulk Export (.ZIP)</span>
+                  </button>
+                </div>
+              </>
+            ) : (
+              /* Live Progress View */
+              <div className="space-y-6 py-2">
+                <div className="text-center space-y-2">
+                  <div className="w-12 h-12 mx-auto rounded-full bg-amber-400/10 border border-amber-400/30 flex items-center justify-center text-amber-400">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6 animate-pulse">
+                      <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
+                      <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-serif font-bold text-white">Packaging Event Photos</h3>
+                  <p className="text-xs text-stone-400 font-mono truncate max-w-sm mx-auto">
+                    {exportProgress.currentName}
+                  </p>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs font-mono">
+                    <span className="text-stone-400">
+                      Photo {exportProgress.current} of {exportProgress.total}
+                    </span>
+                    <span className="text-amber-300 font-semibold">
+                      {Math.round((exportProgress.current / Math.max(1, exportProgress.total)) * 100)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-stone-950 rounded-full h-2 overflow-hidden border border-stone-800">
+                    <div
+                      className="h-full bg-amber-400 transition-all duration-200"
+                      style={{
+                        width: `${Math.min(100, Math.round((exportProgress.current / Math.max(1, exportProgress.total)) * 100))}%`,
+                      }}
+                    />
+                  </div>
+                  {exportProgress.failedCount > 0 && (
+                    <p className="text-[11px] font-mono text-amber-400 text-center">
+                      ⚠️ {exportProgress.failedCount} missing files skipped safely
+                    </p>
+                  )}
+                </div>
+
+                {/* Cancel Button */}
+                <div className="flex justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={cancelBulkExport}
+                    className="px-4 py-2 rounded-xl bg-stone-950 border border-stone-800 hover:border-red-500/50 hover:text-red-400 text-stone-400 text-xs font-medium transition-all cursor-pointer"
+                  >
+                    Cancel Export
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

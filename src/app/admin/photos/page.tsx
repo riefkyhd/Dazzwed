@@ -78,6 +78,7 @@ export default async function AdminPhotosPage() {
       }>) || []}
       rootFolderId={event.drive_root_folder_id}
       shotsPerGuest={event.shots_per_guest}
+      eventSlug={event.slug || "wedding"}
     />
   );
 }
