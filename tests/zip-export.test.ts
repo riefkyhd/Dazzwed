@@ -76,6 +76,15 @@ describe("PKZIP Store Export Library", () => {
       expect(sanitizeZipFilename('Nadia & Rizky : Shot #1?.jpg')).toBe("Nadia_Rizky_Shot_1.jpg");
     });
 
+    it("preserves guest folder structure with parentheses and spaces like Google Drive", () => {
+      expect(sanitizeZipFilename("Dhifa (7K9X2B)/originals/01_7K9X2B_a8f2_raw.jpg")).toBe(
+        "Dhifa (7K9X2B)/originals/01_7K9X2B_a8f2_raw.jpg"
+      );
+      expect(sanitizeZipFilename("Roll 7K9X2B/01_7K9X2B_a8f2_film.jpg")).toBe(
+        "Roll 7K9X2B/01_7K9X2B_a8f2_film.jpg"
+      );
+    });
+
     it("handles empty or falsy inputs with default fallback", () => {
       expect(sanitizeZipFilename("")).toBe("photo.jpg");
       expect(sanitizeZipFilename("   ")).toBe("photo.jpg");

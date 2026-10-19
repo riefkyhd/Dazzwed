@@ -186,6 +186,7 @@ export function PhotosManagementView({
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportVariant, setExportVariant] = useState<"both" | "film" | "original">("both");
   const [exportScope, setExportScope] = useState<"all" | "filtered">("all");
+  const [exportOrganization, setExportOrganization] = useState<"guest" | "flat">("guest");
   const [exportProgress, setExportProgress] = useState<{
     active: boolean;
     current: number;
@@ -213,13 +214,29 @@ export function PhotosManagementView({
   }, []);
 
   const startBulkExport = useCallback(
-    async (variant: "both" | "film" | "original", scope: "all" | "filtered") => {
+    async (
+      variant: "both" | "film" | "original",
+      scope: "all" | "filtered",
+      organization: "guest" | "flat" = "guest"
+    ) => {
       const sourcePhotos = scope === "filtered" ? filteredPhotos : photos;
       const targetPhotos = sourcePhotos.filter((p) => !!p.drive_file_id);
 
       if (targetPhotos.length === 0) {
         setNotification("No uploaded photos available to download in this selection.");
         return;
+      }
+
+      // Pre-compute chronological shot numbers per guest (01, 02, 03...)
+      const guestShotNumberMap = new Map<string, number>();
+      const guestCounters = new Map<string, number>();
+      const chronological = [...targetPhotos].sort(
+        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+      );
+      for (const p of chronological) {
+        const nextCount = (guestCounters.get(p.guest_id) || 0) + 1;
+        guestCounters.set(p.guest_id, nextCount);
+        guestShotNumberMap.set(p.id, nextCount);
       }
 
       interface ExportTask {
@@ -266,15 +283,38 @@ export function PhotosManagementView({
 
           const { photo, index, type, targetSubfolder } = currentTask;
           const meta = guestMetaMap.get(photo.guest_id);
-          const guestName = meta?.name || `Roll_${meta?.rollCode || "Guest"}`;
-          const safeGuest = guestName.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 20);
+          const rollCode = meta?.rollCode || computeRollCodeFromGuestId(photo.guest_id);
+          const rawGuestName = meta?.name?.trim();
+          const cleanGuestName = rawGuestName ? rawGuestName.replace(/[/\\?%*:|"<>]/g, "").trim() : null;
           const shortId = (photo.shot_id || photo.id).slice(0, 6);
-          const paddedIndex = String(index + 1).padStart(3, "0");
           const filenameSuffix = type === "filtered" ? "film" : "raw";
 
-          let relativePath = `${paddedIndex}_${safeGuest}_${shortId}_${filenameSuffix}.jpg`;
-          if (targetSubfolder) {
-            relativePath = `${targetSubfolder}/${relativePath}`;
+          let relativePath = "";
+
+          if (organization === "guest") {
+            // Google Drive matching hierarchy:
+            // "Dhifa (7K9X2B)/" or "Roll 7K9X2B/"
+            const guestFolderName = cleanGuestName ? `${cleanGuestName} (${rollCode})` : `Roll ${rollCode}`;
+            const guestShotNum = guestShotNumberMap.get(photo.id) || 1;
+            const shotPadded = String(guestShotNum).padStart(2, "0");
+            const filename = `${shotPadded}_${rollCode}_${shortId}_${filenameSuffix}.jpg`;
+
+            if (type === "original") {
+              // Stored in originals/ subfolder inside guest folder just like on Google Drive!
+              relativePath = `${guestFolderName}/originals/${filename}`;
+            } else {
+              relativePath = `${guestFolderName}/${filename}`;
+            }
+          } else {
+            // Flat by variant
+            const safeGuest = (cleanGuestName || `Roll_${rollCode}`).replace(/[^a-zA-Z0-9]/g, "_").slice(0, 20);
+            const paddedIndex = String(index + 1).padStart(3, "0");
+            const filename = `${paddedIndex}_${safeGuest}_${shortId}_${filenameSuffix}.jpg`;
+            if (targetSubfolder) {
+              relativePath = `${targetSubfolder}/${filename}`;
+            } else {
+              relativePath = filename;
+            }
           }
 
           setExportProgress((prev) =>
@@ -345,7 +385,8 @@ export function PhotosManagementView({
 
       const zipBlob = createStoredZipBlob(zipEntries);
       const todayStr = new Date().toISOString().split("T")[0];
-      const zipFilename = `${eventSlug || "dazzwed"}-photos-${variant}-${todayStr}.zip`;
+      const orgTag = organization === "guest" ? "by-guest" : "by-variant";
+      const zipFilename = `${eventSlug || "dazzwed"}-photos-${orgTag}-${variant}-${todayStr}.zip`;
 
       downloadBlobInBrowser(zipBlob, zipFilename);
 
@@ -953,10 +994,55 @@ export function PhotosManagementView({
                   </div>
                 </div>
 
+                {/* Folder Organization Selection */}
+                <div className="space-y-2">
+                  <label className="text-xs font-mono text-stone-400 uppercase tracking-wider block">
+                    2. Folder Categorization
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setExportOrganization("guest")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        exportOrganization === "guest"
+                          ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
+                          : "bg-stone-950/60 border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-white">📁 Per Guest Folders</span>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">
+                          Drive Style
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-stone-400 mt-1 leading-tight">
+                        When unzipped, stored in folders per guest: <code className="text-stone-300">Name (RollCode)/</code> with <code className="text-stone-300">originals/</code>.
+                      </p>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setExportOrganization("flat")}
+                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                        exportOrganization === "flat"
+                          ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
+                          : "bg-stone-950/60 border-stone-800 text-stone-400 hover:border-stone-700 hover:text-stone-300"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-xs text-white">📦 By Variant</span>
+                      </div>
+                      <p className="text-[11px] text-stone-400 mt-1 leading-tight">
+                        All guest photos grouped into top-level <code className="text-stone-300">Film/</code> and <code className="text-stone-300">Original/</code> folders.
+                      </p>
+                    </button>
+                  </div>
+                </div>
+
                 {/* Variant Selection Cards */}
                 <div className="space-y-2">
                   <label className="text-xs font-mono text-stone-400 uppercase tracking-wider block">
-                    2. Select Photo Variant
+                    3. Select Photo Variant
                   </label>
                   <div className="space-y-2">
                     <button
@@ -977,7 +1063,9 @@ export function PhotosManagementView({
                           </span>
                         </div>
                         <p className="text-[11px] text-stone-400 mt-0.5">
-                          Organized cleanly into <code className="text-stone-300">Film/</code> and <code className="text-stone-300">Original/</code> subfolders inside the ZIP archive.
+                          {exportOrganization === "guest"
+                            ? "Film photos inside each guest folder, with clean captures in an originals/ subfolder (just like Google Drive)."
+                            : "Organized cleanly into Film/ and Original/ subfolders inside the ZIP archive."}
                         </p>
                       </div>
                     </button>
@@ -1031,7 +1119,7 @@ export function PhotosManagementView({
                   </button>
                   <button
                     type="button"
-                    onClick={() => void startBulkExport(exportVariant, exportScope)}
+                    onClick={() => void startBulkExport(exportVariant, exportScope, exportOrganization)}
                     className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-xs transition-all shadow-md flex items-center gap-2 cursor-pointer"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">

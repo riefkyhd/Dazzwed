@@ -62,7 +62,8 @@ export function sanitizeZipFilename(rawName: string, fallback = "photo.jpg"): st
     .split("/")
     .map((s) =>
       s
-        .replace(/[^a-zA-Z0-9_\-.]/g, "_")
+        .replace(/[^a-zA-Z0-9_\-.() ]/g, "_")
+        .replace(/\s*_\s*/g, "_")
         .replace(/_+/g, "_")
         .replace(/_+(\.[a-zA-Z0-9]+)$/, "$1")
         .replace(/^_+|_+$/g, "")

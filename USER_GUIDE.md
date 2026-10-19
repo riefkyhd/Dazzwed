@@ -72,11 +72,14 @@
      - `originals/` (clean, uncompressed camera originals)
 2. **One-Click Bulk Photo Export (.ZIP):**
    - In `/admin/photos` (or via the dashboard quick action button), click **"Download All (.ZIP)"**.
+   - Select scope (**All Event Photos** or **Current Filtered View**).
+   - Select folder categorization:
+     - **📁 Per Guest Folders (Google Drive Structure)** (default & recommended) — When unzipped, photos are neatly organized into folders for each guest: `Guest Name (RollCode)/` (or `Roll RollCode/`) with clean captures placed in an `originals/` subfolder, exactly matching your Google Drive hierarchy.
+     - **📦 By Variant** — Groups photos into top-level `Film/` and `Original/` folders across all guests.
    - Select your export variant:
-     - **✦+◯ Both Film & Originals (.ZIP)** (recommended — structured in `Film/` and `Original/` subfolders).
+     - **✦+◯ Both Film & Originals (.ZIP)** (recommended).
      - **✦ Film Developed Photos (.ZIP)** (graded with recipes, grain & date stamps).
      - **◯ Clean Originals (.ZIP)** (unfiltered RAW sensor captures).
-   - Select scope (**All Event Photos** or **Current Filtered View**).
    - The browser streams full-resolution media directly from Google Drive with 4-worker bounded concurrency, displays live percentage progress with an instant Cancel button, and packages the files into an uncompressed PKZIP archive in `<50ms` upon completion.
 3. **Automated 30-Day Cleanup:**
    - Daily cron (`/api/cron/cleanup`) automatically purges anonymous telemetry logs and rate-limit IP digests after 30 days to protect guest privacy.
@@ -87,7 +90,7 @@
 
 | Control | Location | What It Does | When to Use |
 | :--- | :--- | :--- | :--- |
-| **Download All Photos (.ZIP)** | `/admin/photos` & `/admin` | Zero-timeout client-side PKZIP STORE engine (Method 0) that downloads all full-resolution event photos directly in the browser as a single `.zip` archive without serverless timeouts. Choose between **Film Developed** (analog recipes, grain, and date stamps), **Clean RAW Originals**, or **Both** (organized into `Film/` and `Original/` subfolders). Features bounded concurrency (4 parallel workers) to prevent Google Drive rate limits, live percentage progress, graceful fail-soft skipping on deleted files, and an instant Cancel button. | Download the complete wedding master album with one click to local storage or external SSD. |
+| **Download All Photos (.ZIP)** | `/admin/photos` & `/admin` | Zero-timeout client-side PKZIP STORE engine (Method 0) that downloads all full-resolution event photos directly in the browser as a single `.zip` archive without serverless timeouts. Supports **Per Guest Folders** (Google Drive style where unzipping categorizes photos into `Name (RollCode)/` with `originals/` subfolder) or **By Variant** (`Film/` & `Original/`). Choose between **Film Developed**, **Clean RAW Originals**, or **Both**. Features bounded concurrency (4 parallel workers), live progress, fail-soft missing file skip, and an instant Cancel button. | Download the complete wedding master album with one click to local storage or external SSD. |
 | **Link Duration** | `/admin/settings` | Sets how long the QR code remains active (`24h`, `48h`, `72h`, `7d`, Custom). | Set when creating or planning the event access window. |
 | **Update Expiration Time** | `/admin/settings` | Extends the active access window **WITHOUT modifying the QR code or token**. | **Safe after printing.** Use when the wedding runs late. |
 | **Rotate Token** | `/admin/settings` | Generates a brand-new cryptographic token and QR code; revokes previous links. | **ONLY before printing.** Use during testing or if the link leaks. |
