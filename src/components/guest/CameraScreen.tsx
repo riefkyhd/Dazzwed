@@ -133,8 +133,6 @@ export function CameraScreen({
     hasHardwareFlash,
     setTorchSafe,
     pulseTorchSafe,
-    pulseSoftTimerTorch,
-    setTimerTorchLocked,
     flashMode,
     setFlashMode,
     flashIntensity,
@@ -189,10 +187,9 @@ export function CameraScreen({
   const [activeReview, setActiveReview] = useState<ReviewSession | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
 
-  // Vintage Self-Timer state (0s, 3s, 10s) with flash cadence
+  // Vintage Self-Timer state (0s, 3s, 5s, 10s)
   const [timerSeconds, setTimerSeconds] = useState<number>(0);
   const [timerCountdown, setTimerCountdown] = useState<number>(0);
-  const [timerCueActive, setTimerCueActive] = useState(false);
   const timerSchedulerRef = useRef<TimerScheduler | null>(null);
 
   // Camera Settings & Tools
@@ -219,11 +216,10 @@ export function CameraScreen({
   useEffect(() => {
     return () => {
       if (timerSchedulerRef.current) timerSchedulerRef.current.cancel();
-      setTimerTorchLocked(false);
       void setTorchSafe(false);
       if (captionTimerRef.current) clearTimeout(captionTimerRef.current);
     };
-  }, [setTimerTorchLocked, setTorchSafe]);
+  }, [setTorchSafe]);
 
   // Ensure scroll is at 0, 0 and suppress iOS Safari page zoom gestures while camera is active
   useEffect(() => {
@@ -459,9 +455,7 @@ export function CameraScreen({
       timerSchedulerRef.current?.cancel();
       timerSchedulerRef.current = null;
       setTimerCountdown(0);
-      setTimerCueActive(false);
-      setTimerTorchLocked(false);
-      void setTorchSafe(false);
+      triggerHaptic([30, 50, 30]);
       return;
     }
 
@@ -471,32 +465,17 @@ export function CameraScreen({
     }
 
     // Start precision self-timer scheduler
-    setTimerTorchLocked(false);
     triggerHaptic([20]);
     const scheduler = createTimerScheduler({
       totalSeconds: timerSeconds,
       onCountdownUpdate: (remaining) => {
         setTimerCountdown(remaining);
       },
-      onCueChange: (active) => {
-        setTimerCueActive(active);
-      },
-      onTorchMode: (mode) => {
-        if (facing === "environment") {
-          void pulseSoftTimerTorch(mode);
-        }
-      },
-      onTorchKill: () => {
-        if (facing === "environment") {
-          setTimerTorchLocked(true);
-        }
-      },
       onCapture: () => {
-        setTimerTorchLocked(false);
         void executeCapture();
       },
       onTickAudio: (type) => {
-        if (type === "single" || type === "sustained") {
+        if (type === "single") {
           playTimerTick(880, 80);
         } else if (type === "double" || type === "fast") {
           playTimerTick(1100, 50);
@@ -787,49 +766,6 @@ export function CameraScreen({
         {/* Retro 4 Corner Brackets (always inside viewfinder, hidden in full-bleed 16:9) */}
         <ViewfinderFrame visible={mode === "banded"} />
 
-        {/* Self-Timer Cadence: Subtle Viewfinder border indicator */}
-        <div
-          data-testid="timer-cue-border"
-          className={`absolute inset-0 pointer-events-none transition-opacity duration-150 z-20 border border-amber-400/25 ${
-            timerCueActive ? "opacity-100" : "opacity-0"
-          }`}
-          aria-hidden="true"
-        />
-
-        {/* Self-Timer Cadence: Front Camera subtle selfie indicator */}
-        {facing === "user" && (
-          <div
-            data-testid="timer-selfie-glow"
-            className={`absolute inset-0 pointer-events-none transition-opacity duration-150 z-20 bg-amber-400/5 ${
-              timerCueActive ? "opacity-100" : "opacity-0"
-            }`}
-            aria-hidden="true"
-          />
-        )}
-
-        {/* Self-Timer Cadence: Minimalist, steady countdown badge */}
-        {timerCountdown > 0 && (
-          <div
-            data-testid="timer-countdown-badge"
-            className="absolute top-5 left-1/2 -translate-x-1/2 z-30 pointer-events-none flex flex-col items-center"
-          >
-            <div
-              style={controlRotStyle}
-              className={`px-3.5 py-1.5 rounded-full bg-black/80 border backdrop-blur-sm font-mono font-bold text-xl shadow-xl flex items-center gap-2 transition-colors duration-150 ${
-                timerCueActive
-                  ? "border-amber-300 text-amber-300 shadow-[0_0_15px_rgba(251,191,36,0.4)]"
-                  : "border-amber-400/40 text-amber-400 shadow-black/80"
-              }`}
-            >
-              <span
-                className={`w-2 h-2 rounded-full transition-colors duration-150 ${
-                  timerCueActive ? "bg-amber-300" : "bg-amber-400/50"
-                }`}
-              />
-              <span>{timerCountdown}s</span>
-            </div>
-          </div>
-        )}
 
         {/* Starting Spinner (initial entry only, silent seamless switch on flip) */}
         {!hasInitialized && starting && (

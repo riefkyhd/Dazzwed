@@ -1,44 +1,36 @@
 /**
  * Google Pixel 10 Self-Timer Cadence Scheduler
  *
- * Implements the authentic, eye-safe countdown cadence:
+ * Implements a clean, distraction-free countdown cadence:
  *
- * - Seconds 10 down to 4 (Sustained 1 beat/sec: 1.. 2..):
- *   At +0ms: Set viewfinder cue active (450ms warm amber glow) +
- *            hardware torch micro-pulse (45ms-55ms) + audio tick (880Hz) + haptic.
- *   At +450ms: Set viewfinder cue inactive (550ms off gap).
+ * - Seconds 10 down to 4 (Sustained 1 beat/sec):
+ *   At +0ms: Updates countdown on shutter button, fires 880Hz audio tick + gentle haptic.
  *
- * - Seconds 3 and 2 (Accelerated double-time blips: 2 blips/sec):
- *   Blip 1: +0ms ON -> +120ms OFF (fast 50ms torch blip).
- *   Gap:    300ms gap.
- *   Blip 2: +420ms ON -> +540ms OFF (fast 50ms torch blip).
- *   Hard Kill: At +550ms into second 2 (1,450ms before shutter capture at 0s),
- *              fires onTorchKill() to guarantee complete hardware torch lockout.
+ * - Seconds 3 and 2 (Accelerated double-time urgency: 2 beats/sec):
+ *   Beat 1 at +0ms: Updates countdown on shutter button, fires 1100Hz audio tick + haptic.
+ *   Beat 2 at +420ms: Fires 1100Hz audio tick + haptic.
  *
- * - Final Second 1 (Absolute Stillness & Auto-Exposure Recovery):
- *   No blipping at all. Cue stays inactive, torch stays strictly locked OFF.
- *   Provides 1,460ms of uninterrupted ambient lighting before 0s capture,
- *   completely eliminating residual flash bleed and letting the camera
- *   sensor's Auto-Exposure (AE) & Auto-White-Balance (AWB) lock cleanly.
+ * - Final Second 1:
+ *   At +0ms: Updates countdown to 1 on shutter button, fires crisp audio tick + haptic.
+ *   Provides full stillness and ambient lighting stability before 0s capture.
  *
  * - Shutter Capture:
- *   At t = totalSeconds * 1000ms: fires shutter capture.
+ *   At t = totalSeconds * 1000ms: Resets countdown to 0 and fires onCapture().
  *
  * - Cancellation:
- *   Immediately clears all timeouts, kills torch, resets cue,
- *   and resets countdown to 0.
+ *   Immediately clears all scheduled timeouts and resets countdown to 0.
+ *
+ * Hardware Torch Note:
+ * Hardware LED blipping during the countdown is intentionally disabled to avoid
+ * 100% current glare and residual flash bleed (see docs/TIMER_FLASH_NOTES.md).
+ * The hardware torch is reserved exclusively for actual photo capture at 0s.
  */
 
 export interface TimerSchedulerOptions {
   totalSeconds: number; // 3, 5, or 10
   onCountdownUpdate: (remaining: number) => void;
-  onCueChange: (active: boolean) => void;
-  onTorchMode?: (mode: "sustained" | "fast") => void;
-  onTorchPulse?: (durationMs: number) => void;
-  onTorchHold?: (on: boolean) => void;
-  onTorchKill?: () => void;
   onCapture: () => void;
-  onTickAudio?: (type: "single" | "double" | "hold" | "sustained" | "fast") => void;
+  onTickAudio?: (type: "single" | "double" | "fast") => void;
   onHaptic?: (pattern: number[]) => void;
 }
 
@@ -52,11 +44,6 @@ export function createTimerScheduler(options: TimerSchedulerOptions): TimerSched
   const {
     totalSeconds,
     onCountdownUpdate,
-    onCueChange,
-    onTorchMode,
-    onTorchPulse,
-    onTorchHold,
-    onTorchKill,
     onCapture,
     onTickAudio,
     onHaptic,
@@ -80,9 +67,6 @@ export function createTimerScheduler(options: TimerSchedulerOptions): TimerSched
     timeouts = [];
     if (running) {
       running = false;
-      onCueChange(false);
-      onTorchKill?.();
-      onTorchHold?.(false);
       onCountdownUpdate(0);
     }
   };
@@ -101,78 +85,36 @@ export function createTimerScheduler(options: TimerSchedulerOptions): TimerSched
       const secondOffsetMs = (totalSeconds - sec) * 1000;
 
       if (sec >= 4) {
-        // --- Sustained Beat: 1 beat per second (450ms warm amber cue glow) ---
+        // --- Sustained Beat: 1 beat per second ---
         schedule(() => {
           if (!running) return;
           onCountdownUpdate(sec);
-          onCueChange(true);
-          if (onTorchMode) {
-            onTorchMode("sustained");
-          } else if (onTorchPulse) {
-            onTorchPulse(55);
-          }
           onTickAudio?.("single");
           onHaptic?.([15]);
         }, secondOffsetMs);
-
-        schedule(() => {
-          if (!running) return;
-          onCueChange(false);
-        }, secondOffsetMs + 450);
       } else if (sec === 3 || sec === 2) {
-        // --- Double-Time Fast Blips: 2 blips per second ---
-        // Sub-blip 1 (+0ms to +120ms)
+        // --- Double-Time Fast Cadence: 2 beats per second ---
+        // Sub-beat 1 (+0ms)
         schedule(() => {
           if (!running) return;
           onCountdownUpdate(sec);
-          onCueChange(true);
-          if (onTorchMode) {
-            onTorchMode("fast");
-          } else if (onTorchPulse) {
-            onTorchPulse(50);
-          }
           onTickAudio?.("double");
           onHaptic?.([15]);
         }, secondOffsetMs);
 
+        // Sub-beat 2 (+420ms)
         schedule(() => {
           if (!running) return;
-          onCueChange(false);
-        }, secondOffsetMs + 120);
-
-        // Sub-blip 2 (+420ms to +540ms)
-        schedule(() => {
-          if (!running) return;
-          onCueChange(true);
-          if (onTorchMode) {
-            onTorchMode("fast");
-          } else if (onTorchPulse) {
-            onTorchPulse(50);
-          }
           onTickAudio?.("double");
           onHaptic?.([15]);
         }, secondOffsetMs + 420);
-
-        schedule(() => {
-          if (!running) return;
-          onCueChange(false);
-        }, secondOffsetMs + 540);
-
-        // Hard Torch Lockout at t = +550ms of second 2 (1,450ms before shutter capture at 0s)
-        if (sec === 2) {
-          schedule(() => {
-            if (!running) return;
-            onTorchKill?.();
-            onTorchHold?.(false);
-          }, secondOffsetMs + 550);
-        }
       } else if (sec === 1) {
-        // --- Final Second: Zero Blip Stillness for Auto-Exposure Stabilization ---
+        // --- Final Second: 1s digit update with crisp final tick ---
         schedule(() => {
           if (!running) return;
           onCountdownUpdate(1);
-          onCueChange(false);
-          // Hardware torch strictly OFF - NO calls to onTorchPulse or onTorchMode
+          onTickAudio?.("fast");
+          onHaptic?.([20]);
         }, secondOffsetMs);
       }
     }
