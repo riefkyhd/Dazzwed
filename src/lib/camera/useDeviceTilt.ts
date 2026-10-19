@@ -21,15 +21,18 @@ export interface DeviceTiltState {
  * Detects whether running on an Apple iOS / iPadOS device (iPhone, iPad, iPod)
  * where WebKit CoreMotion requires explicit user permission and inverts the gravity vector.
  */
-export function isIOSPlatform(): boolean {
-  if (typeof window === "undefined" || typeof navigator === "undefined") return false;
-  const ua = navigator.userAgent || "";
+export function isIOSPlatform(customUA?: string): boolean {
+  if (typeof window === "undefined" && !customUA) return false;
+  const ua = customUA ?? (typeof navigator !== "undefined" ? navigator.userAgent : "");
+  // Modern Android Chrome (v155+) implements window.DeviceMotionEvent.requestPermission.
+  // Strictly prevent Android devices from ever being identified as iOS.
+  if (/Android/i.test(ua)) return false;
   const isAppleTouch = /iPad|iPhone|iPod/.test(ua);
-  const isIPadOS = navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
-  const hasDMEPermission =
-    typeof (window as unknown as { DeviceMotionEvent?: { requestPermission?: unknown } })
-      .DeviceMotionEvent?.requestPermission === "function";
-  return isAppleTouch || isIPadOS || hasDMEPermission;
+  const isIPadOS =
+    typeof navigator !== "undefined" &&
+    navigator.platform === "MacIntel" &&
+    navigator.maxTouchPoints > 1;
+  return isAppleTouch || isIPadOS;
 }
 
 /**

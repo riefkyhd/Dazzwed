@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateTiltAngleFromGravity,
   calculateTiltAngleFromOrientation,
+  isIOSPlatform,
   type TiltAngle,
 } from "@/lib/camera/useDeviceTilt";
 import { cropRect, fitLongestEdge, resolveCaptureAspect } from "@/lib/imaging/geometry";
@@ -80,6 +81,32 @@ describe("Gravity Accelerometer Tilt Detection & Zero Reflow Mechanics", () => {
       it("enforces deadzone hysteresis on iOS at 45° holding angles", () => {
         const ambiguous = calculateTiltAngleFromGravity(-5.0, -4.8, 0.5, 0, true);
         expect(ambiguous.angle).toBe(0);
+      });
+    });
+
+    describe("isIOSPlatform detection", () => {
+      it("correctly identifies Android Chrome (even with DeviceMotionEvent.requestPermission) as non-iOS", () => {
+        const androidUA =
+          "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Mobile Safari/537.36";
+        expect(isIOSPlatform(androidUA)).toBe(false);
+      });
+
+      it("correctly identifies iPhone as iOS", () => {
+        const iPhoneUA =
+          "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
+        expect(isIOSPlatform(iPhoneUA)).toBe(true);
+      });
+
+      it("correctly identifies iPad as iOS", () => {
+        const iPadUA =
+          "Mozilla/5.0 (iPad; CPU OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
+        expect(isIOSPlatform(iPadUA)).toBe(true);
+      });
+
+      it("identifies desktop browser as non-iOS", () => {
+        const desktopUA =
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+        expect(isIOSPlatform(desktopUA)).toBe(false);
       });
     });
   });
