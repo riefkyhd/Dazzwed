@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { triggerHaptic } from "@/lib/camera/haptics";
 
@@ -24,6 +25,11 @@ export function EventSwitcher({ currentEvent, allEvents }: EventSwitcherProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // New Event Form State
   const [coupleNames, setCoupleNames] = useState("");
@@ -182,9 +188,9 @@ export function EventSwitcher({ currentEvent, allEvents }: EventSwitcherProps) {
         </>
       )}
 
-      {/* New Event Modal */}
-      {showNewModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
+      {/* New Event Modal rendered via createPortal so it escapes header stacking context */}
+      {showNewModal && mounted && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="w-full max-w-md rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl relative text-left">
             <h2 className="text-xl font-serif font-bold text-white mb-1">Create New Wedding / Event</h2>
             <p className="text-xs text-zinc-400 mb-5">
@@ -267,7 +273,8 @@ export function EventSwitcher({ currentEvent, allEvents }: EventSwitcherProps) {
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
