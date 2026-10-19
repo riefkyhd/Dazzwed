@@ -25,12 +25,42 @@ export interface EventRow {
 
 export async function getEventBySlug(slug: string): Promise<EventRow | null> {
   if (!/^[a-z0-9][a-z0-9-]{1,62}$/.test(slug)) return null;
-  const { data, error } = await supabaseAdmin()
+  const sb = supabaseAdmin();
+  
+  // Try extended schema
+  const { data, error } = await sb
     .from("events")
     .select("id,slug,couple_names,shots_per_guest,opens_at,closes_at,manually_closed,theme,drive_root_folder_id,access_token,token_expires_at,token_duration_hours,status,package_tier,package_max_guests,package_max_shots_per_guest,dual_master_enabled,expires_at,created_at")
     .eq("slug", slug)
     .maybeSingle();
 
-  if (error) throw new Error(`getEventBySlug failed: ${error.message}`);
-  return data as EventRow | null;
+  if (!error && data) {
+    return {
+      ...(data as any),
+      status: (data as any).status || ((data as any).manually_closed ? "archived" : "active"),
+      package_tier: (data as any).package_tier || "owner_unlimited",
+      package_max_guests: (data as any).package_max_guests ?? null,
+      package_max_shots_per_guest: (data as any).package_max_shots_per_guest ?? 100,
+      dual_master_enabled: (data as any).dual_master_enabled ?? true,
+    } as EventRow;
+  }
+
+  // Fallback to base columns if migration 0011 columns are pending in DB
+  const { data: baseData, error: baseError } = await sb
+    .from("events")
+    .select("id,slug,couple_names,shots_per_guest,opens_at,closes_at,manually_closed,theme,drive_root_folder_id,access_token,token_expires_at,token_duration_hours")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (baseError) throw new Error(`getEventBySlug failed: ${baseError.message}`);
+  if (!baseData) return null;
+
+  return {
+    ...(baseData as any),
+    status: (baseData as any).manually_closed ? "archived" : "active",
+    package_tier: "owner_unlimited",
+    package_max_guests: null,
+    package_max_shots_per_guest: 100,
+    dual_master_enabled: true,
+  } as EventRow;
 }
