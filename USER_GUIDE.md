@@ -380,3 +380,41 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Server-Side Enforcement:**
      - `/api/admin/settings`: Settings updates for `shots_per_guest` are strictly clamped at `package_max_shots_per_guest`. Client hosts cannot exceed their purchased entitlement.
      - `/api/guests`: Enforces `package_max_guests`. If registrations reach the package limit, further creations are blocked with `403 PACKAGE_GUEST_LIMIT_REACHED`.
+
+
+---
+
+## 13. Stage 2 Multi-Tenant SaaS — Platform Owner Console (`/superadmin`), Client Accounts & Strict RBAC
+
+1. **Dual-Role Tenant Architecture (`superadmin` vs. `client`):**
+   - **Platform Owner (`superadmin`):** Authenticated via master email allowlist (`ADMIN_EMAILS`) or signed owner session. Holds unrestricted platform-level control across all events, platform infrastructure (Google Drive OAuth, System Health diagnostics), and client accounts.
+   - **Client Host (`client`):** Authenticated via client email + 8-character human-readable access code (or password) stored in `public.clients`. Scoped exclusively to wedding events assigned to their `client_id`.
+
+2. **Platform Owner Console (`/superadmin`):**
+   - Accessible exclusively to Platform Owners via direct URL or the gold `👑 Owner Console` navigation link.
+   - **Platform KPI Overview:** Real-time counters displaying Active Clients vs. Total Clients, Total Platform Event Rolls, Total Photos Synced to Google Drive, and Total Registered Guests.
+   - **Client Account Provisioning:**
+     - Create new client accounts with Name, Email, Max Allowed Event Rolls (e.g., 1 for single wedding, 2–3 for engagement + wedding packages), and internal notes.
+     - Automatically generates an 8-character uppercase access code (e.g., `DZ-9K4M2L`).
+   - **1-Click WhatsApp Invitation Generator:**
+     - Generates a pre-formatted bilingual onboarding message containing the login portal URL (`/admin/login`), client email, and access code, ready to send directly to couples or Wedding Organizers via WhatsApp.
+   - **Instant Suspension & Revocation:**
+     - Clicking "Suspend" on any client immediately revokes access across both web sessions and API requests. The signed cookie session validator checks `public.clients.status === 'active'` on every request, providing zero-delay security enforcement.
+   - **Event Assignment & Package Tier Overrides:**
+     - Assign unassigned / platform-owned events to any client account.
+     - Override package tier entitlements (`pocket_roll`, `classic_35mm`, `grand_archive`, `owner_unlimited`), guest caps, and max shots per guest with immediate server-side enforcement.
+
+3. **Client Host Portal Scoping (`/admin`):**
+   - **Strict Event Scoping:** `getActiveAdminEvent()` and `listAdminEvents()` query strictly by `WHERE client_id = session.clientId`. Client hosts cannot view, query, or switch into events belonging to other clients or unassigned owner events.
+   - **Tailored Event Switcher:**
+     - If a client has only 1 event and `max_events === 1`, the switcher displays a clean static event title and status badge with no dropdown or unauthorized `+ New Event` button.
+     - If a client holds a multi-event package (`max_events > 1`), they can seamlessly toggle between their own events, while new event creation is strictly capped by their package limit.
+   - **Owner-Only Route & Navigation Shielding:**
+     - System infrastructure controls (`/admin/connect-drive`, `/admin/health`, `/api/admin/drive/**`, `/api/admin/drive-health`) are completely stripped from client navigation bars and mobile drawers.
+     - Direct HTTP requests to infrastructure and superadmin routes are rejected with `403 Forbidden: Superadmin access required`.
+   - **Reassuring Storage Vault Card:**
+     - Replaces technical Drive OAuth buttons with a sleek "Cloud Storage Vault: Connected" card, confirming that high-resolution photos are safely backed up in real time to the dedicated event drive vault.
+
+4. **Tenant Ownership Enforcement on Photos (`/api/admin/photos/[id]/**`):**
+   - Individual photo routes (streaming `/image`, deletion `/delete`, hide `/hide`, unhide `/unhide`, and bulk `.ZIP` exports) verify tenant ownership before returning or mutating data.
+   - If a client requests a photo ID belonging to another client or unassigned event, the route rejects the request with `403 Forbidden: Access denied to photo`.

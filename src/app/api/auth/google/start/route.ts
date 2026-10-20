@@ -5,6 +5,12 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const { getAuthSession } = await import("@/lib/auth/session");
+  const session = await getAuthSession();
+  if (!session || session.role !== "superadmin") {
+    return NextResponse.json({ error: "Forbidden: Only superadmins can connect Google Drive vault" }, { status: 403 });
+  }
+
   const url = new URL(req.url);
   const eventSlug = url.searchParams.get("slug") || "our-wedding";
 

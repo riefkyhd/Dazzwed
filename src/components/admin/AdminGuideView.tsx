@@ -532,6 +532,21 @@ export function AdminGuideView() {
                   : "Kelola berbagai acara pernikahan dan perayaan sekaligus dengan isolasi data yang menyeluruh. Gunakan dropdown Event Switcher di bilah navigasi atas untuk berpindah acara atau membuat acara baru dengan mudah. Setiap acara memiliki tautan QR mandiri, token akses kriptografis berputar (?t=<token>), struktur folder Google Drive khusus, rol tamu, dan galeri foto terpisah. Dilengkapi manajemen siklus acara (Aktif, Dijeda untuk istirahat, atau Diarsipkan) serta kunci kuota paket di sisi server (Pocket Roll, Classic 35mm, Grand Archive, atau Owner Unlimited) yang memastikan batas tamu dan jepretan per rol tidak melampaui paket yang disewa."}
               </p>
             </div>
+
+            {/* Control 16: Multi-Tenant SaaS, Platform Owner Console (/superadmin) & Client RBAC */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Multi-Tenant SaaS: Superadmin Console & Client RBAC" : "SaaS Multi-Tenant: Konsol Superadmin & RBAC Klien"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Dual-role tenant architecture distinguishing the Platform Owner (superadmin) from paying wedding couples and Wedding Organizers (client). Platform Owners manage clients, assign events, override package tiers, and monitor platform-wide KPIs via the dedicated /superadmin console. Client accounts log in via /admin/login using their email and an 8-character access code. Client sessions are strictly scoped to their assigned events: non-applicable infrastructure controls (Drive OAuth connection, System Health) are hidden, multi-event creation is capped by their package entitlement, and individual photo API endpoints enforce tenant ownership checks (returning 403 Forbidden on foreign access). Includes instant database suspension enforcement (immediately revoking active cookies) and a 1-click WhatsApp invitation generator for effortless couple onboarding."
+                  : "Arsitektur multi-tenant dua peran yang memisahkan Pemilik Platform (superadmin) dengan pasangan pengantin dan Wedding Organizer (klien). Pemilik Platform mengelola akun klien, membagikan acara, mengubah kuota paket, dan memantau KPI seluruh platform melalui konsol /superadmin. Akun klien masuk melalui /admin/login menggunakan email dan kode akses 8-karakter. Sesi klien dibatasi secara ketat hanya pada acara milik mereka: pengaturan infrastruktur (OAuth Google Drive, System Health) disembunyikan, pembuatan acara baru dibatasi kuota paket, dan endpoint foto individual memvalidasi kepemilikan tenant (menolak akses dengan 403 Forbidden). Dilengkapi pencabutan akses instan saat akun ditangguhkan serta generator undangan WhatsApp 1-klik untuk kemudahan orientasi klien."}
+              </p>
+            </div>
           </div>
         </div>
       )}

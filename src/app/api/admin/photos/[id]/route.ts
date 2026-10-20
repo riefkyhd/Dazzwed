@@ -35,14 +35,33 @@ export async function GET(
 
     if (UUID_REGEX.test(id)) {
       const sb = supabaseAdmin();
+
+      // Check tenant ownership if caller is a client
+      let clientScopeId: string | null = null;
+      try {
+        const { getAuthSession } = await import("@/lib/auth/session");
+        const session = await getAuthSession();
+        if (session && session.role === "client") {
+          clientScopeId = session.clientId;
+        }
+      } catch {}
+
       const { data: photo } = await sb
         .from("photos")
-        .select("id, shot_id, drive_file_id, original_drive_file_id, status")
+        .select("id, shot_id, drive_file_id, original_drive_file_id, status, event_id, events(client_id)")
         .or(`id.eq.${id},shot_id.eq.${id}`)
         .maybeSingle();
 
       if (!photo) {
         return NextResponse.json({ error: "Photo not found" }, { status: 404 });
+      }
+
+      // Security Check 1: Tenant Ownership Verification
+      if (clientScopeId) {
+        const photoClientId = (photo as any)?.events?.client_id;
+        if (photoClientId !== clientScopeId) {
+          return NextResponse.json({ error: "Access denied to photos of another client" }, { status: 403 });
+        }
       }
 
       if (type === "original") {

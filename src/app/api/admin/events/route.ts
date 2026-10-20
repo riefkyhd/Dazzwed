@@ -19,10 +19,26 @@ export async function GET() {
   }
 
   const sb = supabaseAdmin();
-  const { data: events, error } = await sb
+
+  // Resolve caller session: superadmin vs client
+  let clientScopeId: string | null = null;
+  try {
+    const { getAuthSession } = await import("@/lib/auth/session");
+    const session = await getAuthSession();
+    if (session && session.role === "client") {
+      clientScopeId = session.clientId;
+    }
+  } catch {}
+
+  let query = sb
     .from("events")
-    .select("id, slug, couple_names, shots_per_guest, status, package_tier, package_max_guests, package_max_shots_per_guest, drive_root_folder_id, created_at, access_token")
-    .order("created_at", { ascending: false });
+    .select("id, slug, couple_names, shots_per_guest, status, package_tier, package_max_guests, package_max_shots_per_guest, drive_root_folder_id, created_at, access_token, client_id");
+
+  if (clientScopeId) {
+    query = query.eq("client_id", clientScopeId);
+  }
+
+  const { data: events, error } = await query.order("created_at", { ascending: false });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -58,6 +74,43 @@ export async function POST(req: Request) {
     }
 
     const coupleNames = body.couple_names.trim();
+    const sb = supabaseAdmin();
+
+    // Resolve caller session: superadmin vs client
+    let clientScopeId: string | null = null;
+    let clientAllowedMaxEvents = 1;
+    let clientPackageTier = "classic_35mm";
+    let clientMaxShots = 25;
+
+    try {
+      const { getAuthSession } = await import("@/lib/auth/session");
+      const session = await getAuthSession();
+      if (session && session.role === "client") {
+        clientScopeId = session.clientId;
+        // Check client's max_events entitlement
+        const { data: clientRecord } = await sb
+          .from("clients")
+          .select("id, max_events, status")
+          .eq("id", clientScopeId)
+          .maybeSingle();
+
+        if (clientRecord) {
+          clientAllowedMaxEvents = clientRecord.max_events || 1;
+          const { count } = await sb
+            .from("events")
+            .select("*", { count: "exact", head: true })
+            .eq("client_id", clientScopeId);
+
+          if (count !== null && count >= clientAllowedMaxEvents) {
+            return NextResponse.json(
+              { error: `You have reached your event limit (${clientAllowedMaxEvents} event). Contact your coordinator to add more rolls.`, code: "CLIENT_MAX_EVENTS_REACHED" },
+              { status: 403 }
+            );
+          }
+        }
+      }
+    } catch {}
+
     // Auto-generate slug if not provided or clean it
     let slug = (body.slug || coupleNames)
       .toLowerCase()
@@ -69,17 +122,15 @@ export async function POST(req: Request) {
       slug = `event-${Date.now().toString(36)}`;
     }
 
-    const shotsPerGuest = typeof body.shots_per_guest === "number" ? Math.max(1, Math.min(100, body.shots_per_guest)) : 25;
-    const packageTier = body.package_tier || "owner_unlimited";
-    const packageMaxShots = typeof body.package_max_shots_per_guest === "number" ? body.package_max_shots_per_guest : 100;
-    const packageMaxGuests = typeof body.package_max_guests === "number" ? body.package_max_guests : null;
+    const packageTier = clientScopeId ? clientPackageTier : (body.package_tier || "owner_unlimited");
+    const packageMaxShots = clientScopeId ? clientMaxShots : (typeof body.package_max_shots_per_guest === "number" ? body.package_max_shots_per_guest : 100);
+    const shotsPerGuest = typeof body.shots_per_guest === "number" ? Math.max(1, Math.min(packageMaxShots, body.shots_per_guest)) : 25;
+    const packageMaxGuests = clientScopeId ? 150 : (typeof body.package_max_guests === "number" ? body.package_max_guests : null);
     const status = body.status === "paused" ? "paused" : "active";
 
     const accessToken = generateEventToken();
     const tokenDurationHours = 72;
     const tokenExpiresAt = new Date(Date.now() + tokenDurationHours * 3600 * 1000).toISOString();
-
-    const sb = supabaseAdmin();
 
     // Check slug uniqueness; if taken, append timestamp
     const { data: existing } = await sb.from("events").select("id").eq("slug", slug).maybeSingle();
@@ -102,6 +153,7 @@ export async function POST(req: Request) {
         token_expires_at: tokenExpiresAt,
         token_duration_hours: tokenDurationHours,
         drive_root_folder_id: body.drive_root_folder_id || null,
+        client_id: clientScopeId || (body as any).client_id || null,
         theme: {
           accentColor: "#f59e0b",
           accentFg: "#000000",
@@ -150,9 +202,20 @@ export async function PUT(req: Request) {
     }
 
     const sb = supabaseAdmin();
-    const { data: event } = await sb.from("events").select("id, slug, couple_names").eq("id", body.eventId).maybeSingle();
+    let query = sb.from("events").select("id, slug, couple_names, client_id").eq("id", body.eventId);
+
+    // If client, ensure they own the event
+    try {
+      const { getAuthSession } = await import("@/lib/auth/session");
+      const session = await getAuthSession();
+      if (session && session.role === "client") {
+        query = query.eq("client_id", session.clientId);
+      }
+    } catch {}
+
+    const { data: event } = await query.maybeSingle();
     if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+      return NextResponse.json({ error: "Event not found or not permitted" }, { status: 404 });
     }
 
     const cookieStore = await cookies();

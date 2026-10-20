@@ -15,6 +15,24 @@ export async function POST(
 
   const { id } = await props.params;
 
+  // Security Check 1: Tenant Ownership Verification
+  try {
+    const { getAuthSession } = await import("@/lib/auth/session");
+    const session = await getAuthSession();
+    if (session && session.role === "client") {
+      const { supabaseAdmin } = await import("@/lib/supabase/admin");
+      const { data: photo } = await supabaseAdmin()
+        .from("photos")
+        .select("id, event_id, events(client_id)")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (!photo || (photo as any)?.events?.client_id !== session.clientId) {
+        return NextResponse.json({ error: "Access denied: photo belongs to another client" }, { status: 403 });
+      }
+    }
+  } catch {}
+
   try {
     await unhidePhoto(id);
     return NextResponse.json({ ok: true, id, status: "confirmed" });

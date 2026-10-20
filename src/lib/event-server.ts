@@ -19,6 +19,7 @@ export interface EventRow {
   package_max_guests: number | null;
   package_max_shots_per_guest: number;
   dual_master_enabled: boolean;
+  client_id?: string | null;
   expires_at?: string | null;
   created_at?: string;
 }
@@ -30,7 +31,7 @@ export async function getEventBySlug(slug: string): Promise<EventRow | null> {
   // Try extended schema
   const { data, error } = await sb
     .from("events")
-    .select("id,slug,couple_names,shots_per_guest,opens_at,closes_at,manually_closed,theme,drive_root_folder_id,access_token,token_expires_at,token_duration_hours,status,package_tier,package_max_guests,package_max_shots_per_guest,dual_master_enabled,expires_at,created_at")
+    .select("id,slug,couple_names,shots_per_guest,opens_at,closes_at,manually_closed,theme,drive_root_folder_id,access_token,token_expires_at,token_duration_hours,status,package_tier,package_max_guests,package_max_shots_per_guest,dual_master_enabled,client_id,expires_at,created_at")
     .eq("slug", slug)
     .maybeSingle();
 

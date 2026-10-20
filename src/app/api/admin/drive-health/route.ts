@@ -5,9 +5,10 @@ import { getAdminUser } from "@/lib/supabase/auth";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const admin = await getAdminUser();
-  if (!admin) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const { getAuthSession } = await import("@/lib/auth/session");
+  const session = await getAuthSession();
+  if (!session || session.role !== "superadmin") {
+    return NextResponse.json({ error: "Forbidden: Superadmin access required" }, { status: 403 });
   }
 
   const health = await checkDriveHealth();

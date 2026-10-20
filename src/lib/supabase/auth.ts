@@ -20,6 +20,23 @@ export function isEmailAdmin(email: string | null | undefined): boolean {
  * Returns the User object if authorized, or null otherwise.
  */
 export async function getAdminUser(): Promise<User | null> {
+  // First check if an AuthSession exists (supporting superadmin and clients)
+  try {
+    const { getAuthSession } = await import("@/lib/auth/session");
+    const session = await getAuthSession();
+    if (session) {
+      return {
+        id: session.role === "client" ? session.clientId : (session.userId || "superadmin"),
+        email: session.email,
+        app_metadata: { role: session.role },
+        user_metadata: { name: session.name, role: session.role },
+        aud: "authenticated",
+        created_at: new Date().toISOString(),
+      } as unknown as User;
+    }
+  } catch {}
+
+  // Fallback to Supabase auth for legacy or direct sessions
   try {
     const supabase = await createClient();
     const {

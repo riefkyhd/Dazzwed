@@ -9,6 +9,9 @@ export const revalidate = 0;
 
 export default async function AdminSettingsPage() {
   await requireAdmin();
+  const { getAuthSession } = await import("@/lib/auth/session");
+  const session = await getAuthSession();
+  const userRole = session?.role || "superadmin";
 
   const event = await getActiveAdminEvent();
 
@@ -48,6 +51,7 @@ export default async function AdminSettingsPage() {
         token_duration_hours: event.token_duration_hours ?? 72,
         theme: themeObj,
       }}
+      userRole={userRole}
     />
   );
 }

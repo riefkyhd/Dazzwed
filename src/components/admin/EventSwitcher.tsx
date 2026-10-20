@@ -18,9 +18,16 @@ export interface EventItem {
 interface EventSwitcherProps {
   currentEvent: EventItem;
   allEvents: EventItem[];
+  userRole?: "superadmin" | "client";
+  maxEvents?: number;
 }
 
-export function EventSwitcher({ currentEvent, allEvents }: EventSwitcherProps) {
+export function EventSwitcher({
+  currentEvent,
+  allEvents,
+  userRole = "superadmin",
+  maxEvents = 1,
+}: EventSwitcherProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [showNewModal, setShowNewModal] = useState(false);
@@ -107,6 +114,21 @@ export function EventSwitcher({ currentEvent, allEvents }: EventSwitcherProps) {
     }
   };
 
+  // If client only has 1 event, render a static badge without dropdown or + New Event
+  if (userRole === "client" && allEvents.length <= 1) {
+    return (
+      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-800 text-xs font-medium text-white shadow-sm shrink-0">
+        <span className="w-2 h-2 rounded-full bg-emerald-400" />
+        <span className="max-w-[110px] sm:max-w-[170px] truncate font-serif font-bold text-zinc-100">
+          {currentEvent.couple_names}
+        </span>
+        {getStatusBadge(currentEvent.status)}
+      </div>
+    );
+  }
+
+  const canCreateMore = userRole === "superadmin" || allEvents.length < maxEvents;
+
   return (
     <div className="relative">
       {/* Trigger Button */}
@@ -139,16 +161,22 @@ export function EventSwitcher({ currentEvent, allEvents }: EventSwitcherProps) {
               <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
                 Event Switcher
               </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setShowNewModal(true);
-                  setIsOpen(false);
-                }}
-                className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
-              >
-                + New Event
-              </button>
+              {canCreateMore ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewModal(true);
+                    setIsOpen(false);
+                  }}
+                  className="text-[11px] font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                >
+                  + New Event
+                </button>
+              ) : (
+                <span className="text-[10px] font-mono text-zinc-500">
+                  Plan Quota ({allEvents.length}/{maxEvents})
+                </span>
+              )}
             </div>
 
             <div className="max-h-60 overflow-y-auto py-1">

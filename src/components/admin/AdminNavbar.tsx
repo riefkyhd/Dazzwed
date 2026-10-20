@@ -9,11 +9,21 @@ import { EventSwitcher, type EventItem } from "@/components/admin/EventSwitcher"
 
 interface AdminNavbarProps {
   userEmail: string;
+  userRole?: "superadmin" | "client";
+  userDisplayName?: string;
+  maxEvents?: number;
   currentEvent?: EventItem;
   allEvents?: EventItem[];
 }
 
-export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarProps) {
+export function AdminNavbar({
+  userEmail,
+  userRole = "superadmin",
+  userDisplayName,
+  maxEvents = 1,
+  currentEvent,
+  allEvents = [],
+}: AdminNavbarProps) {
   const pathname = usePathname();
   const [optimisticPath, setOptimisticPath] = useState<string | null>(null);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -168,10 +178,18 @@ export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarP
     },
   ];
 
-  const isMoreActive = moreItems.some((item) => activePath.startsWith(item.href));
+  // Filter more items by role:
+  const allowedMoreItems = moreItems.filter((item) => {
+    if (userRole === "client" && (item.href === "/admin/health" || item.href === "/admin/connect-drive")) {
+      return false;
+    }
+    return true;
+  });
+
+  const isMoreActive = allowedMoreItems.some((item) => activePath.startsWith(item.href));
   const isGuideActive = activePath.startsWith("/admin/guide");
   const username = userEmail ? userEmail.split("@")[0] : "admin";
-  const userInitial = (userEmail ? userEmail.charAt(0) : "A").toUpperCase();
+  const userInitial = (userDisplayName ? userDisplayName.charAt(0) : userEmail ? userEmail.charAt(0) : "A").toUpperCase();
 
   return (
     <>
@@ -197,9 +215,15 @@ export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarP
                 />
               </div>
             </Link>
-            <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
-              Admin
-            </span>
+            {userRole === "superadmin" ? (
+              <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+                Owner
+              </span>
+            ) : (
+              <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
+                Host Admin
+              </span>
+            )}
           </div>
 
           {/* Center-Left: 5 Crisp Single-Line Desktop Nav Links (Hidden on < lg) */}
@@ -229,8 +253,24 @@ export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarP
 
           {/* Right Side (Desktop >= lg): EventSwitcher + ? Guide Pill + Account Dropdown */}
           <div className="hidden lg:flex items-center gap-2.5 shrink-0">
+            {userRole === "superadmin" && (
+              <Link
+                href="/superadmin"
+                prefetch={true}
+                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap flex items-center gap-1.5 border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-amber-600/25 text-amber-300 hover:brightness-110 shadow-sm"
+              >
+                <span>👑</span>
+                <span>Owner Console</span>
+              </Link>
+            )}
+
             {currentEvent && allEvents && (
-              <EventSwitcher currentEvent={currentEvent} allEvents={allEvents} />
+              <EventSwitcher
+                currentEvent={currentEvent}
+                allEvents={allEvents}
+                userRole={userRole}
+                maxEvents={maxEvents}
+              />
             )}
 
             {/* ? Guide Pill Button */}
@@ -262,7 +302,7 @@ export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarP
                 <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-bold flex items-center justify-center shrink-0">
                   {userInitial}
                 </span>
-                <span className="max-w-[120px] truncate">{username}</span>
+                <span className="max-w-[120px] truncate">{userDisplayName || username}</span>
                 <svg
                   className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
                     showAccountMenu ? "rotate-180" : ""
@@ -281,48 +321,99 @@ export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarP
                   {/* Signed-in Header */}
                   <div className="px-3 py-2 border-b border-stone-800/80">
                     <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                      Signed in as
+                      Signed in as ({userRole === "superadmin" ? "Platform Owner" : "Host Client"})
                     </div>
                     <div className="text-xs font-mono text-zinc-300 truncate mt-0.5" title={userEmail}>
-                      {userEmail}
+                      {userDisplayName ? `${userDisplayName} (${userEmail})` : userEmail}
                     </div>
                   </div>
 
                   {/* System Links */}
                   <div className="py-1 space-y-0.5">
-                    <Link
-                      href="/admin/connect-drive"
-                      prefetch={true}
-                      onClick={() => {
-                        setOptimisticPath("/admin/connect-drive");
-                        setShowAccountMenu(false);
-                      }}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
-                        activePath.startsWith("/admin/connect-drive")
-                          ? "bg-zinc-800 text-amber-300 font-medium"
-                          : "text-zinc-300 hover:text-white hover:bg-zinc-800/60"
-                      }`}
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="w-4 h-4 text-blue-400 shrink-0"
+                    {userRole === "superadmin" && (
+                      <Link
+                        href="/superadmin"
+                        prefetch={true}
+                        onClick={() => {
+                          setOptimisticPath("/superadmin");
+                          setShowAccountMenu(false);
+                        }}
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                          activePath.startsWith("/superadmin")
+                            ? "bg-amber-500/20 text-amber-300"
+                            : "text-amber-400 hover:text-white hover:bg-amber-500/10"
+                        }`}
                       >
-                        <path d="M5.5 16a3.5 3.5 0 0 1-.369-6.98 4 4 0 1 1 7.753-1.977A4.5 4.5 0 1 1 13.5 16h-8Z" />
-                      </svg>
-                      <span>Connect Google Drive</span>
-                    </Link>
+                        <span className="text-sm">👑</span>
+                        <span>Superadmin Console</span>
+                      </Link>
+                    )}
+
+                    {userRole === "superadmin" && (
+                      <>
+                        <Link
+                          href="/admin/connect-drive"
+                          prefetch={true}
+                          onClick={() => {
+                            setOptimisticPath("/admin/connect-drive");
+                            setShowAccountMenu(false);
+                          }}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
+                            activePath.startsWith("/admin/connect-drive")
+                              ? "bg-zinc-800 text-amber-300 font-medium"
+                              : "text-zinc-300 hover:text-white hover:bg-zinc-800/60"
+                          }`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="w-4 h-4 text-blue-400 shrink-0"
+                          >
+                            <path d="M5.5 16a3.5 3.5 0 0 1-.369-6.98 4 4 0 1 1 7.753-1.977A4.5 4.5 0 1 1 13.5 16h-8Z" />
+                          </svg>
+                          <span>Connect Google Drive</span>
+                        </Link>
+
+                        <Link
+                          href="/admin/health"
+                          prefetch={true}
+                          onClick={() => {
+                            setOptimisticPath("/admin/health");
+                            setShowAccountMenu(false);
+                          }}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
+                            activePath.startsWith("/admin/health")
+                              ? "bg-zinc-800 text-amber-300 font-medium"
+                              : "text-zinc-300 hover:text-white hover:bg-zinc-800/60"
+                          }`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            className="w-4 h-4 text-emerald-400 shrink-0"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M10 1a9 9 0 1 0 9 9 9.01 9.01 0 0 0-9-9Zm.75 4a.75.75 0 0 0-1.5 0v3.44l-2.22 1.28a.75.75 0 1 0 .75 1.3l2.6-1.5a.75.75 0 0 0 .37-.65V5Z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span>System Health</span>
+                        </Link>
+                      </>
+                    )}
 
                     <Link
-                      href="/admin/health"
+                      href="/admin/guide"
                       prefetch={true}
                       onClick={() => {
-                        setOptimisticPath("/admin/health");
+                        setOptimisticPath("/admin/guide");
                         setShowAccountMenu(false);
                       }}
                       className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
-                        activePath.startsWith("/admin/health")
+                        activePath.startsWith("/admin/guide")
                           ? "bg-zinc-800 text-amber-300 font-medium"
                           : "text-zinc-300 hover:text-white hover:bg-zinc-800/60"
                       }`}
@@ -331,15 +422,11 @@ export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarP
                         xmlns="http://www.w3.org/2000/svg"
                         viewBox="0 0 20 20"
                         fill="currentColor"
-                        className="w-4 h-4 text-emerald-400 shrink-0"
+                        className="w-4 h-4 text-amber-400 shrink-0"
                       >
-                        <path
-                          fillRule="evenodd"
-                          d="M10 1a9 9 0 1 0 9 9 9.01 9.01 0 0 0-9-9Zm.75 4a.75.75 0 0 0-1.5 0v3.44l-2.22 1.28a.75.75 0 1 0 .75 1.3l2.6-1.5a.75.75 0 0 0 .37-.65V5Z"
-                          clipRule="evenodd"
-                        />
+                        <path d="M10.75 16.82A7.462 7.462 0 0 1 15 15.5c.71 0 1.396.098 2.046.282A.75.75 0 0 0 18 15.06v-11a.75.75 0 0 0-.546-.721A9.006 9.006 0 0 0 15 3a8.963 8.963 0 0 0-4.25 1.065V16.82ZM9.25 4.065A8.963 8.963 0 0 0 5 3c-.85 0-1.673.118-2.455.339A.75.75 0 0 0 2 4.06v11a.75.75 0 0 0 .954.722A7.462 7.462 0 0 1 5 15.5c1.579 0 3.042.487 4.25 1.32V4.065Z" />
                       </svg>
-                      <span>System Health</span>
+                      <span>User Guide & Manual</span>
                     </Link>
                   </div>
 
@@ -378,8 +465,23 @@ export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarP
 
           {/* Right Side Mobile & Tablet (< lg): EventSwitcher, Quick Guide link & Sign out */}
           <div className="flex lg:hidden items-center gap-1.5 shrink-0">
+            {userRole === "superadmin" && (
+              <Link
+                href="/superadmin"
+                prefetch={true}
+                className="p-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 border border-amber-500/40 bg-amber-500/15 text-amber-300 flex items-center justify-center min-w-[32px] min-h-[32px]"
+                title="Superadmin Console"
+              >
+                👑
+              </Link>
+            )}
             {currentEvent && allEvents && (
-              <EventSwitcher currentEvent={currentEvent} allEvents={allEvents} />
+              <EventSwitcher
+                currentEvent={currentEvent}
+                allEvents={allEvents}
+                userRole={userRole}
+                maxEvents={maxEvents}
+              />
             )}
             <Link
               href="/admin/guide"
@@ -504,7 +606,7 @@ export function AdminNavbar({ userEmail, currentEvent, allEvents }: AdminNavbarP
             </div>
 
             <div className="space-y-2">
-              {moreItems.map((item) => {
+              {allowedMoreItems.map((item) => {
                 const isActive = activePath.startsWith(item.href);
                 return (
                   <Link

@@ -30,9 +30,10 @@ interface SettingsViewProps {
       sessionResetAt?: string;
     };
   };
+  userRole?: "superadmin" | "client";
 }
 
-export function SettingsView({ initialEvent }: SettingsViewProps) {
+export function SettingsView({ initialEvent, userRole = "superadmin" }: SettingsViewProps) {
   const router = useRouter();
   const [coupleNames, setCoupleNames] = useState(initialEvent.couple_names);
   const [shotsPerGuest, setShotsPerGuest] = useState(initialEvent.shots_per_guest);
@@ -393,6 +394,36 @@ export function SettingsView({ initialEvent }: SettingsViewProps) {
             <p className="text-[11px] text-zinc-500 mt-1">
               Standard disposable camera has 15 or 27 exposures. Capped by your client package entitlement.
             </p>
+          </div>
+
+          {/* Cloud Storage Vault Status */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-xl bg-zinc-900/60 border border-zinc-800/80">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M10 1a4.5 4.5 0 0 0-4.5 4.5V9H5a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6a2 2 0 0 0-2-2h-.5V5.5A4.5 4.5 0 0 0 10 1Zm3 8V5.5a3 3 0 1 0-6 0V9h6Z" clipRule="evenodd" />
+                </svg>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-zinc-200 flex items-center gap-2">
+                  <span>Cloud Storage Vault</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    CONNECTED
+                  </span>
+                </div>
+                <div className="text-[11px] text-zinc-400">
+                  Full-resolution photos are automatically backed up in real time to the dedicated event drive vault.
+                </div>
+              </div>
+            </div>
+            {userRole === "superadmin" && (
+              <a
+                href="/admin/connect-drive"
+                className="text-xs font-medium text-amber-400 hover:text-amber-300 underline shrink-0 whitespace-nowrap self-end sm:self-center"
+              >
+                Configure Vault →
+              </a>
+            )}
           </div>
         </div>
 

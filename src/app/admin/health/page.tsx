@@ -8,7 +8,8 @@ import { getActiveAdminEvent } from "@/lib/events/active";
 export const dynamic = "force-dynamic";
 
 export default async function AdminHealthPage() {
-  await requireAdmin();
+  const { requireSuperadmin } = await import("@/lib/auth/session");
+  await requireSuperadmin();
 
   const sb = supabaseAdmin();
 

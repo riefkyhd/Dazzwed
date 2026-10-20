@@ -1,5 +1,6 @@
 import React from "react";
 import { getAdminUser } from "@/lib/supabase/auth";
+import { getAuthSession } from "@/lib/auth/session";
 import { AdminNavbar } from "@/components/admin/AdminNavbar";
 import { getActiveAdminEvent, listAdminEvents } from "@/lib/events/active";
 
@@ -10,17 +11,25 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getAdminUser();
-  const [activeEvent, allEvents] = await Promise.all([
+  const [user, session, activeEvent, allEvents] = await Promise.all([
+    getAdminUser(),
+    getAuthSession(),
     getActiveAdminEvent(),
     listAdminEvents(),
   ]);
+
+  const userRole = session?.role || "superadmin";
+  const userDisplayName = session?.name || user?.email || "Admin";
+  const maxEvents = session?.role === "client" ? (session.maxEvents ?? 1) : 999;
 
   return (
     <div className="min-h-screen bg-[#0C0A09] text-zinc-100 font-sans selection:bg-amber-400 selection:text-black">
       {user && user.email && (
         <AdminNavbar
           userEmail={user.email}
+          userRole={userRole}
+          userDisplayName={userDisplayName}
+          maxEvents={maxEvents}
           currentEvent={activeEvent ? {
             id: activeEvent.id,
             slug: activeEvent.slug,
