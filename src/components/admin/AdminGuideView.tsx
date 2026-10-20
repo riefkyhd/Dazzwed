@@ -577,6 +577,21 @@ export function AdminGuideView() {
                   : "Header breadcrumb terinspirasi Vercel / Linear yang menyusun hierarki spasial dengan rapi dan mengeliminasi tumpukan tombol berlebih. Zona 1 (Kiri) memuat logo Unveiled, pemisah garis miring halus (/), dan Event Switcher ghost dengan titik status 6px yang elegan (hijau untuk Aktif, kuning untuk Jeda, abu-abu untuk Arsip) bertipografi geometric sans. Zona 2 (Tengah) menampung tab navigasi utama dengan status aktif berdaya kontras tinggi. Zona 3 (Kanan) merapikan utilitas ke dalam tombol ikon Panduan 32x32px yang tenang serta menu dropdown Akun Pengguna terpadu (menampilkan inisial dan lencana peran, dengan Konsol Superadmin, System Health, dan Keluar tersimpan rapi di dalam — bebas dari teks email terpotong maupun emoji kartun)."}
               </p>
             </div>
+
+            {/* Control 19: Full Luxury Editorial Redesign: Superadmin, Dashboard & Settings */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Full Luxury Editorial Redesign: Superadmin, Dashboard & Settings" : "Redesain Editorial Mewah Lengkap: Superadmin, Dashboard & Settings"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "End-to-end luxury darkroom design system applied across all administrative surfaces. Replaces all cartoon emojis with precision 1.75px stroke Lucide vector icons. Superadmin features a 3-zone header matching the top navigation bar, quiet KPI metric strips with 32x32px icon wells, clean client cards with 1-click DZ-XXXXXX access code copy and emoji-free WhatsApp invitation generator, and interactive tier radio cards. Event Dashboard introduces refined display serif titles, a 6px camera status dot, monospace slug links, compact h-8 quick-action clusters (Print QR, Download All, Guest Camera), and a quiet uploads table. Settings is restructured into 5 calm darkroom sections with standardized inputs and seamless 3D LUT recipe management."
+                  : "Sistem desain darkroom mewah ujung-ke-ujung yang diterapkan di seluruh antarmuka administratif. Menggantikan seluruh emoji kartun dengan ikon vektor Lucide berpresisi stroke 1.75px. Superadmin dilengkapi header 3-zona yang selaras dengan bilah navigasi atas, strip KPI tenang dengan wadah ikon 32x32px, kartu klien rapi dengan salin kode akses DZ-XXXXXX 1-klik dan generator undangan WhatsApp bebas emoji, serta kartu radio tingkat paket yang interaktif. Dashboard Acara menghadirkan tipografi display serif yang elegan, titik status kamera 6px, tautan slug monospace, kluster aksi cepat h-8 yang ringkas (Cetak QR, Unduh Semua, Kamera Tamu), dan tabel unggahan yang tenang. Pengaturan disusun ulang menjadi 5 bagian darkroom yang tenang dengan input standar dan manajemen resep 3D LUT yang mulus."}
+              </p>
+            </div>
           </div>
         </div>
       )}

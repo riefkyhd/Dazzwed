@@ -91,71 +91,89 @@ export function DashboardView({
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* 85% Storage Alert Banner */}
       {metrics.storageWarning && (
-        <div className="mb-6 p-4 rounded-xl bg-amber-950/80 border border-amber-600 text-amber-200 text-xs flex items-center justify-between">
+        <div className="mb-6 p-4 rounded-xl bg-amber-950/30 border border-amber-500/30 text-amber-200 text-xs flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <span className="text-base">⚠️</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-amber-400 shrink-0">
+              <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+              <line x1="12" x2="12" y1="9" y2="13" />
+              <line x1="12" x2="12.01" y1="17" y2="17" />
+            </svg>
             <div>
-              <p className="font-bold text-amber-300">Google Drive Storage Alert (85%+ Full)</p>
-              <p>{metrics.storageMessage || "Drive storage is over 85% full. Uploads will automatically pause at 98%."}</p>
+              <p className="font-semibold text-amber-300">Google Drive Storage Alert (85%+ Full)</p>
+              <p className="text-zinc-300">{metrics.storageMessage || "Drive storage is over 85% full. Uploads will automatically pause at 98%."}</p>
             </div>
           </div>
-          <Link href="/admin/connect-drive" className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 font-semibold text-amber-300">
+          <Link href="/admin/connect-drive" className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 font-medium text-amber-300 transition-colors">
             Check Quota
           </Link>
         </div>
       )}
 
       {/* Event Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-8 border-b border-zinc-800">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 mb-8 border-b border-zinc-800/80">
         <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white tracking-tight">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl sm:text-3xl font-serif text-white tracking-tight">
               {event.couple_names}
             </h1>
             <span
-              className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
+              className={`inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full font-medium ${
                 isEventOpen
                   ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                  : "bg-red-500/10 text-red-400 border border-red-500/30"
+                  : "bg-rose-500/10 text-rose-400 border border-rose-500/30"
               }`}
             >
-              {isEventOpen ? "Camera Open" : "Camera Closed"}
+              <span className={`w-1.5 h-1.5 rounded-full ${isEventOpen ? "bg-emerald-400" : "bg-rose-400"}`} />
+              <span>{isEventOpen ? "Camera Active" : "Camera Closed"}</span>
             </span>
           </div>
           <p className="text-xs text-zinc-400 mt-1 font-mono">
-            Event Slug: <span className="text-amber-400 font-semibold">{event.slug}</span> &bull; {event.shots_per_guest} shots per guest
+            /e/<span className="text-amber-400/90 font-medium">{event.slug}</span> &bull; {event.shots_per_guest} exposures/guest
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap">
           <Link
             href="/admin/photos?export=1"
-            className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-200 hover:text-amber-300 hover:border-amber-400/40 transition-all flex items-center gap-1.5"
+            className="h-8 px-3 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap"
             title="Download all event photos as .ZIP archive"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-amber-400">
-              <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
-              <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-400">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" x2="12" y1="15" y2="3" />
             </svg>
             <span>Download All (.ZIP)</span>
           </Link>
           <Link
             href={`/e/${event.slug}${event.access_token ? `?t=${event.access_token}` : ""}`}
             target="_blank"
-            className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-200 transition-all flex items-center gap-1.5"
+            className="h-8 px-3 rounded-lg bg-zinc-900/80 border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap"
           >
             <span>Guest Camera</span>
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5 text-zinc-400">
-              <path fillRule="evenodd" d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h4a.75.75 0 0 1 0 1.5h-4Z" clipRule="evenodd" />
-              <path fillRule="evenodd" d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" clipRule="evenodd" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-400">
+              <path d="M15 3h6v6" />
+              <path d="M10 14 21 3" />
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
             </svg>
           </Link>
           <Link
             href="/admin/qr"
-            className="px-3.5 py-2 rounded-xl bg-amber-400 text-black font-semibold text-xs hover:bg-amber-300 transition-all flex items-center gap-1.5"
+            className="h-8 px-3.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium text-xs transition-colors flex items-center gap-1.5 shadow-sm whitespace-nowrap"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-              <path fillRule="evenodd" d="M3 4.25A2.25 2.25 0 0 1 5.25 2h2.5A2.25 2.25 0 0 1 10 4.25v2.5A2.25 2.25 0 0 1 7.75 9h-2.5A2.25 2.25 0 0 1 3 6.75v-2.5Zm2.25-.75a.75.75 0 0 0-.75.75v2.5c0 .414.336.75.75.75h2.5a.75.75 0 0 0 .75-.75v-2.5a.75.75 0 0 0-.75-.75h-2.5ZM3 13.25A2.25 2.25 0 0 1 5.25 11h2.5A2.25 2.25 0 0 1 10 13.25v2.5A2.25 2.25 0 0 1 7.75 18h-2.5A2.25 2.25 0 0 1 3 15.75v-2.5Zm2.25-.75a.75.75 0 0 0-.75.75v2.5c0 .414.336.75.75.75h2.5a.75.75 0 0 0 .75-.75v-2.5a.75.75 0 0 0-.75-.75h-2.5ZM12.25 2A2.25 2.25 0 0 0 10 4.25v2.5A2.25 2.25 0 0 0 12.25 9h2.5A2.25 2.25 0 0 0 17 6.75v-2.5A2.25 2.25 0 0 0 14.75 2h-2.5Zm-.75 2.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 .75.75v2.5a.75.75 0 0 1-.75.75h-2.5a.75.75 0 0 1-.75-.75v-2.5ZM10.75 11a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm3 0a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-1.5 0v-4.5a.75.75 0 0 1 .75-.75Zm-3 4.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm6-4.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5a.75.75 0 0 1 .75-.75Zm0 3a.75.75 0 0 1 .75.75v3a.75.75 0 0 1-1.5 0v-3a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <rect width="5" height="5" x="3" y="3" rx="1" />
+              <rect width="5" height="5" x="16" y="3" rx="1" />
+              <rect width="5" height="5" x="3" y="16" rx="1" />
+              <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+              <path d="M21 21v.01" />
+              <path d="M12 7v3a2 2 0 0 1-2 2H7" />
+              <path d="M3 12h.01" />
+              <path d="M12 3h.01" />
+              <path d="M12 16v.01" />
+              <path d="M16 12h1" />
+              <path d="M21 12v.01" />
+              <path d="M12 21v-1" />
             </svg>
             <span>Print QR Card</span>
           </Link>
@@ -165,49 +183,78 @@ export function DashboardView({
       {/* 4 Top Metric Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
         {/* Confirmed Photos */}
-        <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-            Confirmed Photos
-          </span>
-          <p className="text-3xl font-serif font-bold text-white mt-1">
+        <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 font-medium">
+              Confirmed Photos
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-400">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
+            </div>
+          </div>
+          <p className="text-2xl sm:text-3xl font-mono font-semibold text-zinc-100 tracking-tight">
             {metrics.confirmedCount}
           </p>
-          <div className="mt-3 flex items-center text-xs text-zinc-400">
-            <span className="text-amber-400 font-medium">In Google Drive</span>
+          <div className="flex items-center text-xs text-zinc-400">
+            <span className="text-amber-400/90 font-mono text-[11px]">Vault Synchronized</span>
           </div>
         </div>
 
         {/* Total Guests */}
-        <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-            Guests Registered
-          </span>
-          <p className="text-3xl font-serif font-bold text-white mt-1">
+        <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 font-medium">
+              Guests Registered
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-sky-400">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
+          </div>
+          <p className="text-2xl sm:text-3xl font-mono font-semibold text-zinc-100 tracking-tight">
             {metrics.totalGuests}
           </p>
-          <div className="mt-3 flex items-center text-xs text-zinc-400">
-            <span>Avg {metrics.totalGuests > 0 ? (metrics.confirmedCount / metrics.totalGuests).toFixed(1) : 0} shots / guest</span>
+          <div className="flex items-center text-xs text-zinc-400 font-mono text-[11px]">
+            <span>Avg {metrics.totalGuests > 0 ? (metrics.confirmedCount / metrics.totalGuests).toFixed(1) : 0} shots/guest</span>
           </div>
         </div>
 
         {/* Estimated Storage */}
-        <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800">
+        <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 font-medium">
               Drive Usage ({quotaLimitGB} GB)
             </span>
-            <span className={`text-[11px] font-mono ${Number(actualPercentUsed) >= 85 ? "text-red-400" : "text-emerald-400"}`}>
-              {actualPercentUsed}% used
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-emerald-400">
+                <rect width="20" height="8" x="2" y="2" rx="2" />
+                <rect width="20" height="8" x="2" y="14" rx="2" />
+                <line x1="6" x2="6.01" y1="6" y2="6" />
+                <line x1="6" x2="6.01" y1="18" y2="18" />
+              </svg>
+            </div>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <p className="text-2xl sm:text-3xl font-mono font-semibold text-zinc-100 tracking-tight">
+              {Number(totalGB) >= 1 ? `${totalGB} GB` : `${totalMB} MB`}
+            </p>
+            <span className={`text-[11px] font-mono ${Number(actualPercentUsed) >= 85 ? "text-rose-400" : "text-emerald-400"}`}>
+              {actualPercentUsed}%
             </span>
           </div>
-          <p className="text-3xl font-serif font-bold text-white mt-1">
-            {Number(totalGB) >= 1 ? `${totalGB} GB` : `${totalMB} MB`}
-          </p>
-          <div className="mt-3">
+          <div>
             <div className="w-full bg-zinc-900 rounded-full h-1.5 overflow-hidden">
               <div
                 className={`h-1.5 rounded-full transition-all duration-500 ${
-                  Number(actualPercentUsed) >= 85 ? "bg-red-400" : "bg-amber-400"
+                  Number(actualPercentUsed) >= 85 ? "bg-rose-400" : "bg-amber-400"
                 }`}
                 style={{ width: `${Math.max(1, Number(actualPercentUsed))}%` }}
               />
@@ -220,16 +267,34 @@ export function DashboardView({
         </div>
 
         {/* Failed Uploads */}
-        <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800">
-          <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
-            Failed Uploads
-          </span>
-          <p className={`text-3xl font-serif font-bold mt-1 ${metrics.failedCount > 0 ? "text-red-400" : "text-white"}`}>
+        <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 font-medium">
+              Upload Health
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={`w-4 h-4 ${metrics.failedCount > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                {metrics.failedCount > 0 ? (
+                  <>
+                    <circle cx="12" cy="12" r="10" />
+                    <line x1="12" x2="12" y1="8" y2="12" />
+                    <line x1="12" x2="12.01" y1="16" y2="16" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                    <polyline points="22 4 12 14.01 9 11.01" />
+                  </>
+                )}
+              </svg>
+            </div>
+          </div>
+          <p className={`text-2xl sm:text-3xl font-mono font-semibold tracking-tight ${metrics.failedCount > 0 ? "text-rose-400" : "text-zinc-100"}`}>
             {metrics.failedCount}
           </p>
-          <div className="mt-3 flex items-center text-xs text-zinc-400">
+          <div className="flex items-center text-xs text-zinc-400 font-mono text-[11px]">
             {metrics.failedCount > 0 ? (
-              <span className="text-red-400">Requires attention</span>
+              <span className="text-rose-400">Requires attention</span>
             ) : (
               <span className="text-emerald-400">0 errors logged</span>
             )}
@@ -238,23 +303,24 @@ export function DashboardView({
       </div>
 
       {/* Drive Status & Health Card */}
-      <div className="p-6 mb-8 rounded-2xl bg-zinc-950 border border-zinc-800">
+      <div className="p-6 mb-8 rounded-xl bg-white/[0.02] border border-white/[0.07]">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
           <div>
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <span className="w-2.5 h-2.5 rounded-full bg-amber-400 animate-pulse" />
-              Google Drive Health & Storage
+            <h2 className="text-base font-semibold text-white flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400" />
+              <span>Google Drive Health & Storage Vault</span>
             </h2>
             <p className="text-xs text-zinc-400 mt-0.5">
               Live OAuth status and root wedding folder verification
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
+              type="button"
               onClick={() => void runHealthCheck()}
               disabled={checkingHealth}
-              className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-medium text-zinc-200 transition-all cursor-pointer"
+              className="h-8 px-3 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 transition-colors cursor-pointer"
             >
               {checkingHealth ? "Testing Connection…" : "Run Live Health Check"}
             </button>
@@ -263,12 +329,13 @@ export function DashboardView({
                 href={`https://drive.google.com/drive/folders/${event.drive_root_folder_id}`}
                 target="_blank"
                 rel="noreferrer"
-                className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-xs font-semibold text-amber-300 transition-all flex items-center gap-1"
+                className="h-8 px-3 rounded-lg bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20 text-xs font-medium text-amber-300 transition-colors flex items-center gap-1.5"
               >
                 <span>Open in Drive</span>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                  <path fillRule="evenodd" d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h4a.75.75 0 0 1 0 1.5h-4Z" clipRule="evenodd" />
-                  <path fillRule="evenodd" d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" clipRule="evenodd" />
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                  <path d="M15 3h6v6" />
+                  <path d="M10 14 21 3" />
+                  <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
                 </svg>
               </a>
             )}
@@ -276,10 +343,26 @@ export function DashboardView({
         </div>
 
         {health ? (
-          <div className={`p-4 rounded-xl border ${health.ok ? "bg-zinc-900/60 border-zinc-800" : "bg-red-950/30 border-red-800"}`}>
+          <div className={`p-4 rounded-xl border ${health.ok ? "bg-zinc-900/60 border-zinc-800" : "bg-rose-950/20 border-rose-900/30"}`}>
             <div className="flex items-center justify-between mb-2">
-              <span className={`text-xs font-bold ${health.ok ? "text-emerald-400" : "text-red-400"}`}>
-                {health.ok ? "✓ DRIVE CONNECTION FULLY OPERATIONAL" : "✕ DRIVE CONNECTION ISSUE"}
+              <span className={`text-xs font-mono font-semibold flex items-center gap-1.5 ${health.ok ? "text-emerald-400" : "text-rose-400"}`}>
+                {health.ok ? (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span>DRIVE VAULT OPERATIONAL</span>
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="15" x2="9" y1="9" y2="15" />
+                      <line x1="9" x2="15" y1="9" y2="15" />
+                    </svg>
+                    <span>DRIVE VAULT CONNECTION ISSUE</span>
+                  </>
+                )}
               </span>
               {health.userEmail && (
                 <span className="text-xs font-mono text-zinc-400">{health.userEmail}</span>
@@ -303,12 +386,12 @@ export function DashboardView({
               </div>
             )}
 
-            {health.error && <p className="text-xs text-red-300 mt-2 font-mono">{health.error}</p>}
+            {health.error && <p className="text-xs text-rose-300 mt-2 font-mono">{health.error}</p>}
           </div>
         ) : (
           <div className="text-xs text-zinc-400 font-mono bg-zinc-900/40 p-3.5 rounded-xl border border-zinc-900 flex items-center justify-between">
             <span>Root Folder: {event.drive_root_folder_id || "Not connected"}</span>
-            <Link href="/admin/connect-drive" className="text-amber-400 hover:underline">
+            <Link href="/admin/connect-drive" className="text-amber-400 hover:text-amber-300 transition-colors">
               {event.drive_root_folder_id ? "Manage Connection →" : "Connect Google Drive →"}
             </Link>
           </div>
@@ -319,62 +402,100 @@ export function DashboardView({
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <Link
           href="/admin/photos"
-          className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 hover:border-zinc-700 transition-all group"
+          className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/15 transition-all group"
         >
-          <div className="text-amber-400 mb-3 group-hover:scale-110 transition-transform w-fit">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-              <path fillRule="evenodd" d="M1.5 6a2.25 2.25 0 0 1 2.25-2.25h16.5A2.25 2.25 0 0 1 22.5 6v12a2.25 2.25 0 0 1-2.25 2.25H3.75A2.25 2.25 0 0 1 1.5 18V6ZM3 16.06V18c0 .414.336.75.75.75h16.5A.75.75 0 0 0 21 18v-1.94l-2.69-2.689a1.5 1.5 0 0 0-2.12 0l-.88.879.97.97a.75.75 0 1 1-1.06 1.06l-5.16-5.159a1.5 1.5 0 0 0-2.12 0L3 16.061Zm10.125-7.81a1.125 1.125 0 1 1 2.25 0 1.125 1.125 0 0 1-2.25 0Z" clipRule="evenodd" />
+          <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-amber-400 mb-3 group-hover:scale-105 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+              <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+              <circle cx="9" cy="9" r="2" />
+              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
             </svg>
           </div>
-          <h3 className="text-base font-bold text-white group-hover:text-amber-300 transition-colors">
-            Photo Management &rarr;
-          </h3>
-          <p className="text-xs text-zinc-400 mt-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-white group-hover:text-amber-300 transition-colors">
+              Photo Management
+            </h3>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition-all">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
             View guests, per-guest photo counts, hide or delete shots, and open guest subfolders.
           </p>
         </Link>
 
         <Link
           href="/admin/qr"
-          className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 hover:border-zinc-700 transition-all group"
+          className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/15 transition-all group"
         >
-          <div className="text-amber-400 mb-3 group-hover:scale-110 transition-transform w-fit">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-              <path fillRule="evenodd" d="M3 4.5A1.5 1.5 0 0 1 4.5 3h4.5A1.5 1.5 0 0 1 10.5 4.5v4.5A1.5 1.5 0 0 1 9 10.5H4.5A1.5 1.5 0 0 1 3 9V4.5Zm1.5 0v4.5h4.5V4.5H4.5ZM3 15a1.5 1.5 0 0 1 1.5-1.5h4.5A1.5 1.5 0 0 1 10.5 15v4.5A1.5 1.5 0 0 1 9 21H4.5A1.5 1.5 0 0 1 3 19.5V15Zm1.5 0v4.5h4.5V15H4.5ZM13.5 4.5A1.5 1.5 0 0 1 15 3h4.5A1.5 1.5 0 0 1 21 4.5v4.5A1.5 1.5 0 0 1 19.5 10.5H15A1.5 1.5 0 0 1 13.5 9V4.5Zm1.5 0v4.5H19.5V4.5H15Zm-.75 9.75a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75v-1.5Zm3.75-.75a.75.75 0 0 0-.75.75v4.5a.75.75 0 0 0 .75.75H19.5a.75.75 0 0 0 .75-.75V15a.75.75 0 0 0-.75-.75H18Zm-3.75 4.5a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 .75.75V21a.75.75 0 0 1-.75.75H15a.75.75 0 0 1-.75-.75v-2.25Z" clipRule="evenodd" />
+          <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-amber-400 mb-3 group-hover:scale-105 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+              <rect width="5" height="5" x="3" y="3" rx="1" />
+              <rect width="5" height="5" x="16" y="3" rx="1" />
+              <rect width="5" height="5" x="3" y="16" rx="1" />
+              <path d="M21 16h-3a2 2 0 0 0-2 2v3" />
+              <path d="M21 21v.01" />
+              <path d="M12 7v3a2 2 0 0 1-2 2H7" />
+              <path d="M3 12h.01" />
+              <path d="M12 3h.01" />
+              <path d="M12 16v.01" />
+              <path d="M16 12h1" />
+              <path d="M21 12v.01" />
+              <path d="M12 21v-1" />
             </svg>
           </div>
-          <h3 className="text-base font-bold text-white group-hover:text-amber-300 transition-colors">
-            QR Print Studio (A4 Sheets & Cards) &rarr;
-          </h3>
-          <p className="text-xs text-zinc-400 mt-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-white group-hover:text-amber-300 transition-colors">
+              QR Print Studio
+            </h3>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition-all">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
             Download crisp PNG/SVG QR codes and print elegant A4 sheet table cards and guest invites.
           </p>
         </Link>
 
         <Link
           href="/admin/settings"
-          className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 hover:border-zinc-700 transition-all group"
+          className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/15 transition-all group"
         >
-          <div className="text-amber-400 mb-3 group-hover:scale-110 transition-transform w-fit">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-              <path fillRule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567L9.05 4.889c-.02.12-.115.26-.297.348a7.493 7.493 0 0 0-.986.57c-.166.115-.334.126-.45.083L6.05 5.378a1.875 1.875 0 0 0-2.282.819l-.922 1.597a1.875 1.875 0 0 0 .432 2.385l1.072.822c.1.076.155.228.138.411a7.618 7.618 0 0 0 0 1.176c.017.183-.038.335-.138.411l-1.072.822a1.875 1.875 0 0 0-.432 2.385l.922 1.597c.547.947 1.696 1.34 2.282.818l1.267-.512c.116-.043.284-.032.45.083.313.218.643.41.986.57.182.088.277.228.297.348l.178 1.072c.151.904.933 1.567 1.85 1.567h1.844c.916 0 1.699-.663 1.85-1.567l.178-1.072c.02-.12.114-.26.297-.348.343-.16.673-.352.986-.57.166-.115.334-.126.45-.083l1.267.512c.586.522 1.735.129 2.282-.818l.922-1.597a1.875 1.875 0 0 0-.432-2.385l-1.072-.822c-.1-.076-.155-.228-.138-.411.006-.39.006-.786 0-1.176-.017-.183.038-.335.138-.411l1.072-.822a1.875 1.875 0 0 0 .432-2.385l-.922-1.597a1.875 1.875 0 0 0-2.282-.819l-1.267.512c-.116.043-.284.032-.45-.083a7.49 7.49 0 0 0-.986-.57c-.183-.088-.277-.228-.297-.348l-.178-1.072a1.875 1.875 0 0 0-1.85-1.567h-1.844ZM12 15.75a3.75 3.75 0 1 0 0-7.5 3.75 3.75 0 0 0 0 7.5Z" clipRule="evenodd" />
+          <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-amber-400 mb-3 group-hover:scale-105 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+              <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+              <circle cx="12" cy="12" r="3" />
             </svg>
           </div>
-          <h3 className="text-base font-bold text-white group-hover:text-amber-300 transition-colors">
-            Event Settings &rarr;
-          </h3>
-          <p className="text-xs text-zinc-400 mt-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-white group-hover:text-amber-300 transition-colors">
+              Event Settings
+            </h3>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-500 group-hover:text-amber-300 group-hover:translate-x-0.5 transition-all">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
             Configure shot limits, event window, manual open/close switch, and theme colors.
           </p>
         </Link>
       </div>
 
       {/* Recent Activity Table */}
-      <div className="p-6 rounded-2xl bg-zinc-950 border border-zinc-800">
+      <div className="p-6 rounded-xl bg-white/[0.02] border border-white/[0.07]">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-base font-bold text-white">Recent Photo Uploads</h2>
-          <Link href="/admin/photos" className="text-xs text-amber-400 hover:underline">
-            View All Photos &rarr;
+          <h2 className="text-sm font-semibold text-white uppercase tracking-wider font-mono">
+            Recent Photo Uploads
+          </h2>
+          <Link href="/admin/photos" className="text-xs text-amber-400 hover:text-amber-300 transition-colors flex items-center gap-1">
+            <span>View All Photos</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+              <path d="M5 12h14" />
+              <path d="m12 5 7 7-7 7" />
+            </svg>
           </Link>
         </div>
 
@@ -386,17 +507,17 @@ export function DashboardView({
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-zinc-800 text-zinc-400 font-mono uppercase tracking-wider">
-                  <th className="py-2.5 px-3">Guest</th>
-                  <th className="py-2.5 px-3">Shot ID</th>
-                  <th className="py-2.5 px-3">Status</th>
-                  <th className="py-2.5 px-3">Size</th>
-                  <th className="py-2.5 px-3">Time</th>
+                <tr className="border-b border-zinc-800/80 text-zinc-400 font-sans text-[11px] uppercase tracking-[0.14em]">
+                  <th className="py-2.5 px-3 font-medium">Guest</th>
+                  <th className="py-2.5 px-3 font-medium">Shot ID</th>
+                  <th className="py-2.5 px-3 font-medium">Status</th>
+                  <th className="py-2.5 px-3 font-medium">Size</th>
+                  <th className="py-2.5 px-3 font-medium">Time</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-900 font-mono">
+              <tbody className="divide-y divide-zinc-900/80 font-mono">
                 {recentPhotos.map((photo) => (
-                  <tr key={photo.id} className="hover:bg-zinc-900/50 transition-colors">
+                  <tr key={photo.id} className="hover:bg-white/[0.02] transition-colors">
                     <td className="py-3 px-3 font-sans font-medium text-zinc-200">
                       {photo.guestName}
                     </td>
@@ -409,7 +530,7 @@ export function DashboardView({
                           photo.status === "confirmed"
                             ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
                             : photo.status === "failed"
-                              ? "bg-red-500/10 text-red-400 border border-red-500/20"
+                              ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
                               : photo.status === "hidden"
                                 ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
                                 : "bg-amber-500/10 text-amber-400 border border-amber-500/20"

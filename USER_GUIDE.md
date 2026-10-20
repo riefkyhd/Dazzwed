@@ -482,4 +482,31 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
      - **Admin User Guide** shortcut.
      - Divider + **Sign Out** action in rose accent.
 
+---
+
+## 16. Luxury Editorial Redesign Across Superadmin, Dashboard & Settings
+
+1. **Platform Owner Console (`/superadmin`):**
+   - **3-Zone Header:** Mirrors `AdminNavbar` with Zone 1 breadcrumbs (`UNVEILED / Platform Console`), Zone 2 segmented filter (`All Clients`, `Active`, `Suspended`), and Zone 3 actions (`Wedding Admin` ghost button + `+ New Client Account` amber CTA).
+   - **Editorial KPI Metric Strip:** 4 platform metric cards (`Active Clients`, `Event Rolls`, `Photos Synced`, `Registered Guests`) housed in `bg-white/[0.02] border border-white/[0.07]` darkroom surfaces with `32x32px` icon wells and monospace numerical counts.
+   - **Client Directory:** Replaced crowded tables with tactile client cards. Client names rendered in crisp medium sans, credentials presented in a quiet monospace `DZ-XXXXXX` pill with 1-click copy feedback, and a clean WhatsApp invitation generator with zero cartoon emojis.
+   - **Interactive Tier Selection:** Replaced plain `<select>` dropdowns in client event management with interactive visual radio cards (`Pocket Roll`, `Classic 35mm`, `Grand Archive`, `Owner Unlimited`).
+
+2. **Event Dashboard (`DashboardView.tsx`):**
+   - **Header Banner:** Features luxury display serif typography, a `6px` live camera status dot (emerald for open/active, rose for closed/paused), monospace event slug link, and a balanced `h-8` quick-action cluster (`Print QR Card` primary gold CTA, `Download All` ghost button, `Guest Camera` ghost button).
+   - **KPI Metric Strip:** 4 top cards (`Confirmed Photos`, `Guests Registered`, `Drive Usage`, `Upload Health`) with `32x32px` icon wells and monospace metrics.
+   - **Drive Vault Card & Navigation:** Quiet Google Drive status banner and refined quick-link cards with Lucide vector arrow indicators.
+   - **Recent Photo Uploads Table:** Clean darkroom table with status dots, monospace timestamps, and ghost action buttons.
+
+3. **Event Settings (`SettingsView.tsx`):**
+   - **5 Calm Darkroom Sections:**
+     1. *Event Identity & Theme:* Event subtitle, couple names, exposures per roll (with package entitlement lock), theme accent/background hex pickers, and welcome note.
+     2. *Schedule & Camera Control:* Manual shutter toggle and automated open/close scheduling.
+     3. *Event Link & Access Window:* Camera URL with 1-click copy, duration presets (12h, 24h, 48h, 7d), exact expiration display, and cryptographic token rotation modal.
+     4. *Active Film Simulation & 3D LUT Recipe:* Clean optgroup presets without emojis and seamless `.cube` 3D LUT file importer.
+     5. *Guest Device Sessions & Maintenance:* Active session counter and safe reset confirmation modal.
+   - **Standardized Form Controls:** Uniform dark inputs (`bg-zinc-900/80 border border-zinc-800 text-sm rounded-lg focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30`).
+   - **Zero Cartoon Emojis:** Replaced all emojis (`✨`, `📁`, `⚡`, `⚠️`, `✓`) across alerts, modals, and dropdowns with crisp `1.75px` stroke Lucide vector icons.
+
+
 

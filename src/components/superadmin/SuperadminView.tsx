@@ -42,6 +42,13 @@ interface SuperadminViewProps {
   allEvents: SuperadminEvent[];
 }
 
+const PACKAGE_TIERS = [
+  { id: "pocket_roll", name: "Pocket Roll", guests: 100, shots: 15, desc: "100 Guests · 15 Shots" },
+  { id: "classic_35mm", name: "Classic 35mm", guests: 300, shots: 27, desc: "300 Guests · 27 Shots" },
+  { id: "grand_archive", name: "Grand Archive", guests: 9999, shots: 36, desc: "Unlimited · 36 Shots" },
+  { id: "owner_unlimited", name: "Owner Unlimited", guests: 99999, shots: 100, desc: "Full Access · 100 Shots" },
+];
+
 export function SuperadminView({
   ownerEmail,
   initialClients,
@@ -80,12 +87,16 @@ export function SuperadminView({
     status: "active",
   });
   const [isUpdatingEvent, setIsUpdatingEvent] = useState(false);
+  const [clientFilter, setClientFilter] = useState<"all" | "active" | "suspended">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Summary Metrics
   const totalPhotos = allEvents.reduce((acc, ev) => acc + (ev.photo_count || 0), 0);
   const totalGuests = allEvents.reduce((acc, ev) => acc + (ev.guest_count || 0), 0);
   const activeClients = clients.filter((c) => c.status === "active").length;
+  const filteredClients = clients.filter((c) =>
+    clientFilter === "all" ? true : c.status === clientFilter
+  );
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -96,13 +107,13 @@ export function SuperadminView({
 
   const getWhatsAppInvite = (client: { name: string; email: string; access_code: string }) => {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://dazzwed.my.id";
-    return `✨ Halo ${client.name}! Akun Wedding Admin Dazzwed Anda sudah siap:
+    return `Halo ${client.name}, akun Wedding Admin Dazzwed Anda sudah aktif:
 
-🔗 Link Portal: ${origin}/admin/login
-📧 Email: ${client.email}
-🔑 Access Code: ${client.access_code}
+Portal Login: ${origin}/admin/login
+Email: ${client.email}
+Access Code: ${client.access_code}
 
-Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai mengelola acara, memantau galeri foto tamu, dan mengunduh file cetak QR Code A4.`;
+Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai mengelola acara, memantau galeri foto tamu, dan mengunduh file cetak QR Code A4.`;
   };
 
   // Toggle Client Suspension
@@ -245,8 +256,9 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      {/* Top Navigation / Platform Header */}
-      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-zinc-800">
+      {/* 3-Zone Platform Header Architecture */}
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 border-b border-zinc-800/80">
+        {/* Zone 1: Platform Breadcrumb */}
         <div className="flex items-center gap-3">
           <Link href="/admin" className="relative h-8 w-[84px] hover:opacity-90 transition-opacity">
             <Image
@@ -256,19 +268,65 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
               className="object-contain"
             />
           </Link>
-          <span className="text-[11px] font-mono uppercase tracking-widest text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2.5 py-1 rounded-full font-bold flex items-center gap-1.5 shadow-sm">
-            <span>👑</span>
-            <span>Superadmin Console</span>
+          <span className="text-zinc-700 font-light select-none text-sm">/</span>
+          <span className="text-[11px] font-mono uppercase tracking-widest text-amber-300/90 bg-amber-400/[0.08] border border-amber-400/25 px-2.5 py-1 rounded-lg font-medium flex items-center gap-1.5 shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-amber-400">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+            </svg>
+            <span>Owner Console</span>
           </span>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* Zone 2: Segmented Directory Filter */}
+        <div className="inline-flex items-center bg-zinc-900/90 border border-zinc-800 p-0.5 rounded-lg text-xs font-medium self-start lg:self-center">
+          <button
+            type="button"
+            onClick={() => setClientFilter("all")}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
+              clientFilter === "all"
+                ? "bg-zinc-800 text-zinc-100 font-medium shadow-sm border border-white/10"
+                : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+            }`}
+          >
+            <span>All Clients ({clients.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setClientFilter("active")}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
+              clientFilter === "active"
+                ? "bg-zinc-800 text-zinc-100 font-medium shadow-sm border border-white/10"
+                : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            <span>Active ({activeClients})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setClientFilter("suspended")}
+            className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
+              clientFilter === "suspended"
+                ? "bg-zinc-800 text-zinc-100 font-medium shadow-sm border border-white/10"
+                : "text-zinc-400 hover:text-zinc-200 border border-transparent"
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+            <span>Suspended ({clients.length - activeClients})</span>
+          </button>
+        </div>
+
+        {/* Zone 3: Actions */}
+        <div className="flex items-center gap-2.5 shrink-0">
           <Link
             href="/admin"
-            className="px-3.5 py-2 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="h-8 px-3 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
           >
-            <span>←</span>
-            <span>Return to Wedding Admin</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-400">
+              <path d="m12 19-7-7 7-7" />
+              <path d="M19 12H5" />
+            </svg>
+            <span>Wedding Admin</span>
           </Link>
           <button
             type="button"
@@ -276,9 +334,14 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
               setShowCreateClientModal(true);
               setCreatedClientResult(null);
             }}
-            className="px-4 py-2 rounded-xl bg-amber-400 text-black text-xs font-bold hover:bg-amber-300 transition-colors cursor-pointer flex items-center gap-1.5 shadow-lg shadow-amber-400/10"
+            className="h-8 px-3.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 text-xs font-medium transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm whitespace-nowrap"
           >
-            <span>+</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+              <circle cx="9" cy="7" r="4" />
+              <line x1="19" x2="19" y1="8" y2="14" />
+              <line x1="22" x2="16" y1="11" y2="11" />
+            </svg>
             <span>New Client Account</span>
           </button>
         </div>
@@ -286,38 +349,72 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
 
       {/* Platform KPI Metrics */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
-            Active Clients
+        <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 font-medium">
+              Active Clients
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-emerald-400">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-emerald-400">
-            {activeClients} <span className="text-xs text-zinc-500 font-sans">/ {clients.length} total</span>
+          <div className="text-2xl font-mono font-semibold text-zinc-100 tracking-tight">
+            {activeClients} <span className="text-xs text-zinc-500 font-sans font-normal">/ {clients.length} total</span>
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
-            Total Event Rolls
+        <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 font-medium">
+              Event Rolls
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-400">
+                <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+              </svg>
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-amber-400">
+          <div className="text-2xl font-mono font-semibold text-zinc-100 tracking-tight">
             {allEvents.length}
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
-            Photos Synced
+        <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 font-medium">
+              Photos Synced
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-sky-400">
+                <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
+                <circle cx="9" cy="9" r="2" />
+                <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+              </svg>
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-sky-400">
+          <div className="text-2xl font-mono font-semibold text-zinc-100 tracking-tight">
             {totalPhotos.toLocaleString()}
           </div>
         </div>
 
-        <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-1">
-          <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
-            Registered Guests
+        <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 font-medium">
+              Registered Guests
+            </span>
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-purple-400">
+                <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+                <circle cx="12" cy="13" r="3" />
+              </svg>
+            </div>
           </div>
-          <div className="text-2xl font-bold font-mono text-purple-400">
+          <div className="text-2xl font-mono font-semibold text-zinc-100 tracking-tight">
             {totalGuests.toLocaleString()}
           </div>
         </div>
@@ -326,23 +423,25 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
       {/* Client Accounts Management */}
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-serif font-bold text-white flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-serif font-normal text-zinc-100 flex items-center gap-2">
             <span>Client Accounts & Assigned Weddings</span>
             <span className="text-xs font-mono font-normal text-zinc-500">
-              ({clients.length})
+              ({filteredClients.length})
             </span>
           </h2>
         </div>
 
-        {clients.length === 0 ? (
+        {filteredClients.length === 0 ? (
           <div className="p-8 rounded-2xl bg-zinc-950 border border-zinc-800 text-center space-y-3">
             <p className="text-sm text-zinc-400">
-              No client accounts yet. Click &quot;New Client Account&quot; to provision login credentials for a couple or Wedding Organizer.
+              {clientFilter === "all"
+                ? "No client accounts yet. Click \"New Client Account\" to provision login credentials for a couple or Wedding Organizer."
+                : `No ${clientFilter} client accounts found.`}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 gap-4">
-            {clients.map((client) => {
+            {filteredClients.map((client) => {
               const inviteText = getWhatsAppInvite(client);
               const isSuspended = client.status === "suspended";
 
@@ -351,7 +450,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                   key={client.id}
                   className={`p-6 rounded-2xl border transition-all ${
                     isSuspended
-                      ? "bg-red-950/10 border-red-900/40 opacity-75"
+                      ? "bg-rose-950/[0.08] border-rose-900/30 opacity-80"
                       : "bg-zinc-950 border-zinc-800 hover:border-zinc-700"
                   }`}
                 >
@@ -363,7 +462,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                           {client.name}
                         </span>
                         <span
-                          className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded-full font-bold border ${
+                          className={`text-[10px] font-mono uppercase px-2 py-0.5 rounded font-medium border ${
                             isSuspended
                               ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
                               : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
@@ -371,7 +470,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                         >
                           {client.status}
                         </span>
-                        <span className="text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-mono text-zinc-400 bg-zinc-900 border border-zinc-800 px-2 py-0.5 rounded">
                           Quota: {client.events.length} / {client.max_events} Events
                         </span>
                       </div>
@@ -387,7 +486,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
 
                     {/* Quick Access Credentials & Action Buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 text-xs font-mono">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs font-mono">
                         <span className="text-zinc-500">Code:</span>
                         <span className="text-amber-300 font-bold tracking-wider">
                           {client.access_code}
@@ -395,26 +494,41 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                         <button
                           type="button"
                           onClick={() => handleCopy(client.access_code, `code-${client.id}`)}
-                          className="ml-1 text-[11px] text-zinc-400 hover:text-white cursor-pointer"
+                          className="ml-1 text-zinc-400 hover:text-white cursor-pointer transition-colors"
                           title="Copy Code"
                         >
-                          {copiedId === `code-${client.id}` ? "✓" : "📋"}
+                          {copiedId === `code-${client.id}` ? (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-emerald-400">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          ) : (
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                            </svg>
+                          )}
                         </button>
                       </div>
 
                       <button
                         type="button"
                         onClick={() => handleCopy(inviteText, `invite-${client.id}`)}
-                        className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 hover:bg-emerald-500/25 text-emerald-300 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer"
+                        className="h-8 px-3 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/25 text-emerald-300 text-xs font-medium transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                       >
-                        <span>💬</span>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                          <circle cx="18" cy="5" r="3" />
+                          <circle cx="6" cy="12" r="3" />
+                          <circle cx="18" cy="19" r="3" />
+                          <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
+                          <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
+                        </svg>
                         <span>{copiedId === `invite-${client.id}` ? "Copied!" : "WhatsApp Invite"}</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleResetAccessCode(client)}
-                        className="px-2.5 py-1.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs transition-colors cursor-pointer"
+                        className="h-8 px-2.5 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-medium transition-colors cursor-pointer whitespace-nowrap"
                         title="Generate New Access Code"
                       >
                         Reset Code
@@ -423,10 +537,10 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                       <button
                         type="button"
                         onClick={() => handleToggleStatus(client)}
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-medium transition-colors cursor-pointer ${
+                        className={`h-8 px-3 rounded-lg border text-xs font-medium transition-colors cursor-pointer whitespace-nowrap ${
                           isSuspended
-                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30"
-                            : "bg-rose-500/10 text-rose-400 border-rose-500/30 hover:bg-rose-500/20"
+                            ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/20"
+                            : "bg-zinc-900/80 text-rose-400 border-zinc-800 hover:border-rose-500/30 hover:bg-rose-500/10"
                         }`}
                       >
                         {isSuspended ? "Reactivate" : "Suspend"}
@@ -551,8 +665,11 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
             {createdClientResult ? (
               <div className="space-y-4">
                 <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 space-y-2">
-                  <div className="text-xs font-bold text-emerald-400">
-                    ✓ Client Account Created Successfully!
+                  <div className="text-xs font-semibold text-emerald-400 flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                    <span>Client Account Created Successfully</span>
                   </div>
                   <div className="text-xs font-mono text-zinc-300 space-y-1">
                     <div><span className="text-zinc-500">Name:</span> {createdClientResult.name}</div>
@@ -571,9 +688,15 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                     });
                     handleCopy(invite, "modal-invite");
                   }}
-                  className="w-full py-2.5 rounded-xl bg-emerald-500 text-black text-xs font-bold hover:bg-emerald-400 transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                  className="w-full py-2.5 rounded-xl bg-emerald-500 text-black text-xs font-bold hover:bg-emerald-400 transition-colors cursor-pointer flex items-center justify-center gap-2"
                 >
-                  <span>💬</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                    <circle cx="18" cy="5" r="3" />
+                    <circle cx="6" cy="12" r="3" />
+                    <circle cx="18" cy="19" r="3" />
+                    <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
+                    <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
+                  </svg>
                   <span>{copiedId === "modal-invite" ? "Copied to Clipboard!" : "Copy WhatsApp Invitation"}</span>
                 </button>
 
@@ -603,7 +726,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                     placeholder="e.g. Dhifa & Riefky"
                     value={clientForm.name}
                     onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -617,7 +740,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                     placeholder="client@wedding.com"
                     value={clientForm.email}
                     onChange={(e) => setClientForm({ ...clientForm, email: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -631,7 +754,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                     max={10}
                     value={clientForm.maxEvents}
                     onChange={(e) => setClientForm({ ...clientForm, maxEvents: parseInt(e.target.value, 10) || 1 })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none transition-colors"
                   />
                   <p className="text-[10px] text-zinc-500 mt-1">
                     Default 1. Set to 2 or 3 for multi-event packages (e.g. Engagement + Wedding).
@@ -647,7 +770,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                     placeholder="e.g. Paid in full, WO Lumina contact"
                     value={clientForm.notes}
                     onChange={(e) => setClientForm({ ...clientForm, notes: e.target.value })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none transition-colors"
                   />
                 </div>
 
@@ -656,14 +779,14 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                     type="button"
                     onClick={() => setShowCreateClientModal(false)}
                     disabled={isSubmittingClient}
-                    className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white cursor-pointer"
+                    className="h-8 px-4 rounded-lg text-xs font-medium text-zinc-400 hover:text-white cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isSubmittingClient || !clientForm.name || !clientForm.email}
-                    className="px-5 py-2 rounded-xl bg-amber-400 text-black font-bold text-xs hover:bg-amber-300 disabled:opacity-50 transition-colors cursor-pointer"
+                    className="h-8 px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium text-xs disabled:opacity-50 transition-colors cursor-pointer"
                   >
                     {isSubmittingClient ? "Creating..." : "Create Client"}
                   </button>
@@ -677,7 +800,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
       {/* Modal: Edit Event & Quota Override */}
       {editingEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl relative text-left">
+          <div className="w-full max-w-lg rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl relative text-left">
             <h2 className="text-lg font-serif font-bold text-white mb-1">
               Edit Event: {editingEvent.couple_names}
             </h2>
@@ -693,7 +816,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                 <select
                   value={eventForm.clientId}
                   onChange={(e) => setEventForm({ ...eventForm, clientId: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none"
                 >
                   <option value="">(Unassigned / Platform Owner)</option>
                   {clients.map((c) => (
@@ -705,43 +828,40 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">
+                <label className="block text-xs font-medium text-zinc-300 mb-1.5">
                   Package Tier Preset
                 </label>
-                <select
-                  value={eventForm.packageTier}
-                  onChange={(e) => {
-                    const tier = e.target.value;
-                    let maxGuests = 300;
-                    let maxShots = 27;
-                    if (tier === "pocket_roll") {
-                      maxGuests = 100;
-                      maxShots = 15;
-                    } else if (tier === "classic_35mm") {
-                      maxGuests = 300;
-                      maxShots = 27;
-                    } else if (tier === "grand_archive") {
-                      maxGuests = 9999;
-                      maxShots = 36;
-                    } else if (tier === "owner_unlimited") {
-                      maxGuests = 99999;
-                      maxShots = 100;
-                    }
-                    setEventForm({
-                      ...eventForm,
-                      packageTier: tier,
-                      packageMaxGuests: maxGuests,
-                      packageMaxShotsPerGuest: maxShots,
-                      shotsPerGuest: maxShots,
-                    });
-                  }}
-                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
-                >
-                  <option value="pocket_roll">Pocket Roll (100 Guests, 15 Shots)</option>
-                  <option value="classic_35mm">Classic 35mm (300 Guests, 27 Shots)</option>
-                  <option value="grand_archive">Grand Archive (Unlimited, 36 Shots)</option>
-                  <option value="owner_unlimited">Owner Unlimited (Full Platform Access)</option>
-                </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {PACKAGE_TIERS.map((tier) => {
+                    const isSelected = eventForm.packageTier === tier.id;
+                    return (
+                      <button
+                        key={tier.id}
+                        type="button"
+                        onClick={() => {
+                          setEventForm({
+                            ...eventForm,
+                            packageTier: tier.id,
+                            packageMaxGuests: tier.guests,
+                            packageMaxShotsPerGuest: tier.shots,
+                            shotsPerGuest: tier.shots,
+                          });
+                        }}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          isSelected
+                            ? "bg-amber-400/[0.08] border-amber-400/40 text-amber-200 shadow-sm"
+                            : "bg-zinc-900/60 border-zinc-800/80 text-zinc-300 hover:border-zinc-700"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-semibold text-zinc-100">{tier.name}</span>
+                          <span className={`w-2 h-2 rounded-full ${isSelected ? "bg-amber-400 ring-2 ring-amber-400/30" : "bg-zinc-700"}`} />
+                        </div>
+                        <p className="text-[11px] font-mono text-zinc-400 mt-1">{tier.desc}</p>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -754,7 +874,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                     min={1}
                     value={eventForm.packageMaxGuests}
                     onChange={(e) => setEventForm({ ...eventForm, packageMaxGuests: parseInt(e.target.value, 10) || 100 })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none"
                   />
                 </div>
 
@@ -772,7 +892,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                       packageMaxShotsPerGuest: parseInt(e.target.value, 10) || 25,
                       shotsPerGuest: parseInt(e.target.value, 10) || 25,
                     })}
-                    className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
+                    className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none"
                   />
                 </div>
               </div>
@@ -784,7 +904,7 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                 <select
                   value={eventForm.status}
                   onChange={(e) => setEventForm({ ...eventForm, status: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
+                  className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none"
                 >
                   <option value="active">Active (Camera Open)</option>
                   <option value="paused">Paused (Temporarily Locked)</option>
@@ -797,14 +917,14 @@ Silakan buka link di atas dan masukkan Email serta Access Code untuk mulai menge
                   type="button"
                   onClick={() => setEditingEvent(null)}
                   disabled={isUpdatingEvent}
-                  className="px-4 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:text-white cursor-pointer"
+                  className="h-8 px-4 rounded-lg text-xs font-medium text-zinc-400 hover:text-white cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={isUpdatingEvent}
-                  className="px-5 py-2 rounded-xl bg-amber-400 text-black font-bold text-xs hover:bg-amber-300 disabled:opacity-50 transition-colors cursor-pointer"
+                  className="h-8 px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium text-xs disabled:opacity-50 transition-colors cursor-pointer"
                 >
                   {isUpdatingEvent ? "Saving..." : "Save Changes"}
                 </button>
