@@ -79,8 +79,13 @@ async function runLiveSmokeTest() {
       console.log("  ✓ Verified 'Owner' badge rendered in AdminNavbar");
     }
 
-    // Click 👑 Owner Console link
+    // Open Account Menu to access Owner Console link
     console.log("\n▶ Phase 2: Navigating to Superadmin Console (/superadmin)...");
+    const accountMenuBtn = ownerPage.locator('button[aria-label="Admin account menu"]');
+    if (await accountMenuBtn.isVisible()) {
+      await accountMenuBtn.click();
+      await ownerPage.waitForTimeout(200);
+    }
     const ownerConsoleBtn = ownerPage.locator('a[href="/superadmin"]').first();
     await ownerConsoleBtn.click();
     await ownerPage.waitForURL("**/superadmin", { timeout: 10000 });

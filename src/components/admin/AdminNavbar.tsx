@@ -136,6 +136,21 @@ export function AdminNavbar({
 
   // Secondary items accessed via "More" sheet on mobile / tablet (< lg)
   const moreItems = [
+    ...(userRole === "superadmin"
+      ? [
+          {
+            label: "Owner Console",
+            href: "/superadmin",
+            desc: "Clients, multi-event SaaS & platform quotas",
+            icon: (
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 text-amber-400">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                <path d="m9 12 2 2 4-4" />
+              </svg>
+            ),
+          },
+        ]
+      : []),
     {
       label: "System Health",
       href: "/admin/health",
@@ -193,16 +208,16 @@ export function AdminNavbar({
 
   return (
     <>
-      {/* Top Header */}
+      {/* Top Header: 3-Zone Vercel / Linear Breadcrumb Hierarchy */}
       <header className="border-b border-zinc-800 bg-zinc-950/90 backdrop-blur-md sticky top-0 z-40 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-4">
-          {/* Left: Brand Identity */}
-          <div className="flex items-center gap-2.5 sm:gap-3 shrink-0">
+          {/* Zone 1 (Left): Brand Identity + '/' Divider + Event Context Switcher */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <Link
               href="/admin"
               prefetch={true}
               onClick={() => setOptimisticPath("/admin")}
-              className="flex items-center group"
+              className="flex items-center group shrink-0"
             >
               <div className="relative h-7 sm:h-8 w-[72px] sm:w-[82px] group-hover:opacity-90 transition-opacity">
                 <Image
@@ -215,18 +230,23 @@ export function AdminNavbar({
                 />
               </div>
             </Link>
-            {userRole === "superadmin" ? (
-              <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
-                Owner
-              </span>
-            ) : (
-              <span className="text-[10px] font-mono uppercase tracking-widest text-sky-400 bg-sky-400/10 border border-sky-400/20 px-2 py-0.5 rounded-full shrink-0 whitespace-nowrap">
-                Host Admin
-              </span>
+
+            {currentEvent && (
+              <>
+                <span className="text-zinc-700 font-light select-none text-sm mx-0.5" aria-hidden="true">
+                  /
+                </span>
+                <EventSwitcher
+                  currentEvent={currentEvent}
+                  allEvents={allEvents}
+                  userRole={userRole}
+                  maxEvents={maxEvents}
+                />
+              </>
             )}
           </div>
 
-          {/* Center-Left: 5 Crisp Single-Line Desktop Nav Links (Hidden on < lg) */}
+          {/* Zone 2 (Center): 5 Crisp Single-Line Desktop Nav Links (Hidden on < lg) */}
           <nav className="hidden lg:flex items-center gap-1">
             {desktopPrimaryNav.map((item) => {
               const isActive = item.exact
@@ -241,8 +261,8 @@ export function AdminNavbar({
                   onClick={() => setOptimisticPath(item.href)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap shrink-0 transition-all ${
                     isActive
-                      ? "bg-stone-800/80 text-amber-300 font-semibold shadow-sm"
-                      : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-900"
+                      ? "bg-white/[0.08] text-white font-semibold shadow-sm"
+                      : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.03]"
                   }`}
                 >
                   {item.label}
@@ -251,60 +271,60 @@ export function AdminNavbar({
             })}
           </nav>
 
-          {/* Right Side (Desktop >= lg): EventSwitcher + ? Guide Pill + Account Dropdown */}
-          <div className="hidden lg:flex items-center gap-2.5 shrink-0">
-            {userRole === "superadmin" && (
-              <Link
-                href="/superadmin"
-                prefetch={true}
-                className="px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 whitespace-nowrap flex items-center gap-1.5 border border-amber-500/40 bg-gradient-to-r from-amber-500/15 to-amber-600/25 text-amber-300 hover:brightness-110 shadow-sm"
-              >
-                <span>👑</span>
-                <span>Owner Console</span>
-              </Link>
-            )}
-
-            {currentEvent && allEvents && (
-              <EventSwitcher
-                currentEvent={currentEvent}
-                allEvents={allEvents}
-                userRole={userRole}
-                maxEvents={maxEvents}
-              />
-            )}
-
-            {/* ? Guide Pill Button */}
+          {/* Zone 3 (Right): Minimal Guide Icon + Consolidated User Account Menu */}
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Minimal Guide Icon Button (32x32px) */}
             <Link
               href="/admin/guide"
               prefetch={true}
               onClick={() => setOptimisticPath("/admin/guide")}
-              className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 whitespace-nowrap flex items-center gap-1.5 border ${
+              aria-label="Admin User Guide"
+              title="Admin User Guide"
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-all shrink-0 border border-transparent hover:border-white/10 ${
                 isGuideActive
-                  ? "bg-stone-800/80 text-amber-300 border-amber-500/30 font-semibold shadow-sm"
-                  : "bg-zinc-900/60 hover:bg-zinc-800 text-zinc-300 hover:text-white border-zinc-800"
+                  ? "bg-white/[0.08] text-amber-300 font-semibold shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
               }`}
             >
-              <span className="w-4 h-4 rounded-full bg-amber-400/20 text-amber-400 text-[10px] font-bold flex items-center justify-center">
-                ?
-              </span>
-              <span>Guide</span>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={1.75}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="w-4 h-4"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+                <path d="M12 17h.01" />
+              </svg>
             </Link>
 
-            {/* Account & System Dropdown Menu */}
+            {/* Consolidated Account & Role Menu Dropdown */}
             <div className="relative" ref={accountMenuRef}>
               <button
                 type="button"
                 onClick={() => setShowAccountMenu((prev) => !prev)}
                 aria-expanded={showAccountMenu}
                 aria-label="Admin account menu"
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer whitespace-nowrap shrink-0 min-h-[36px]"
+                className="flex items-center gap-2 px-2 py-1.5 rounded-lg border border-transparent hover:border-white/10 hover:bg-white/[0.04] text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer whitespace-nowrap shrink-0 group min-h-[36px]"
               >
-                <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                <span
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold shrink-0 transition-transform group-hover:scale-105 ${
+                    userRole === "superadmin"
+                      ? "bg-amber-400/15 text-amber-300 ring-1 ring-amber-400/40"
+                      : "bg-zinc-800 text-zinc-200 ring-1 ring-white/10"
+                  }`}
+                >
                   {userInitial}
                 </span>
-                <span className="max-w-[120px] truncate">{userDisplayName || username}</span>
+                <span className="hidden sm:inline-block text-xs font-medium text-zinc-300 group-hover:text-white transition-colors">
+                  {userRole === "superadmin" ? "Owner" : "Host"}
+                </span>
                 <svg
-                  className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-200 ${
+                  className={`w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 transition-transform duration-200 ${
                     showAccountMenu ? "rotate-180" : ""
                   }`}
                   fill="none"
@@ -315,20 +335,36 @@ export function AdminNavbar({
                 </svg>
               </button>
 
-              {/* Dropdown Popover */}
+              {/* Account Dropdown Popover */}
               {showAccountMenu && (
-                <div className="absolute right-0 mt-2 w-64 bg-stone-900 border border-stone-800 rounded-xl shadow-2xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-150">
-                  {/* Signed-in Header */}
-                  <div className="px-3 py-2 border-b border-stone-800/80">
-                    <div className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
-                      Signed in as ({userRole === "superadmin" ? "Platform Owner" : "Host Client"})
+                <div className="absolute right-0 mt-1.5 w-64 bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl z-50 p-1.5 space-y-1 animate-in fade-in zoom-in-95 duration-100">
+                  {/* Signed-in User Info Header */}
+                  <div className="px-3 py-2.5 border-b border-zinc-800/80">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                        Signed in as
+                      </span>
+                      <span
+                        className={`text-[9px] font-mono uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+                          userRole === "superadmin"
+                            ? "bg-amber-400/10 text-amber-400 border border-amber-400/20"
+                            : "bg-zinc-800 text-zinc-300 border border-zinc-700/50"
+                        }`}
+                      >
+                        {userRole === "superadmin" ? "Platform Owner" : "Host Client"}
+                      </span>
                     </div>
-                    <div className="text-xs font-mono text-zinc-300 truncate mt-0.5" title={userEmail}>
-                      {userDisplayName ? `${userDisplayName} (${userEmail})` : userEmail}
+                    <div className="text-xs font-mono text-zinc-200 truncate mt-1" title={userEmail}>
+                      {userEmail}
                     </div>
+                    {userDisplayName && (
+                      <div className="text-[11px] text-zinc-400 truncate mt-0.5">
+                        {userDisplayName}
+                      </div>
+                    )}
                   </div>
 
-                  {/* System Links */}
+                  {/* System & Role Links */}
                   <div className="py-1 space-y-0.5">
                     {userRole === "superadmin" && (
                       <Link
@@ -338,43 +374,31 @@ export function AdminNavbar({
                           setOptimisticPath("/superadmin");
                           setShowAccountMenu(false);
                         }}
-                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors ${
+                        className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                           activePath.startsWith("/superadmin")
-                            ? "bg-amber-500/20 text-amber-300"
-                            : "text-amber-400 hover:text-white hover:bg-amber-500/10"
+                            ? "bg-amber-400/15 text-amber-300 font-semibold"
+                            : "text-amber-400 hover:text-white hover:bg-amber-400/10"
                         }`}
                       >
-                        <span className="text-sm">👑</span>
-                        <span>Superadmin Console</span>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={1.75}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="w-4 h-4 text-amber-400 shrink-0"
+                        >
+                          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                          <path d="m9 12 2 2 4-4" />
+                        </svg>
+                        <span>Platform Owner Console</span>
                       </Link>
                     )}
 
                     {userRole === "superadmin" && (
                       <>
-                        <Link
-                          href="/admin/connect-drive"
-                          prefetch={true}
-                          onClick={() => {
-                            setOptimisticPath("/admin/connect-drive");
-                            setShowAccountMenu(false);
-                          }}
-                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
-                            activePath.startsWith("/admin/connect-drive")
-                              ? "bg-zinc-800 text-amber-300 font-medium"
-                              : "text-zinc-300 hover:text-white hover:bg-zinc-800/60"
-                          }`}
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            className="w-4 h-4 text-blue-400 shrink-0"
-                          >
-                            <path d="M5.5 16a3.5 3.5 0 0 1-.369-6.98 4 4 0 1 1 7.753-1.977A4.5 4.5 0 1 1 13.5 16h-8Z" />
-                          </svg>
-                          <span>Connect Google Drive</span>
-                        </Link>
-
                         <Link
                           href="/admin/health"
                           prefetch={true}
@@ -382,25 +406,53 @@ export function AdminNavbar({
                             setOptimisticPath("/admin/health");
                             setShowAccountMenu(false);
                           }}
-                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                             activePath.startsWith("/admin/health")
-                              ? "bg-zinc-800 text-amber-300 font-medium"
-                              : "text-zinc-300 hover:text-white hover:bg-zinc-800/60"
+                              ? "bg-white/[0.08] text-white"
+                              : "text-zinc-300 hover:text-white hover:bg-white/[0.04]"
                           }`}
                         >
                           <svg
                             xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={1.75}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
                             className="w-4 h-4 text-emerald-400 shrink-0"
                           >
-                            <path
-                              fillRule="evenodd"
-                              d="M10 1a9 9 0 1 0 9 9 9.01 9.01 0 0 0-9-9Zm.75 4a.75.75 0 0 0-1.5 0v3.44l-2.22 1.28a.75.75 0 1 0 .75 1.3l2.6-1.5a.75.75 0 0 0 .37-.65V5Z"
-                              clipRule="evenodd"
-                            />
+                            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
                           </svg>
-                          <span>System Health</span>
+                          <span>Drive & System Health</span>
+                        </Link>
+
+                        <Link
+                          href="/admin/connect-drive"
+                          prefetch={true}
+                          onClick={() => {
+                            setOptimisticPath("/admin/connect-drive");
+                            setShowAccountMenu(false);
+                          }}
+                          className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
+                            activePath.startsWith("/admin/connect-drive")
+                              ? "bg-white/[0.08] text-white"
+                              : "text-zinc-300 hover:text-white hover:bg-white/[0.04]"
+                          }`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={1.75}
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            className="w-4 h-4 text-blue-400 shrink-0"
+                          >
+                            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+                          </svg>
+                          <span>Google Drive Vault</span>
                         </Link>
                       </>
                     )}
@@ -412,26 +464,31 @@ export function AdminNavbar({
                         setOptimisticPath("/admin/guide");
                         setShowAccountMenu(false);
                       }}
-                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs transition-colors ${
+                      className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-medium transition-colors ${
                         activePath.startsWith("/admin/guide")
-                          ? "bg-zinc-800 text-amber-300 font-medium"
-                          : "text-zinc-300 hover:text-white hover:bg-zinc-800/60"
+                          ? "bg-white/[0.08] text-white"
+                          : "text-zinc-300 hover:text-white hover:bg-white/[0.04]"
                       }`}
                     >
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="w-4 h-4 text-amber-400 shrink-0"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth={1.75}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="w-4 h-4 text-zinc-400 shrink-0"
                       >
-                        <path d="M10.75 16.82A7.462 7.462 0 0 1 15 15.5c.71 0 1.396.098 2.046.282A.75.75 0 0 0 18 15.06v-11a.75.75 0 0 0-.546-.721A9.006 9.006 0 0 0 15 3a8.963 8.963 0 0 0-4.25 1.065V16.82ZM9.25 4.065A8.963 8.963 0 0 0 5 3c-.85 0-1.673.118-2.455.339A.75.75 0 0 0 2 4.06v11a.75.75 0 0 0 .954.722A7.462 7.462 0 0 1 5 15.5c1.579 0 3.042.487 4.25 1.32V4.065Z" />
+                        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
+                        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
                       </svg>
-                      <span>User Guide & Manual</span>
+                      <span>Admin User Guide</span>
                     </Link>
                   </div>
 
-                  {/* Divider + Sign Out */}
-                  <div className="pt-1 border-t border-stone-800/80">
+                  {/* Divider + Sign Out Action */}
+                  <div className="pt-1 border-t border-zinc-800/80">
                     <form action="/api/auth/logout" method="POST">
                       <button
                         type="submit"
@@ -439,20 +496,17 @@ export function AdminNavbar({
                       >
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={1.75}
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
                           className="w-4 h-4 text-rose-400 shrink-0"
                         >
-                          <path
-                            fillRule="evenodd"
-                            d="M3 4.25A2.25 2.25 0 0 1 5.25 2h5.5A2.25 2.25 0 0 1 13 4.25v2a.75.75 0 0 1-1.5 0v-2a.75.75 0 0 0-.75-.75h-5.5a.75.75 0 0 0-.75.75v11.5c0 .414.336.75.75.75h5.5a.75.75 0 0 0 .75-.75v-2a.75.75 0 0 1 1.5 0v2A2.25 2.25 0 0 1 10.75 18h-5.5A2.25 2.25 0 0 1 3 15.75V4.25Z"
-                            clipRule="evenodd"
-                          />
-                          <path
-                            fillRule="evenodd"
-                            d="M19 10a.75.75 0 0 0-.75-.75H8.704l1.97-1.97a.75.75 0 1 0-1.06-1.06l-3.25 3.25a.75.75 0 0 0 0 1.06l3.25 3.25a.75.75 0 1 0 1.06-1.06l-1.97-1.97H18.25A.75.75 0 0 0 19 10Z"
-                            clipRule="evenodd"
-                          />
+                          <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                          <polyline points="16 17 21 12 16 7" />
+                          <line x1="21" x2="9" y1="12" y2="12" />
                         </svg>
                         <span>Sign Out</span>
                       </button>
@@ -461,52 +515,6 @@ export function AdminNavbar({
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Right Side Mobile & Tablet (< lg): EventSwitcher, Quick Guide link & Sign out */}
-          <div className="flex lg:hidden items-center gap-1.5 shrink-0">
-            {userRole === "superadmin" && (
-              <Link
-                href="/superadmin"
-                prefetch={true}
-                className="p-1.5 rounded-lg text-xs font-semibold transition-all shrink-0 border border-amber-500/40 bg-amber-500/15 text-amber-300 flex items-center justify-center min-w-[32px] min-h-[32px]"
-                title="Superadmin Console"
-              >
-                👑
-              </Link>
-            )}
-            {currentEvent && allEvents && (
-              <EventSwitcher
-                currentEvent={currentEvent}
-                allEvents={allEvents}
-                userRole={userRole}
-                maxEvents={maxEvents}
-              />
-            )}
-            <Link
-              href="/admin/guide"
-              prefetch={true}
-              onClick={() => setOptimisticPath("/admin/guide")}
-              className={`p-1.5 rounded-lg text-xs font-medium transition-all ${
-                isGuideActive
-                  ? "bg-stone-800 text-amber-300 font-semibold"
-                  : "text-zinc-400 hover:text-white"
-              }`}
-              aria-label="User Guide"
-              title="User Guide"
-            >
-              <span className="w-5 h-5 rounded-full bg-amber-400/20 text-amber-300 text-xs font-bold flex items-center justify-center">
-                ?
-              </span>
-            </Link>
-            <form action="/api/auth/logout" method="POST">
-              <button
-                type="submit"
-                className="text-xs px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-300 hover:text-white transition-all cursor-pointer whitespace-nowrap min-h-[34px] flex items-center justify-center"
-              >
-                Sign Out
-              </button>
-            </form>
           </div>
         </div>
       </header>

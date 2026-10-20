@@ -391,7 +391,7 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Client Host (`client`):** Authenticated via client email + 8-character human-readable access code (or password) stored in `public.clients`. Scoped exclusively to wedding events assigned to their `client_id`.
 
 2. **Platform Owner Console (`/superadmin`):**
-   - Accessible exclusively to Platform Owners via direct URL or the gold `👑 Owner Console` navigation link.
+   - Accessible exclusively to Platform Owners via direct URL or via the User Account dropdown menu in the top navigation bar.
    - **Platform KPI Overview:** Real-time counters displaying Active Clients vs. Total Clients, Total Platform Event Rolls, Total Photos Synced to Google Drive, and Total Registered Guests.
    - **Client Account Provisioning:**
      - Create new client accounts with Name, Email, Max Allowed Event Rolls (e.g., 1 for single wedding, 2–3 for engagement + wedding packages), and internal notes.
@@ -453,4 +453,33 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Detailed Status Sheet:** Tapping the sync pill opens the full-screen `SyncStatusSheet` with bilingual status descriptions and reassuring offline explanations.
    - **Accidental Closure Guard (`beforeunload`):** If a guest attempts to close or reload the browser while photos are actively syncing, the browser prompts with a confirmation modal, preventing accidental loss before cloud delivery completes.
    - **Dual-Master Bandwidth Optimization:** If an event tier has `dual_master_enabled: false`, the app skips capturing and uploading the secondary unfiltered original, cutting client bandwidth usage and Drive API calls by 50%.
+
+---
+
+## 15. 3-Zone Luxury Editorial Header, Context Switcher & Quiet Account Menu
+
+1. **Spatial Breadcrumb Architecture:**
+   - In accordance with Vercel and Linear design principles, the Admin navigation bar is organized into three distinct, balanced zones:
+     - **Zone 1 (Left):** Unveiled Brand Mark + subtle `/` slash divider + ghost `EventSwitcher` (anchoring current event context on the left, directly preceding the event-scoped navigation).
+     - **Zone 2 (Center):** 5 single-line primary navigation tabs (`Dashboard`, `Gallery`, `QR & Print`, `Look Lab`, `Settings`) with clear high-contrast active states.
+     - **Zone 3 (Right):** Minimal `32x32px` Guide icon button + unified User Account Dropdown.
+
+2. **Ghost Context Switcher (`EventSwitcher.tsx`):**
+   - Replaces the bulky rectangular status badges and serif font clashes in the top bar with clean geometric sans typography (`font-medium text-xs sm:text-sm text-zinc-200`).
+   - A refined `6px` status dot displays event health:
+     - Emerald (`bg-emerald-400`): Active event
+     - Amber (`bg-amber-400`): Paused intermission
+     - Zinc (`bg-zinc-500`): Concluded archive
+   - Full text badges (`ACTIVE`, `PAUSED`, `ARCHIVED`) are reserved for the open dropdown list.
+   - Dropdown menu is positioned left-aligned with the trigger for natural breadcrumb expansion.
+
+3. **Quiet Account Menu & Zero Cartoon Emojis:**
+   - Replaces the standalone yellow button and truncated email address pill with a compact circular initial avatar (with a warm gold ring for Platform Owners) and role label.
+   - The popover cleanly houses:
+     - Full account email and role badge (`Platform Owner` or `Host Admin`).
+     - **Platform Owner Console (`/superadmin`)** with a crisp vector shield icon (**zero cartoon emojis**).
+     - **Drive & System Health (`/admin/health`)** and **Google Drive Vault (`/admin/connect-drive`)**.
+     - **Admin User Guide** shortcut.
+     - Divider + **Sign Out** action in rose accent.
+
 

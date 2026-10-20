@@ -114,15 +114,26 @@ export function EventSwitcher({
     }
   };
 
-  // If client only has 1 event, render a static badge without dropdown or + New Event
+  const getStatusDotColor = (status: string) => {
+    switch (status) {
+      case "active":
+        return "bg-emerald-400";
+      case "paused":
+        return "bg-amber-400";
+      case "archived":
+      default:
+        return "bg-zinc-500";
+    }
+  };
+
+  // If client only has 1 event, render a static label without dropdown or + New Event
   if (userRole === "client" && allEvents.length <= 1) {
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-800 text-xs font-medium text-white shadow-sm shrink-0">
-        <span className="w-2 h-2 rounded-full bg-emerald-400" />
-        <span className="max-w-[110px] sm:max-w-[170px] truncate font-serif font-bold text-zinc-100">
+      <div className="flex items-center gap-2 px-2 py-1.5 text-xs sm:text-sm font-medium text-zinc-200 shrink-0">
+        <span className={`w-1.5 h-1.5 rounded-full ${getStatusDotColor(currentEvent.status)} shrink-0`} />
+        <span className="max-w-[130px] sm:max-w-[200px] truncate font-sans text-zinc-200">
           {currentEvent.couple_names}
         </span>
-        {getStatusBadge(currentEvent.status)}
       </div>
     );
   }
@@ -131,32 +142,33 @@ export function EventSwitcher({
 
   return (
     <div className="relative">
-      {/* Trigger Button */}
+      {/* Trigger Button: Minimal Ghost Vercel/Linear Breadcrumb Style */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-white transition-all cursor-pointer shadow-sm group"
+        aria-expanded={isOpen}
+        aria-label="Switch active event"
+        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-transparent hover:border-white/10 hover:bg-white/[0.04] text-xs sm:text-sm font-medium text-zinc-200 hover:text-white transition-all cursor-pointer shrink-0 group"
       >
-        <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-        <span className="max-w-[110px] sm:max-w-[170px] truncate font-serif font-bold text-zinc-100 group-hover:text-amber-300 transition-colors">
+        <span className={`w-1.5 h-1.5 rounded-full ${getStatusDotColor(currentEvent.status)} shrink-0`} />
+        <span className="max-w-[130px] sm:max-w-[200px] truncate font-sans text-zinc-200 group-hover:text-white transition-colors">
           {currentEvent.couple_names}
         </span>
-        {getStatusBadge(currentEvent.status)}
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
           fill="currentColor"
-          className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-200 transition-transform ${isOpen ? "rotate-180" : ""}`}
         >
           <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
         </svg>
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu: Aligned left with trigger */}
       {isOpen && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
-          <div className="absolute right-0 mt-2 w-72 rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl z-50 overflow-hidden divide-y divide-zinc-800/80 animate-in fade-in zoom-in-95 duration-100">
+          <div className="absolute left-0 mt-1.5 w-72 rounded-2xl bg-zinc-950 border border-zinc-800 shadow-2xl z-50 overflow-hidden divide-y divide-zinc-800/80 animate-in fade-in zoom-in-95 duration-100">
             <div className="p-3 bg-zinc-900/50 flex items-center justify-between">
               <span className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
                 Event Switcher
@@ -193,7 +205,7 @@ export function EventSwitcher({
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-xs font-serif font-bold text-white truncate">
+                      <div className="text-xs font-sans font-medium text-white truncate">
                         {ev.couple_names}
                       </div>
                       <div className="text-[10px] font-mono text-zinc-400 truncate">
