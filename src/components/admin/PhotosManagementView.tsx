@@ -404,39 +404,53 @@ export function PhotosManagementView({
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Header Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 mb-6 border-b border-stone-800">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-6 mb-6 border-b border-zinc-800/80">
         <div>
-          <span className="text-xs font-mono uppercase tracking-widest text-amber-400">Wedding Archive</span>
-          <h1 className="text-2xl font-serif font-bold text-white mt-1">Photo Gallery & Rolls</h1>
-          <p className="text-xs text-stone-400 mt-1">
+          <span className="text-[11px] font-mono uppercase tracking-widest text-amber-400/90 font-medium">Wedding Archive</span>
+          <h1 className="text-xl sm:text-2xl font-serif text-zinc-100 mt-1">Photo Gallery & Rolls</h1>
+          <p className="text-xs text-zinc-400 mt-1 max-w-xl leading-relaxed">
             Browse guest shots in Retina clarity, compare film graded looks vs RAW sensor originals, and manage rolls.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2.5 shrink-0">
           {/* Mode Switcher */}
-          <div className="flex items-center bg-stone-900 border border-stone-800 p-1 rounded-xl text-xs font-medium">
+          <div className="inline-flex items-center bg-zinc-900/90 border border-zinc-800 p-0.5 rounded-lg text-xs font-medium">
             <button
+              type="button"
               onClick={() => setViewMode("editorial")}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
                 viewMode === "editorial"
-                  ? "bg-amber-400 text-black font-semibold shadow"
-                  : "text-stone-400 hover:text-stone-200"
+                  ? "bg-zinc-800 text-zinc-100 font-medium shadow-sm border border-white/10"
+                  : "text-zinc-400 hover:text-zinc-200 border border-transparent"
               }`}
             >
-              <span>⊞</span>
-              <span>Editorial Gallery</span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <rect width="7" height="7" x="3" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="3" rx="1" />
+                <rect width="7" height="7" x="14" y="14" rx="1" />
+                <rect width="7" height="7" x="3" y="14" rx="1" />
+              </svg>
+              <span>Gallery</span>
             </button>
             <button
+              type="button"
               onClick={() => setViewMode("table")}
-              className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 whitespace-nowrap transition-all cursor-pointer ${
                 viewMode === "table"
-                  ? "bg-amber-400 text-black font-semibold shadow"
-                  : "text-stone-400 hover:text-stone-200"
+                  ? "bg-zinc-800 text-zinc-100 font-medium shadow-sm border border-white/10"
+                  : "text-zinc-400 hover:text-zinc-200 border border-transparent"
               }`}
             >
-              <span>☰</span>
-              <span>Guest Rolls Table</span>
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <line x1="8" x2="21" y1="6" y2="6" />
+                <line x1="8" x2="21" y1="12" y2="12" />
+                <line x1="8" x2="21" y1="18" y2="18" />
+                <line x1="3" x2="3.01" y1="6" y2="6" />
+                <line x1="3" x2="3.01" y1="12" y2="12" />
+                <line x1="3" x2="3.01" y1="18" y2="18" />
+              </svg>
+              <span>Guest Rolls</span>
             </button>
           </div>
 
@@ -445,15 +459,16 @@ export function PhotosManagementView({
             type="button"
             onClick={() => setIsExportModalOpen(true)}
             disabled={exportProgress?.active}
-            className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-black font-semibold text-xs transition-all flex items-center gap-1.5 shadow-sm disabled:opacity-50 cursor-pointer shrink-0"
+            className="h-8 px-3.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium text-xs transition-colors flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer shrink-0 whitespace-nowrap"
             title="Download All Photos as .ZIP archive"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-              <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
-              <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" x2="12" y1="15" y2="3" />
             </svg>
             <span>Download All (.ZIP)</span>
-            <span className="px-1.5 py-0.5 bg-black/15 text-black rounded text-[10px] font-mono font-bold">
+            <span className="px-1.5 py-0.5 bg-black/15 text-zinc-950 rounded text-[10px] font-mono font-bold leading-none">
               {photos.filter((p) => !!p.drive_file_id).length}
             </span>
           </button>
@@ -463,13 +478,14 @@ export function PhotosManagementView({
               href={`https://drive.google.com/drive/folders/${rootFolderId}`}
               target="_blank"
               rel="noreferrer"
-              className="px-3.5 py-2 rounded-xl bg-stone-900 border border-stone-800 text-stone-300 font-medium text-xs hover:border-amber-400/50 hover:text-amber-300 transition-all flex items-center gap-1.5 shrink-0"
+              className="h-8 px-3 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-medium text-xs transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap"
               title="Open Google Drive Archive"
             >
               <span>Google Drive</span>
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-3.5 h-3.5">
-                <path fillRule="evenodd" d="M4.25 5.5a.75.75 0 0 0-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 0 0 .75-.75v-4a.75.75 0 0 1 1.5 0v4A2.25 2.25 0 0 1 12.75 17h-8.5A2.25 2.25 0 0 1 2 14.75v-8.5A2.25 2.25 0 0 1 4.25 4h4a.75.75 0 0 1 0 1.5h-4Z" clipRule="evenodd" />
-                <path fillRule="evenodd" d="M6.194 12.753a.75.75 0 0 0 1.06.053L16.5 4.44v2.81a.75.75 0 0 0 1.5 0v-4.5a.75.75 0 0 0-.75-.75h-4.5a.75.75 0 0 0 0 1.5h2.553l-9.056 8.194a.75.75 0 0 0-.053 1.06Z" clipRule="evenodd" />
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-400">
+                <path d="M15 3h6v6" />
+                <path d="M10 14 21 3" />
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
               </svg>
             </a>
           )}
@@ -557,8 +573,8 @@ export function PhotosManagementView({
               }}
               className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                 presetFilter === "all"
-                  ? "bg-amber-400 text-black font-semibold shadow"
-                  : "bg-stone-950 border border-stone-800 text-stone-400 hover:text-stone-200"
+                  ? "bg-amber-400/15 text-amber-300 border border-amber-400/40 font-semibold shadow-sm"
+                  : "bg-zinc-950/80 border border-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
               }`}
             >
               All Looks
@@ -573,8 +589,8 @@ export function PhotosManagementView({
                 }}
                 className={`px-2.5 py-1 rounded-lg text-xs font-mono font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   presetFilter === preset
-                    ? "bg-amber-400 text-black font-semibold shadow"
-                    : "bg-stone-950 border border-stone-800 text-stone-400 hover:text-stone-200"
+                    ? "bg-amber-400/15 text-amber-300 border border-amber-400/40 font-semibold shadow-sm"
+                    : "bg-zinc-950/80 border border-zinc-800/80 text-zinc-400 hover:text-zinc-200 hover:border-zinc-700"
                 }`}
               >
                 {preset}
