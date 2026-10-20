@@ -37,6 +37,8 @@ export interface ShotRecord {
   originalAttempts?: number;
   nextAttemptAt: number;
   originalNextAttemptAt?: number;
+  uploadStartedAt?: number;
+  originalUploadStartedAt?: number;
 }
 
 export interface GalleryPhoto {
@@ -104,9 +106,11 @@ export function newShotId(): string {
 }
 
 const inMemoryFallbackShots = new Map<string, ShotRecord>();
+export const activeInFlightIds = new Set<string>();
 
 export function _resetStoreForTesting(): void {
   inMemoryFallbackShots.clear();
+  activeInFlightIds.clear();
 }
 
 function deserializeRecord(raw: any): ShotRecord {
@@ -262,6 +266,45 @@ export async function getPendingShots(guestId?: string): Promise<ShotRecord[]> {
   }
 
   const all = Array.from(map.values());
+  const now = Date.now();
+
+  // Self-heal stale "uploading" locks (e.g. from killed background tabs or phone locks > 45s)
+  // ONLY reset if the shot is NOT actively in-flight in the current JavaScript runtime.
+  for (const r of all) {
+    let needsUpdate = false;
+    const patch: Partial<ShotRecord> = {};
+
+    if (r.status === "uploading") {
+      const isActivelyRunning = activeInFlightIds.has(r.shotId);
+      const isStale = !r.uploadStartedAt || now - r.uploadStartedAt > 45_000;
+      if (!isActivelyRunning && isStale) {
+        console.warn(
+          `[getPendingShots] Detected stale 'uploading' lock for shot ${r.shotId}. Self-healing back to 'queued'.`
+        );
+        patch.status = "queued";
+        r.status = "queued";
+        needsUpdate = true;
+      }
+    }
+
+    if (r.originalStatus === "uploading") {
+      const isActivelyRunning = activeInFlightIds.has(`${r.shotId}:original`);
+      const isStale = !r.originalUploadStartedAt || now - r.originalUploadStartedAt > 45_000;
+      if (!isActivelyRunning && isStale) {
+        console.warn(
+          `[getPendingShots] Detected stale 'uploading' lock for original of shot ${r.shotId}. Self-healing back to 'queued'.`
+        );
+        patch.originalStatus = "queued";
+        r.originalStatus = "queued";
+        needsUpdate = true;
+      }
+    }
+
+    if (needsUpdate) {
+      void updateShot(r.shotId, patch);
+    }
+  }
+
   return all.filter(
     (r) =>
       r.status !== "synced" ||

@@ -418,3 +418,39 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
 4. **Tenant Ownership Enforcement on Photos (`/api/admin/photos/[id]/**`):**
    - Individual photo routes (streaming `/image`, deletion `/delete`, hide `/hide`, unhide `/unhide`, and bulk `.ZIP` exports) verify tenant ownership before returning or mutating data.
    - If a client requests a photo ID belonging to another client or unassigned event, the route rejects the request with `403 Forbidden: Access denied to photo`.
+
+---
+
+## 14. Event-Day Upload Queue Invincibility — 500-Guest Spike Protection, Phone-Lock Auto-Resume & Sync UX Guard
+
+1. **Mission-Critical Event Reliability:**
+   - At peak reception moments (cake cutting, bouquet toss, first dance), hundreds of guests simultaneously snap and upload photos over fluctuating ballroom cellular networks.
+   - To guarantee zero lost photos and eliminate server overload, the entire capture-to-drive pipeline is hardened against rate limits, lockouts, and client lifecycle interruptions.
+
+2. **Server-Side Jittered Exponential Backoff (`withDriveRetry`):**
+   - All Google Drive API interactions (folder hierarchy creation, root lookups, and resumable session initializations) are wrapped in `withDriveRetry`.
+   - **Rate-Limit Spike Mitigation:** Catches HTTP `429 Too Many Requests` and HTTP `403` rate-limit errors (`userRateLimitExceeded`, `rateLimitExceeded`, `usageLimits`), retrying with randomized jitter:
+     $$\text{delay} = 400\text{ms} \times 2^{\text{attempt}} + \text{random}(0..350\text{ms})$$
+     preventing synchronized retry spikes (thundering-herd effect).
+   - **Fail-Fast on Disk Full:** If Google Drive returns HTTP `403` with `storageQuotaExceeded`, the operation immediately aborts without retries, avoiding cascading timeouts when an event Google account reaches storage limits.
+   - **Folder Caching:** In-memory caching for `(rootFolderId, guestId)` mappings prevents redundant Google Drive API round-trips for repeat guest shots.
+
+3. **Guaranteed Local Commit & Phone-Lock Auto-Resume (`IndexedDB`):**
+   - **Local-First Storage:** When a guest taps "Keep Photo", both the filtered film photo and full-resolution original are committed directly to `IndexedDB` **before** any network call begins. Even if the guest immediately locks their phone or the browser is killed, the capture remains safe on the device.
+   - **Lifecycle Re-Engagement:** Queue processing automatically triggers on:
+     - `visibilitychange` (when returning to the camera tab or waking the screen).
+     - `pageshow` (restoring from Safari WebKit page cache).
+     - `online` (regaining connectivity after cellular drops or airplane mode).
+     - 12-second foreground heartbeat interval to prevent stalled background workers.
+   - **Self-Healing Stale Locks:** If an upload process is interrupted mid-flight (e.g., phone screen auto-lock), locks older than 45 seconds are automatically returned to `queued` state.
+   - **Slow Network In-Flight Protection:** To prevent duplicate parallel uploads on slow Edge/3G connections, items actively being uploaded in the current JavaScript runtime (`activeInFlightIds`) are protected from premature timeout resets, with a 45-second `AbortController` cleanly tearing down stalled HTTP requests before retrying.
+
+4. **Sync Status UX & Tab Safety:**
+   - **Real-Time Top Bar Sync Pill:** The camera top bar features an unobtrusive sync indicator:
+     - Pulsing amber dot with pending photo count during active background uploads.
+     - Smooth transition to a green `"✓"` confirmation pill (displaying for 3 seconds) the moment the queue clears.
+     - Pulsing rose indicator if cloud sync is temporarily paused.
+   - **Detailed Status Sheet:** Tapping the sync pill opens the full-screen `SyncStatusSheet` with bilingual status descriptions and reassuring offline explanations.
+   - **Accidental Closure Guard (`beforeunload`):** If a guest attempts to close or reload the browser while photos are actively syncing, the browser prompts with a confirmation modal, preventing accidental loss before cloud delivery completes.
+   - **Dual-Master Bandwidth Optimization:** If an event tier has `dual_master_enabled: false`, the app skips capturing and uploading the secondary unfiltered original, cutting client bandwidth usage and Drive API calls by 50%.
+

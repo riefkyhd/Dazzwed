@@ -267,32 +267,52 @@ export async function POST(req: Request) {
       );
     }
 
-    // Request resumable upload session from Google Drive using direct fetch
-    const gDriveInitRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json; charset=UTF-8",
-        "X-Upload-Content-Type": "image/jpeg",
-        "X-Upload-Content-Length": String(sizeParsed.data),
-        Origin: origin,
-      },
-      body: JSON.stringify({
-        name: filename,
-        parents: [targetParentFolderId],
-      }),
-    });
+    // Request resumable upload session from Google Drive using direct fetch wrapped in withDriveRetry
+    const { withDriveRetry } = await import("@/lib/drive/retry");
+    let sessionUri: string | null = null;
 
-    if (!gDriveInitRes.ok) {
-      const errText = await gDriveInitRes.text();
-      console.error("Google Drive resumable session initiation failed:", gDriveInitRes.status, errText);
-      return NextResponse.json({ error: "Failed to initialize Google Drive session" }, { status: 502 });
-    }
+    try {
+      sessionUri = await withDriveRetry(
+        async () => {
+          const gDriveInitRes = await fetch("https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              "Content-Type": "application/json; charset=UTF-8",
+              "X-Upload-Content-Type": "image/jpeg",
+              "X-Upload-Content-Length": String(sizeParsed.data),
+              Origin: origin,
+            },
+            body: JSON.stringify({
+              name: filename,
+              parents: [targetParentFolderId],
+            }),
+          });
 
-    const sessionUri = gDriveInitRes.headers.get("location");
-    if (!sessionUri) {
-      console.error("Google Drive returned 200/201 but no Location header:", Array.from(gDriveInitRes.headers.entries()));
-      return NextResponse.json({ error: "No resumable session Location returned from Drive" }, { status: 502 });
+          if (!gDriveInitRes.ok) {
+            const errText = await gDriveInitRes.text();
+            const err: any = new Error(`Drive session initiation failed: ${gDriveInitRes.status} ${errText}`);
+            err.status = gDriveInitRes.status;
+            try {
+              err.response = { data: JSON.parse(errText) };
+            } catch {}
+            throw err;
+          }
+
+          const loc = gDriveInitRes.headers.get("location");
+          if (!loc) {
+            throw new Error("No resumable session Location returned from Drive");
+          }
+          return loc;
+        },
+        { context: `initResumableSession(${filename})`, maxRetries: 3 }
+      );
+    } catch (driveInitErr) {
+      console.error("Google Drive resumable session initiation failed after retries:", driveInitErr);
+      return NextResponse.json(
+        { error: "Failed to initialize Google Drive session due to traffic spike. Please retry." },
+        { status: 502, headers: { "Retry-After": "2" } }
+      );
     }
 
     if (!isOriginal) {

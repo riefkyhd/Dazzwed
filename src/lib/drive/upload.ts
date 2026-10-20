@@ -1,6 +1,7 @@
 import "server-only";
 import { Readable } from "node:stream";
 import type { drive_v3 } from "googleapis";
+import { withDriveRetry } from "./retry";
 
 export interface UploadPhotoParams {
   drive: drive_v3.Drive;
@@ -46,21 +47,26 @@ export async function uploadPhotoToDrive({
 }: UploadPhotoParams): Promise<UploadPhotoResult> {
   const filename = generatePhotoFilename(guestNameOrShortId, shotNumber);
 
-  const stream = new Readable();
-  stream.push(fileBuffer);
-  stream.push(null);
+  const res = await withDriveRetry(
+    () => {
+      const stream = new Readable();
+      stream.push(fileBuffer);
+      stream.push(null);
 
-  const res = await drive.files.create({
-    requestBody: {
-      name: filename,
-      parents: [folderId],
+      return drive.files.create({
+        requestBody: {
+          name: filename,
+          parents: [folderId],
+        },
+        media: {
+          mimeType: "image/jpeg",
+          body: stream,
+        },
+        fields: "id, size",
+      });
     },
-    media: {
-      mimeType: "image/jpeg",
-      body: stream,
-    },
-    fields: "id, size",
-  });
+    { context: `uploadPhotoToDrive(${filename})` }
+  );
 
   const driveFileId = res.data.id;
   if (!driveFileId) {

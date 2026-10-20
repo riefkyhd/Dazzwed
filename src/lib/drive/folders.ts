@@ -1,5 +1,11 @@
 import "server-only";
 import type { drive_v3 } from "googleapis";
+import { withDriveRetry } from "./retry";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { computeRollCodeFromGuestId } from "@/lib/guest/session";
+
+const guestFolderCache = new Map<string, string>();
+const originalsFolderCache = new Map<string, string>();
 
 /**
  * Creates the root folder for the event in Google Drive.
@@ -11,13 +17,17 @@ export async function createRootFolder(
   coupleNames: string,
 ): Promise<string> {
   const name = `Disposable Cam - ${coupleNames.trim()}`;
-  const res = await drive.files.create({
-    requestBody: {
-      name,
-      mimeType: "application/vnd.google-apps.folder",
-    },
-    fields: "id, name",
-  });
+  const res = await withDriveRetry(
+    () =>
+      drive.files.create({
+        requestBody: {
+          name,
+          mimeType: "application/vnd.google-apps.folder",
+        },
+        fields: "id, name",
+      }),
+    { context: `createRootFolder(${name})` }
+  );
 
   const folderId = res.data.id;
   if (!folderId) {
@@ -25,12 +35,6 @@ export async function createRootFolder(
   }
   return folderId;
 }
-
-import { supabaseAdmin } from "@/lib/supabase/admin";
-import { computeRollCodeFromGuestId } from "@/lib/guest/session";
-
-const guestFolderCache = new Map<string, string>();
-const originalsFolderCache = new Map<string, string>();
 
 /**
  * Ensures a per-guest subfolder exists inside the root event folder.
@@ -44,7 +48,8 @@ export async function ensureGuestFolder(
   guestId: string,
   displayName: string | null,
 ): Promise<string> {
-  const memCached = guestFolderCache.get(guestId);
+  const cacheKey = `${rootFolderId}:${guestId}`;
+  const memCached = guestFolderCache.get(cacheKey);
   if (memCached) return memCached;
 
   const sb = supabaseAdmin();
@@ -57,7 +62,7 @@ export async function ensureGuestFolder(
     .maybeSingle();
 
   if (!fetchErr && currentGuest?.drive_folder_id) {
-    guestFolderCache.set(guestId, currentGuest.drive_folder_id);
+    guestFolderCache.set(cacheKey, currentGuest.drive_folder_id);
     return currentGuest.drive_folder_id;
   }
 
@@ -66,21 +71,25 @@ export async function ensureGuestFolder(
   const cleanName = displayName?.trim().replace(/[/\\?%*:|"<>]/g, "");
   const folderName = cleanName ? `${cleanName} (${rollCode})` : `Roll ${rollCode}`;
 
-  const res = await drive.files.create({
-    requestBody: {
-      name: folderName,
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [rootFolderId],
-    },
-    fields: "id",
-  });
+  const res = await withDriveRetry(
+    () =>
+      drive.files.create({
+        requestBody: {
+          name: folderName,
+          mimeType: "application/vnd.google-apps.folder",
+          parents: [rootFolderId],
+        },
+        fields: "id",
+      }),
+    { context: `ensureGuestFolder(${folderName})` }
+  );
 
   const folderId = res.data.id;
   if (!folderId) {
     throw new Error("Failed to create guest subfolder in Google Drive");
   }
 
-  guestFolderCache.set(guestId, folderId);
+  guestFolderCache.set(cacheKey, folderId);
 
   // Save folderId in Supabase
   await sb
@@ -103,11 +112,15 @@ export async function ensureOriginalsFolder(
   if (cached) return cached;
 
   // Query if "originals" folder already exists inside targetFolderId
-  const listRes = await drive.files.list({
-    q: `'${targetFolderId}' in parents and name = 'originals' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
-    fields: "files(id, name)",
-    spaces: "drive",
-  });
+  const listRes = await withDriveRetry(
+    () =>
+      drive.files.list({
+        q: `'${targetFolderId}' in parents and name = 'originals' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`,
+        fields: "files(id, name)",
+        spaces: "drive",
+      }),
+    { context: `listOriginalsFolder(${targetFolderId})` }
+  );
 
   if (listRes.data.files && listRes.data.files.length > 0 && listRes.data.files[0].id) {
     const id = listRes.data.files[0].id;
@@ -116,14 +129,18 @@ export async function ensureOriginalsFolder(
   }
 
   // Create "originals" subfolder inside targetFolderId
-  const createRes = await drive.files.create({
-    requestBody: {
-      name: "originals",
-      mimeType: "application/vnd.google-apps.folder",
-      parents: [targetFolderId],
-    },
-    fields: "id",
-  });
+  const createRes = await withDriveRetry(
+    () =>
+      drive.files.create({
+        requestBody: {
+          name: "originals",
+          mimeType: "application/vnd.google-apps.folder",
+          parents: [targetFolderId],
+        },
+        fields: "id",
+      }),
+    { context: `createOriginalsFolder(${targetFolderId})` }
+  );
 
   const folderId = createRes.data.id;
   if (!folderId) {

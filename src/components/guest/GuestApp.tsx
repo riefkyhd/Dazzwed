@@ -593,8 +593,9 @@ export function GuestApp({
     }
   ) => {
     if (!guestId || shotsLeft <= 0) return;
+    const shouldKeepOriginal = (event as any).dual_master_enabled !== false;
     await recordShot(filteredBlob, guestId, {
-      originalBlob,
+      originalBlob: shouldKeepOriginal ? originalBlob : undefined,
       source: "inapp",
       tier: "high",
       filtered: true,
@@ -683,12 +684,14 @@ export function GuestApp({
       setNativeProcessingState("saving");
       setNativeProgress(92);
 
-      // Save processed photo to queue with original file attached as clean original
+      const shouldKeepOriginal = (event as any).dual_master_enabled !== false;
+
+      // Save processed photo to queue with original file attached as clean original (if dual master enabled)
       await recordShot(
         finalBlob,
         activeId,
         {
-          originalBlob: file, // clean original uploaded to "originals" in background
+          originalBlob: shouldKeepOriginal ? file : undefined, // clean original uploaded to "originals" in background
           width: finalWidth,
           height: finalHeight,
           source: "native",

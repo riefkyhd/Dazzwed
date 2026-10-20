@@ -1,11 +1,29 @@
 import {
   getPendingShots,
   updateShot,
+  activeInFlightIds,
   type ShotRecord,
 } from "./store";
 
 const MAX_CONCURRENT = 2;
 const MAX_BACKOFF_MS = 60_000;
+
+/**
+ * Calculates exponential backoff with jitter for upload retries.
+ * Uses a ladder: 2s -> 5s -> 12s -> 25s -> 60s, plus 100ms-1200ms random jitter.
+ */
+export function calculateQueueBackoff(attempts: number, retryAfterHeader?: string | null): number {
+  if (retryAfterHeader) {
+    const parsed = parseInt(retryAfterHeader, 10);
+    if (!isNaN(parsed) && parsed > 0) {
+      return parsed * 1000;
+    }
+  }
+  const ladder = [2000, 5000, 12000, 25000, 60000];
+  const base = ladder[Math.min(Math.max(0, attempts), ladder.length - 1)];
+  const jitter = Math.floor(Math.random() * 1100) + 100;
+  return base + jitter;
+}
 
 export interface UploadQueueOptions {
   onPendingChange?: (count: number) => void;
@@ -35,15 +53,27 @@ class UploadQueue {
 
     // Immediately kick queue when back online
     window.addEventListener("online", () => {
-      this.resetDelaysAndDrain();
+      void this.resetDelaysAndDrain();
     });
 
-    // Check queue when tab comes to foreground
+    // Check queue when tab comes to foreground or phone is unlocked
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") {
         this.drain();
       }
     });
+
+    // Safari page cache restore or mobile wake
+    window.addEventListener("pageshow", () => {
+      void this.resetDelaysAndDrain();
+    });
+
+    // 12-second periodic heartbeat while in foreground to prevent stalled queues
+    setInterval(() => {
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        this.drain();
+      }
+    }, 12_000);
   }
 
   public subscribe(listener: Listener): () => void {
@@ -106,16 +136,7 @@ class UploadQueue {
   }
 
   private calculateBackoff(attempts: number, retryAfterHeader?: string | null): number {
-    if (retryAfterHeader) {
-      const parsed = parseInt(retryAfterHeader, 10);
-      if (!isNaN(parsed) && parsed > 0) {
-        return parsed * 1000;
-      }
-    }
-    // Exponential backoff: 2s, 4s, 8s, 16s... up to 60s + random jitter
-    const exp = Math.min(MAX_BACKOFF_MS, 1000 * Math.pow(2, attempts));
-    const jitter = Math.floor(Math.random() * 1000);
-    return exp + jitter;
+    return calculateQueueBackoff(attempts, retryAfterHeader);
   }
 
   private async process(): Promise<void> {
@@ -192,7 +213,7 @@ class UploadQueue {
         const uploadTask =
           type === "primary"
             ? (async () => {
-                void updateShot(item.shotId, { status: "uploading" });
+                void updateShot(item.shotId, { status: "uploading", uploadStartedAt: Date.now() });
                 await this.uploadItem(item);
               })()
             : (async () => {
@@ -219,11 +240,19 @@ class UploadQueue {
       return;
     }
 
+    const abortCtrl = new AbortController();
+    const abortTimeout = setTimeout(() => {
+      abortCtrl.abort();
+    }, 45_000);
+
+    activeInFlightIds.add(item.shotId);
+
     try {
       // Step A: Initialize resumable session & reserve shot atomically
       const initRes = await fetch("/api/photos/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: abortCtrl.signal,
         body: JSON.stringify({
           eventSlug: item.eventSlug,
           guestId: item.guestId,
@@ -308,6 +337,7 @@ class UploadQueue {
                 "Content-Range": contentRange,
                 "Content-Type": "image/jpeg",
               },
+              signal: abortCtrl.signal,
               body: chunk,
             });
           } catch (corsErr) {
@@ -321,6 +351,7 @@ class UploadQueue {
                 "content-range": contentRange,
                 "content-type": "image/jpeg",
               },
+              signal: abortCtrl.signal,
               body: chunk,
             });
           }
@@ -333,6 +364,7 @@ class UploadQueue {
               "content-range": contentRange,
               "content-type": "image/jpeg",
             },
+            signal: abortCtrl.signal,
             body: chunk,
           });
         }
@@ -367,6 +399,7 @@ class UploadQueue {
         const confirmRes = await fetch("/api/photos/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: abortCtrl.signal,
           body: JSON.stringify({
             shotId: item.shotId,
             driveFileId,
@@ -401,6 +434,9 @@ class UploadQueue {
         attempts: item.attempts + 1,
         nextAttemptAt: Date.now() + delay,
       });
+    } finally {
+      clearTimeout(abortTimeout);
+      activeInFlightIds.delete(item.shotId);
     }
   }
 
@@ -414,13 +450,22 @@ class UploadQueue {
       return;
     }
 
+    const abortCtrl = new AbortController();
+    const abortTimeout = setTimeout(() => {
+      abortCtrl.abort();
+    }, 45_000);
+
+    const originalFlightKey = `${item.shotId}:original`;
+    activeInFlightIds.add(originalFlightKey);
+
     try {
-      await updateShot(item.shotId, { originalStatus: "uploading" });
+      await updateShot(item.shotId, { originalStatus: "uploading", originalUploadStartedAt: Date.now() });
 
       // Step A: Init resumable session for original
       const initRes = await fetch("/api/photos/init", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: abortCtrl.signal,
         body: JSON.stringify({
           eventSlug: item.eventSlug,
           guestId: item.guestId,
@@ -489,6 +534,7 @@ class UploadQueue {
             chunkRes = await fetch(sessionUri, {
               method: "PUT",
               headers: { "Content-Range": contentRange, "Content-Type": "image/jpeg" },
+              signal: abortCtrl.signal,
               body: chunk,
             });
           } catch {
@@ -500,6 +546,7 @@ class UploadQueue {
                 "content-range": contentRange,
                 "content-type": "image/jpeg",
               },
+              signal: abortCtrl.signal,
               body: chunk,
             });
           }
@@ -511,6 +558,7 @@ class UploadQueue {
               "content-range": contentRange,
               "content-type": "image/jpeg",
             },
+            signal: abortCtrl.signal,
             body: chunk,
           });
         }
@@ -542,6 +590,7 @@ class UploadQueue {
         const confirmRes = await fetch("/api/photos/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: abortCtrl.signal,
           body: JSON.stringify({
             shotId: item.shotId,
             driveFileId,
@@ -575,6 +624,9 @@ class UploadQueue {
         originalAttempts: (item.originalAttempts || 0) + 1,
         originalNextAttemptAt: Date.now() + delay,
       });
+    } finally {
+      clearTimeout(abortTimeout);
+      activeInFlightIds.delete(originalFlightKey);
     }
   }
 }

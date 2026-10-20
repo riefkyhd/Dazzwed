@@ -547,6 +547,21 @@ export function AdminGuideView() {
                   : "Arsitektur multi-tenant dua peran yang memisahkan Pemilik Platform (superadmin) dengan pasangan pengantin dan Wedding Organizer (klien). Pemilik Platform mengelola akun klien, membagikan acara, mengubah kuota paket, dan memantau KPI seluruh platform melalui konsol /superadmin. Akun klien masuk melalui /admin/login menggunakan email dan kode akses 8-karakter. Sesi klien dibatasi secara ketat hanya pada acara milik mereka: pengaturan infrastruktur (OAuth Google Drive, System Health) disembunyikan, pembuatan acara baru dibatasi kuota paket, dan endpoint foto individual memvalidasi kepemilikan tenant (menolak akses dengan 403 Forbidden). Dilengkapi pencabutan akses instan saat akun ditangguhkan serta generator undangan WhatsApp 1-klik untuk kemudahan orientasi klien."}
               </p>
             </div>
+
+            {/* Control 17: Event-Day Upload Queue Invincibility & Rate-Limit Resilience */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Event-Day Upload Queue Invincibility & Rate-Limit Resilience" : "Ketahanan Antrean Unggah Hari-H & Perlindungan Rate-Limit"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Mission-critical reliability engine designed for 300–500 guest wedding receptions. Features server-side jittered exponential backoff (withDriveRetry) that gracefully handles Google Drive 429/403 rate-limit spikes without thundering-herd effects, while instantly failing fast without retrying if Drive storage quota is exceeded. On the guest side, photos are 100% committed to IndexedDB before any network request begins, with automatic queue resume on phone unlock (pageshow/visibilitychange) and background tab heartbeat. Includes in-memory active-in-flight tracking with 45s AbortController timeouts to prevent duplicate concurrent uploads on slow cellular networks, beforeunload protection against accidental tab closure, and package-aware dual-master bandwidth optimization (skipping original upload on single-master tiers)."
+                  : "Mesin keandalan kritis yang dirancang untuk resepsi pernikahan dengan 300–500 tamu. Dilengkapi exponential backoff dengan jitter di sisi server (withDriveRetry) yang menangani lonjakan rate-limit Google Drive 429/403 tanpa efek thundering-herd, sekaligus langsung menghentikan proses tanpa retry jika kuota penyimpanan Drive penuh. Di sisi tamu, foto dijamin 100% tersimpan di IndexedDB sebelum permintaan jaringan dimulai, dengan pemulihan antrean otomatis saat HP dibuka kunci (pageshow/visibilitychange) dan heartbeat tab latar belakang. Dilengkapi pelacakan in-memory active-in-flight dengan batas waktu AbortController 45 detik untuk mencegah unggahan duplikat di jaringan seluler lambat, proteksi beforeunload dari penutupan tab yang tidak disengaja, serta optimasi bandwidth dual-master berbasis kuota paket."}
+              </p>
+            </div>
           </div>
         </div>
       )}

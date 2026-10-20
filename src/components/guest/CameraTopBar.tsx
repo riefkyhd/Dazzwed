@@ -42,6 +42,20 @@ export function CameraTopBar({
   syncTooltipFading = false,
   rotationDegrees = 0,
 }: CameraTopBarProps) {
+  const [justSynced, setJustSynced] = React.useState(false);
+  const prevPendingRef = React.useRef(pendingCount);
+
+  React.useEffect(() => {
+    if (prevPendingRef.current > 0 && pendingCount === 0 && !syncError) {
+      setJustSynced(true);
+      const timer = setTimeout(() => {
+        setJustSynced(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+    prevPendingRef.current = pendingCount;
+  }, [pendingCount, syncError]);
+
   // Cycle flash: auto -> on -> off -> auto
   const cycleFlash = () => {
     triggerHaptic([25]);
@@ -182,11 +196,15 @@ export function CameraTopBar({
                     : "bg-emerald-400"
               }`}
             />
-            {pendingCount > 0 && (
+            {pendingCount > 0 ? (
               <span className="font-mono text-[10px] font-bold text-amber-300">
                 {pendingCount}
               </span>
-            )}
+            ) : justSynced ? (
+              <span className="font-mono text-[10px] font-medium text-emerald-400 animate-in fade-in duration-300">
+                ✓
+              </span>
+            ) : null}
           </div>
         </button>
 
