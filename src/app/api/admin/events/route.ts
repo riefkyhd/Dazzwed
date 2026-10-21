@@ -5,6 +5,7 @@ import { getAdminUser } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ACTIVE_EVENT_COOKIE } from "@/lib/events/active";
 import { generateEventToken } from "@/lib/event-token";
+import { generateUniqueEventToken } from "@/lib/event-server";
 
 export const dynamic = "force-dynamic";
 
@@ -128,7 +129,7 @@ export async function POST(req: Request) {
     const packageMaxGuests = clientScopeId ? 150 : (typeof body.package_max_guests === "number" ? body.package_max_guests : null);
     const status = body.status === "paused" ? "paused" : "active";
 
-    const accessToken = generateEventToken();
+    const accessToken = await generateUniqueEventToken();
     const tokenDurationHours = 72;
     const tokenExpiresAt = new Date(Date.now() + tokenDurationHours * 3600 * 1000).toISOString();
 

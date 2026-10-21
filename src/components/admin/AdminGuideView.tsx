@@ -637,6 +637,21 @@ export function AdminGuideView() {
                   : "Superadmin platform maupun Klien Host (pasangan pengantin) memiliki izin untuk memicu pemeriksaan kesehatan Google Drive secara real-time (/api/admin/drive-health) langsung dari dashboard admin. Klien dapat mengklik 'Run Live Health Check' kapan saja untuk memverifikasi kuota penyimpanan, validitas OAuth, serta tes unggah/hapus responsif tanpa kendala 403 Forbidden. Pengaturan koneksi OAuth (/admin/connect-drive dan /api/auth/google/start) tetap terisolasi khusus Superadmin, sementara klien mendapatkan visibilitas operasional yang tenang dan jelas di hari pernikahan."}
               </p>
             </div>
+
+            {/* Control 23: Globally Unique Event Access Tokens & Non-Repeating Cryptographic Rotation */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 23: Globally Unique Event Access Tokens & Non-Repeating Cryptographic Rotation" : "Kontrol 23: Keunikan Global Token Akses Acara & Rotasi Kriptografis Bebas Duplikasi"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Guarantees 100% global uniqueness across all events for every access_token in the database, backed by a PostgreSQL UNIQUE index (migration 0013). Token rotation (/admin/settings) and creation (/api/admin/events & /api/superadmin/clients) use cryptographic collision detection that retries in a bounded loop until a globally unique token is generated, while strictly verifying that the new token never matches the event's previous token."
+                  : "Menjamin 100% keunikan global di seluruh acara untuk setiap access_token di database, didukung oleh indeks UNIQUE PostgreSQL (migrasi 0013). Pemutaran token (/admin/settings) dan pembuatan acara (/api/admin/events & /api/superadmin/clients) menerapkan deteksi tabrakan kriptografis dengan loop coba ulang hingga token yang benar-benar unik dihasilkan, serta memastikan token baru tidak pernah sama dengan token acara sebelumnya."}
+              </p>
+            </div>
           </div>
         </div>
       )}

@@ -3,6 +3,7 @@ import { getAuthSession } from "@/lib/auth/session";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { hashClientPassword } from "@/lib/auth/session";
 import { generateEventToken } from "@/lib/event-token";
+import { generateUniqueEventToken } from "@/lib/event-server";
 
 export const dynamic = "force-dynamic";
 
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
           package_max_shots_per_guest: 27,
           dual_master_enabled: true,
           client_id: client.id,
-          access_token: generateEventToken(),
+          access_token: await generateUniqueEventToken(),
           token_duration_hours: 72,
         })
         .select()

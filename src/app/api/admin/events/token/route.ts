@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAdminUser } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { generateEventToken } from "@/lib/event-token";
+import { generateUniqueEventToken } from "@/lib/event-server";
 
 export const dynamic = "force-dynamic";
 
@@ -84,10 +84,20 @@ export async function POST(req: Request) {
       ? Math.max(1, Math.min(8760, body.tokenDurationHours))
       : 72;
 
-    const newAccessToken = generateEventToken(8);
+    const sb = supabaseAdmin();
+
+    // Query current event to ensure the rotated token is guaranteed unique and never repeats the previous token
+    const { data: currentEvent } = await sb
+      .from("events")
+      .select("id, access_token")
+      .eq("id", body.eventId)
+      .maybeSingle();
+
+    const newAccessToken = await generateUniqueEventToken({
+      previousToken: currentEvent?.access_token,
+    });
     const newExpiresAt = new Date(Date.now() + duration * 60 * 60 * 1000).toISOString();
 
-    const sb = supabaseAdmin();
     const { data: updated, error } = await sb
       .from("events")
       .update({

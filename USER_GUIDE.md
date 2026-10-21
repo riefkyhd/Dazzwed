@@ -566,6 +566,11 @@ Following a full live reception audit on `https://dazzwed.vercel.app`, the platf
    - **Peace of Mind for Hosts:** Client hosts can trigger `Run Live Health Check` on their dashboard at any time to verify cloud vault operational status, quota, and test upload/delete responsiveness without receiving `403 Forbidden: Superadmin access required` errors.
    - **Platform Configuration Isolation:** Root OAuth credential management and reconnection flows (`/admin/connect-drive` and `/api/auth/google/start`) remain strictly restricted to Superadmins, with client dashboard views displaying non-interactive platform vault indicators instead of broken configuration links.
 
+7. **Globally Unique Event Access Tokens & Non-Repeating Cryptographic Rotation:**
+   - **Database-Level Unique Constraint:** Enforced via migration `0013_unique_event_access_token.sql`, establishing a PostgreSQL `UNIQUE` partial index on `public.events(access_token)` (`WHERE access_token IS NOT NULL`).
+   - **Collision-Free Generation:** All event creation endpoints (`/api/admin/events` and `/api/superadmin/clients`) generate tokens via `generateUniqueEventToken`, querying the database in a bounded loop to guarantee no two events ever share the same access link.
+   - **Non-Repeating Rotation:** When an event host or superadmin rotates an access token (`/api/admin/events/token`), the rotation algorithm strictly guarantees the new token will never match the event's previous token.
+
 
 
 

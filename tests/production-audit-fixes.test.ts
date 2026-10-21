@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { PGlite } from "@electric-sql/pglite";
 import { validateEventToken } from "@/lib/event-token";
+import { generateUniqueEventToken } from "@/lib/event-server";
 import { createStoredZipBlob } from "@/lib/export/zip";
 
 describe("Production Audit Fixes Regression Suite", () => {
@@ -112,6 +116,92 @@ describe("Production Audit Fixes Regression Suite", () => {
     it("respects ?next= query parameter if present for deep links", () => {
       expect(resolveLoginDestination("superadmin", "/admin/settings")).toBe("/admin/settings");
       expect(resolveLoginDestination("client", "/admin/photos?view=rolls")).toBe("/admin/photos?view=rolls");
+    });
+  });
+
+  describe("Safeguard #1 & #2: Global Uniqueness & Non-Repeating Rotation on Event Access Tokens", () => {
+    it("never produces the previous token when rotating an existing event token", async () => {
+      const currentToken = "ABCDEFGH";
+      for (let i = 0; i < 20; i++) {
+        const rotated = await generateUniqueEventToken({
+          previousToken: currentToken,
+          checkExists: async () => false,
+        });
+        expect(rotated).not.toBe(currentToken);
+        expect(rotated.length).toBe(8);
+      }
+    });
+
+    it("retries in a bounded loop until producing a collision-free unique token", async () => {
+      let attempts = 0;
+
+      const uniqueToken = await generateUniqueEventToken({
+        previousToken: "OLDTOKEN",
+        checkExists: async () => {
+          attempts++;
+          return attempts <= 2;
+        },
+      });
+
+      expect(attempts).toBe(3);
+      expect(uniqueToken).toBeDefined();
+      expect(uniqueToken.length).toBe(8);
+      expect(uniqueToken).not.toBe("OLDTOKEN");
+    });
+
+    it("enforces database-level UNIQUE constraint on access_token across different events (0013)", async () => {
+      const db = new PGlite();
+      const supabaseStub = `
+        create role anon nologin; create role authenticated nologin;
+        create role service_role nologin bypassrls;
+        create schema if not exists auth;
+        create or replace function auth.jwt() returns jsonb language sql stable as $$
+          select coalesce(nullif(current_setting('request.jwt.claims', true), ''), '{}')::jsonb $$;
+        grant usage on schema public, auth to anon, authenticated, service_role;
+        grant execute on function auth.jwt() to anon, authenticated, service_role;
+        alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+      `;
+      await db.exec(supabaseStub);
+
+      const m1 = readFileSync(join(process.cwd(), "supabase/migrations/0001_init.sql"), "utf-8");
+      const m9 = readFileSync(join(process.cwd(), "supabase/migrations/0009_event_access_tokens.sql"), "utf-8");
+      const m11 = readFileSync(join(process.cwd(), "supabase/migrations/0011_multi_event_saas.sql"), "utf-8");
+      const m12 = readFileSync(join(process.cwd(), "supabase/migrations/0012_clients_and_rbac.sql"), "utf-8");
+      const m13 = readFileSync(join(process.cwd(), "supabase/migrations/0013_unique_event_access_token.sql"), "utf-8");
+
+      await db.exec(m1);
+      await db.exec(m9);
+      await db.exec(m11);
+      await db.exec(m12);
+      await db.exec(m13);
+
+      // Insert Event 1 with access token 'SHAREDTK'
+      await db.query(`
+        INSERT INTO public.events (slug, couple_names, shots_per_guest, access_token)
+        VALUES ('wedding-one', 'Alice & Bob', 15, 'SHAREDTK');
+      `);
+
+      // Attempt to insert Event 2 with duplicate access token 'SHAREDTK' -> must fail
+      let insertError: any = null;
+      try {
+        await db.query(`
+          INSERT INTO public.events (slug, couple_names, shots_per_guest, access_token)
+          VALUES ('wedding-two', 'Charlie & Dana', 15, 'SHAREDTK');
+        `);
+      } catch (err) {
+        insertError = err;
+      }
+
+      expect(insertError).not.toBeNull();
+      expect(String(insertError)).toMatch(/unique constraint|duplicate key|idx_events_access_token_unique/i);
+
+      // Insert Event 3 with a distinct access token 'UNIQUETK' -> must succeed
+      const event3 = await db.query<any>(`
+        INSERT INTO public.events (slug, couple_names, shots_per_guest, access_token)
+        VALUES ('wedding-three', 'Eve & Frank', 15, 'UNIQUETK')
+        RETURNING id, access_token;
+      `);
+      expect(event3.rows[0].access_token).toBe("UNIQUETK");
     });
   });
 });
