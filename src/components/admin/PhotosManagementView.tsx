@@ -444,7 +444,7 @@ export function PhotosManagementView({
           <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-zinc-400 font-medium">Wedding Archive</span>
           <h1 className="text-2xl sm:text-3xl font-serif font-normal text-zinc-100 tracking-tight mt-1">Photo Gallery & Rolls</h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl leading-relaxed">
-            Browse guest shots in Retina clarity, compare film graded looks vs RAW sensor originals, and manage rolls.
+            Browse and download guest photos.
           </p>
         </div>
 
