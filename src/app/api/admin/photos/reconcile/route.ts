@@ -3,6 +3,7 @@ import { getAdminUser } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getDriveClient, resolveDriveTokens } from "@/lib/drive/client";
 import { getActiveAdminEvent } from "@/lib/events/active";
+import { assertEventTenantAccess } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,17 @@ export async function POST(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const eventIdParam = searchParams.get("eventId");
+
+  if (eventIdParam) {
+    const tenantGuard = await assertEventTenantAccess(eventIdParam);
+    if (!tenantGuard.authorized) {
+      return NextResponse.json(
+        { error: tenantGuard.error, code: tenantGuard.code },
+        { status: tenantGuard.status }
+      );
+    }
+  }
+
   const activeEvent = await getActiveAdminEvent(eventIdParam);
 
   if (!activeEvent) {

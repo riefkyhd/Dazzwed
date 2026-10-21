@@ -20,7 +20,7 @@ export function AdminGuideView() {
               Host Manual & Best Practices
             </span>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/10 text-amber-300 border border-amber-400/20">
-              v2.7
+              v2.8
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-1">
@@ -650,6 +650,36 @@ export function AdminGuideView() {
                 {lang === "en"
                   ? "Guarantees 100% global uniqueness across all events for every access_token in the database, backed by a PostgreSQL UNIQUE index (migration 0013). Token rotation (/admin/settings) and creation (/api/admin/events & /api/superadmin/clients) use cryptographic collision detection that retries in a bounded loop until a globally unique token is generated, while strictly verifying that the new token never matches the event's previous token."
                   : "Menjamin 100% keunikan global di seluruh acara untuk setiap access_token di database, didukung oleh indeks UNIQUE PostgreSQL (migrasi 0013). Pemutaran token (/admin/settings) dan pembuatan acara (/api/admin/events & /api/superadmin/clients) menerapkan deteksi tabrakan kriptografis dengan loop coba ulang hingga token yang benar-benar unik dihasilkan, serta memastikan token baru tidak pernah sama dengan token acara sebelumnya."}
+              </p>
+            </div>
+
+            {/* Control 24: Multi-Tenant Client Isolation Guard (assertEventTenantAccess) */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 24: Multi-Tenant Client Isolation Guard & Authenticated QR" : "Kontrol 24: Perlindungan Isolasi Multi-Tenant Klien & QR Terotentikasi"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Enforces strict object-level authorization across all administrative mutation routes (/api/admin/settings, /api/admin/events/token, /api/admin/settings/reset-sessions, /api/admin/events, and /api/admin/qr). Client host sessions can only modify, query, or generate QR assets for events where client_id strictly matches their authenticated session, immediately blocking cross-tenant tampering with HTTP 403 Forbidden and requiring session authentication on all QR routes."
+                  : "Menerapkan otorisasi tingkat objek yang ketat di seluruh rute mutasi administratif (/api/admin/settings, /api/admin/events/token, /api/admin/settings/reset-sessions, /api/admin/events, dan /api/admin/qr). Sesi klien hanya dapat mengubah, menanyakan, atau menghasilkan aset QR untuk acara yang client_id-nya secara tepat cocok dengan sesi terautentikasi mereka, langsung memblokir manipulasi lintas-tenant dengan HTTP 403 Forbidden dan mewajibkan otentikasi sesi pada seluruh rute QR."}
+              </p>
+            </div>
+
+            {/* Control 25: Zero-Flicker Returning Guest Roll Pre-Hydration */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 25: Zero-Flicker Returning Guest Roll Pre-Hydration" : "Kontrol 25: Pra-Hidrasi Roll Tamu Tanpa Kedipan"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Eliminates initial roll counter flicker when returning guests visit or reload /e/[slug]. The server component pre-fetches the guest's verified photo count and computes remaining shots directly from their session cookie on the initial SSR response, passing initialGuest into the client app so the camera screen and remaining roll counter display true numbers on frame 1 without briefly flashing maximum capacity."
+                  : "Menghilangkan kedipan penghitung roll awal saat tamu yang kembali mengunjungi atau memuat ulang /e/[slug]. Server component mengambil data jumlah foto terverifikasi dan menghitung sisa jepretan langsung dari cookie sesi pada respons awal SSR, meneruskan initialGuest ke aplikasi klien sehingga layar kamera dan penghitung roll langsung menampilkan angka akurat pada frame 1 tanpa berkedip ke kapasitas maksimal."}
               </p>
             </div>
           </div>

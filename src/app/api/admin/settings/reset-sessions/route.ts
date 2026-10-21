@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAdminUser } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { assertEventTenantAccess } from "@/lib/auth/session";
+import { getActiveAdminEvent } from "@/lib/events/active";
 
 export const dynamic = "force-dynamic";
 
@@ -22,15 +24,30 @@ export async function POST(req: Request) {
       action?: "reset" | "clear";
     };
 
-    const sb = supabaseAdmin();
-    let query = sb.from("events").select("id, slug, couple_names, theme");
-    if (body.eventId) {
-      query = query.eq("id", body.eventId);
-    } else {
-      query = query.order("created_at", { ascending: true }).limit(1);
+    let targetEventId = body.eventId;
+    if (!targetEventId) {
+      const active = await getActiveAdminEvent();
+      if (!active) {
+        return NextResponse.json({ error: "No active event found" }, { status: 404 });
+      }
+      targetEventId = active.id;
     }
 
-    const { data: event, error: fetchErr } = await query.single();
+    const tenantGuard = await assertEventTenantAccess(targetEventId);
+    if (!tenantGuard.authorized) {
+      return NextResponse.json(
+        { error: tenantGuard.error, code: tenantGuard.code },
+        { status: tenantGuard.status }
+      );
+    }
+
+    const sb = supabaseAdmin();
+    const { data: event, error: fetchErr } = await sb
+      .from("events")
+      .select("id, slug, couple_names, theme")
+      .eq("id", targetEventId)
+      .single();
+
     if (fetchErr || !event) {
       return NextResponse.json({ error: "Event not found" }, { status: 404 });
     }

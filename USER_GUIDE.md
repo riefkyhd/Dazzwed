@@ -571,6 +571,23 @@ Following a full live reception audit on `https://dazzwed.vercel.app`, the platf
    - **Collision-Free Generation:** All event creation endpoints (`/api/admin/events` and `/api/superadmin/clients`) generate tokens via `generateUniqueEventToken`, querying the database in a bounded loop to guarantee no two events ever share the same access link.
    - **Non-Repeating Rotation:** When an event host or superadmin rotates an access token (`/api/admin/events/token`), the rotation algorithm strictly guarantees the new token will never match the event's previous token.
 
+8. **Multi-Tenant Client Isolation Guard (`assertEventTenantAccess`) & Authenticated QR:**
+   - **Centralized Object-Level Authorization:** Guarantees that client host sessions (`role = "client"`) can only read, mutate, or download assets for events that strictly belong to their tenant account (`event.client_id === session.clientId`).
+   - **Comprehensive Route Enforcement:** Applied across all administrative mutation and inspection routes:
+     - `PATCH /api/admin/settings` (wedding couple names, shots per guest quota, schedule, status)
+     - `POST` & `PATCH /api/admin/events/token` (token rotation and access window expiration)
+     - `POST /api/admin/settings/reset-sessions` (force guest session invalidation)
+     - `PUT /api/admin/events` (active event switcher cookie)
+     - `POST /api/admin/photos/reconcile` & `GET /api/admin/photos` (scoped photo queries)
+     - `GET /api/admin/qr` (QR image generation)
+   - **Immediate Rejection:** Any cross-tenant attempt immediately fails with `403 Forbidden` (`FORBIDDEN_CROSS_TENANT`), preventing horizontal privilege escalation across clients.
+   - **Authenticated QR Endpoint:** `GET /api/admin/qr` strictly requires an authenticated session (`401 Unauthorized` for anonymous requests), eliminating remote unauthorized extraction of private event access tokens.
+
+9. **Zero-Flicker Returning Guest Roll Pre-Hydration:**
+   - **Instant Frame 1 Counter Rendering:** On `/e/[slug]`, the server component evaluates the guest's session cookie and queries their verified photos count and remaining rolls during the initial SSR render.
+   - **Eliminates Capacity Flash:** Injects `initialGuest` into the client camera app, allowing the top bar and welcome back toast to immediately display the true remaining shots (e.g. 9 remaining) on frame 1 instead of briefly flashing maximum capacity (e.g. 24) before syncing.
+
+
 
 
 

@@ -71,11 +71,20 @@ export function resolveThemeLooks(theme: unknown): {
   return { allowedLookIds, defaultLookId };
 }
 
+export interface InitialGuestState {
+  guestId: string;
+  name: string | null;
+  rollCode: string;
+  shotsUsed: number;
+  shotsLeft: number;
+}
+
 interface GuestAppProps {
   event: EventRow;
   initialRestoreCode?: string | null;
   eventToken?: string;
   tokenExpiresAt?: string | null;
+  initialGuest?: InitialGuestState | null;
 }
 
 type Screen = "landing" | "camera" | "thankyou" | "closed";
@@ -85,6 +94,7 @@ export function GuestApp({
   initialRestoreCode,
   eventToken,
   tokenExpiresAt,
+  initialGuest,
 }: GuestAppProps) {
   const initialStatus = useMemo(() => eventStatus(event), [event]);
   const [overrideStatus, setOverrideStatus] = useState<EventStatus | null>(null);
@@ -92,14 +102,17 @@ export function GuestApp({
 
   const [consentGranted, setConsentGranted] = useState(() => hasValidConsent());
 
-  const [screen, setScreen] = useState<Screen>(() =>
-    initialStatus !== "open" ? "closed" : "landing",
-  );
+  const [screen, setScreen] = useState<Screen>(() => {
+    if (initialStatus !== "open") return "closed";
+    if (initialGuest && initialGuest.shotsLeft > 0) return "camera";
+    if (initialGuest && initialGuest.shotsLeft <= 0) return "thankyou";
+    return "landing";
+  });
   const [lang, setLang] = useState<Lang>("en");
-  const [guestId, setGuestId] = useState<string | null>(null);
-  const [rollCode, setRollCode] = useState<string | null>(null);
+  const [guestId, setGuestId] = useState<string | null>(() => initialGuest?.guestId ?? null);
+  const [rollCode, setRollCode] = useState<string | null>(() => initialGuest?.rollCode ?? null);
   const [shotsPerGuest, setShotsPerGuest] = useState(event.shots_per_guest);
-  const [shotsLeft, setShotsLeft] = useState(event.shots_per_guest);
+  const [shotsLeft, setShotsLeft] = useState<number>(() => initialGuest?.shotsLeft ?? event.shots_per_guest);
 
   const [welcomeToast, setWelcomeToast] = useState(false);
   const [freshRollToast, setFreshRollToast] = useState(false);
@@ -291,8 +304,16 @@ export function GuestApp({
 
       // 2. Load triple-healed session (Cookie + localStorage + IndexedDB)
       const saved = await loadSessionTriple(event.slug);
-      if (saved) {
-        const isLocallyExpired = !!(sessionResetAt && saved.createdAt && new Date(saved.createdAt) < new Date(sessionResetAt));
+      const activeSaved = saved || (initialGuest ? {
+        guestId: initialGuest.guestId,
+        name: initialGuest.name,
+        lang,
+        rollCode: initialGuest.rollCode,
+        createdAt: new Date().toISOString(),
+      } : null);
+
+      if (activeSaved) {
+        const isLocallyExpired = !!(sessionResetAt && activeSaved.createdAt && new Date(activeSaved.createdAt) < new Date(sessionResetAt));
         if (isLocallyExpired) {
           await clearSessionTriple(event.slug);
           const fresh = await initGuest(null, null);
@@ -303,14 +324,14 @@ export function GuestApp({
             return;
           }
         } else {
-          setLang(saved.lang);
-          setGuestId(saved.guestId);
-          setRollCode(saved.rollCode || computeRollCodeFromGuestId(saved.guestId));
+          setLang(activeSaved.lang);
+          setGuestId(activeSaved.guestId);
+          setRollCode(activeSaved.rollCode || computeRollCodeFromGuestId(activeSaved.guestId));
 
           // Sync with server source-of-truth for accurate shot count
-          const synced = await initGuest(saved.name, saved.guestId);
+          const synced = await initGuest(activeSaved.name, activeSaved.guestId);
           if (synced) {
-            const isFreshRoll = synced.guestId !== saved.guestId;
+            const isFreshRoll = synced.guestId !== activeSaved.guestId;
             if (synced.remaining <= 0) {
               setScreen("thankyou");
             } else {

@@ -6,6 +6,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { ACTIVE_EVENT_COOKIE } from "@/lib/events/active";
 import { generateEventToken } from "@/lib/event-token";
 import { generateUniqueEventToken } from "@/lib/event-server";
+import { assertEventTenantAccess } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -202,22 +203,15 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Valid eventId is required" }, { status: 400 });
     }
 
-    const sb = supabaseAdmin();
-    let query = sb.from("events").select("id, slug, couple_names, client_id").eq("id", body.eventId);
-
-    // If client, ensure they own the event
-    try {
-      const { getAuthSession } = await import("@/lib/auth/session");
-      const session = await getAuthSession();
-      if (session && session.role === "client") {
-        query = query.eq("client_id", session.clientId);
-      }
-    } catch {}
-
-    const { data: event } = await query.maybeSingle();
-    if (!event) {
-      return NextResponse.json({ error: "Event not found or not permitted" }, { status: 404 });
+    const tenantGuard = await assertEventTenantAccess(body.eventId);
+    if (!tenantGuard.authorized) {
+      return NextResponse.json(
+        { error: tenantGuard.error, code: tenantGuard.code },
+        { status: tenantGuard.status }
+      );
     }
+
+    const event = tenantGuard.event;
 
     const cookieStore = await cookies();
     cookieStore.set(ACTIVE_EVENT_COOKIE, event.id, {

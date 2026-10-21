@@ -164,3 +164,62 @@ export async function requireAuthUser(redirectTo = "/admin/login"): Promise<Auth
   }
   return session;
 }
+
+export type TenantAccessResult =
+  | {
+      authorized: true;
+      session: AuthSession;
+      event: { id: string; slug: string; client_id: string | null; access_token?: string | null };
+    }
+  | {
+      authorized: false;
+      status: 401 | 403 | 404;
+      error: string;
+      code: string;
+    };
+
+/**
+ * Asserts that the currently authenticated session has authority over the specified event.
+ * - If unauthenticated: returns 401 Unauthorized
+ * - If event not found: returns 404 Not Found
+ * - If caller has role 'client' and event.client_id !== session.clientId: returns 403 Forbidden
+ * - If superadmin or matching client owner: returns authorized: true with session and event
+ */
+export async function assertEventTenantAccess(
+  eventIdOrSlug: string,
+  options?: { sb?: ReturnType<typeof supabaseAdmin>; session?: AuthSession | null }
+): Promise<TenantAccessResult> {
+  const session = options?.session !== undefined ? options.session : await getAuthSession();
+  if (!session) {
+    return { authorized: false, status: 401, error: "Unauthorized", code: "UNAUTHORIZED" };
+  }
+
+  const sb = options?.sb || supabaseAdmin();
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventIdOrSlug);
+
+  let q = sb.from("events").select("id, slug, client_id, access_token");
+  if (isUuid) {
+    q = q.eq("id", eventIdOrSlug);
+  } else {
+    q = q.eq("slug", eventIdOrSlug);
+  }
+  const { data: event, error } = await q.maybeSingle();
+
+  if (error || !event) {
+    return { authorized: false, status: 404, error: "Event not found", code: "NOT_FOUND" };
+  }
+
+  if (session.role === "client") {
+    if (event.client_id !== session.clientId) {
+      return {
+        authorized: false,
+        status: 403,
+        error: "Forbidden: Cross-tenant access denied",
+        code: "FORBIDDEN_CROSS_TENANT",
+      };
+    }
+  }
+
+  return { authorized: true, session, event };
+}
+

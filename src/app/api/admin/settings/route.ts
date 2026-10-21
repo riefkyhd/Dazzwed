@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
 import { getAdminUser } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { assertEventTenantAccess } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,14 @@ export async function PATCH(req: Request) {
 
     if (!body.id) {
       return NextResponse.json({ error: "Event ID is required" }, { status: 400 });
+    }
+
+    const tenantGuard = await assertEventTenantAccess(body.id);
+    if (!tenantGuard.authorized) {
+      return NextResponse.json(
+        { error: tenantGuard.error, code: tenantGuard.code },
+        { status: tenantGuard.status }
+      );
     }
 
     const sb = supabaseAdmin();

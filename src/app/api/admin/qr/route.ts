@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateQrSvg } from "@/lib/qr";
 import QRCode from "qrcode";
-import { supabaseAdmin } from "@/lib/supabase/admin";
+import { assertEventTenantAccess } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
@@ -9,19 +9,17 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug") || "our-wedding";
   const format = searchParams.get("format") || "png"; // png | svg
-  let token = searchParams.get("token") || searchParams.get("t");
 
-  if (!token) {
-    const sb = supabaseAdmin();
-    const { data: ev } = await sb
-      .from("events")
-      .select("access_token")
-      .eq("slug", slug)
-      .maybeSingle();
-    if (ev?.access_token) {
-      token = ev.access_token;
-    }
+  // Security Guard: Authenticate session and verify tenant ownership
+  const tenantGuard = await assertEventTenantAccess(slug);
+  if (!tenantGuard.authorized) {
+    return NextResponse.json(
+      { error: tenantGuard.error, code: tenantGuard.code },
+      { status: tenantGuard.status }
+    );
   }
+
+  const token = searchParams.get("token") || searchParams.get("t") || tenantGuard.event.access_token;
 
   // Determine origin
   const origin = searchParams.get("origin") || new URL(req.url).origin;
@@ -55,3 +53,4 @@ export async function GET(req: Request) {
     },
   });
 }
+

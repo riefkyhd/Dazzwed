@@ -121,6 +121,56 @@ export default async function GuestPage({ params, searchParams }: PageProps) {
 
   const themeVars = themeToCssVars(event.theme);
 
+  // Pre-hydrate returning guest session for zero-flicker roll count and camera screen
+  let initialGuest: {
+    guestId: string;
+    name: string | null;
+    rollCode: string;
+    shotsUsed: number;
+    shotsLeft: number;
+  } | null = null;
+
+  if (hasValidSessionCookie && sessionCookie) {
+    try {
+      const { supabaseAdmin } = await import("@/lib/supabase/admin");
+      const { computeRollCodeFromGuestId } = await import("@/lib/guest/session");
+      const sb = supabaseAdmin();
+      const { data: g } = await sb
+        .from("guests")
+        .select("id, display_name, created_at")
+        .eq("id", sessionCookie)
+        .eq("event_id", event.id)
+        .maybeSingle();
+
+      if (g) {
+        const sessionResetAt = (event.theme && typeof event.theme === "object" && "sessionResetAt" in event.theme)
+          ? (event.theme as { sessionResetAt?: string | null }).sessionResetAt
+          : null;
+        const isExpired = !!(sessionResetAt && g.created_at && new Date(g.created_at) < new Date(sessionResetAt));
+
+        if (!isExpired) {
+          const { count } = await sb
+            .from("photos")
+            .select("id", { count: "exact", head: true })
+            .eq("guest_id", g.id)
+            .neq("status", "failed");
+
+          const shotsUsed = count ?? 0;
+          const shotsLeft = Math.max(0, event.shots_per_guest - shotsUsed);
+          initialGuest = {
+            guestId: g.id,
+            name: g.display_name,
+            rollCode: computeRollCodeFromGuestId(g.id),
+            shotsUsed,
+            shotsLeft,
+          };
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to pre-hydrate initial guest session:", err);
+    }
+  }
+
   return (
     <div
       style={themeVars as React.CSSProperties}
@@ -131,6 +181,7 @@ export default async function GuestPage({ params, searchParams }: PageProps) {
         initialRestoreCode={initialRestoreCode}
         eventToken={candidateToken || event.access_token}
         tokenExpiresAt={event.token_expires_at}
+        initialGuest={initialGuest}
       />
     </div>
   );
