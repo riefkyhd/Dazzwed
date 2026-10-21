@@ -19,13 +19,15 @@ export default async function AdminDashboardPage() {
   // 1. Fetch active event dynamically
   const event = await getActiveAdminEvent();
 
+  const session = await getAuthSession();
+  const isSuperadmin = session?.role === "superadmin";
+
   if (!event) {
-    const session = await getAuthSession();
     return (
       <EmptyEventOnboardingView
         clientName={session?.name}
         clientEmail={session?.email}
-        isSuperadmin={session?.role === "superadmin"}
+        isSuperadmin={isSuperadmin}
       />
     );
   }
@@ -97,6 +99,7 @@ export default async function AdminDashboardPage() {
 
   return (
     <DashboardView
+      isSuperadmin={isSuperadmin}
       event={event}
       metrics={{
         totalGuests: guestsCount || 0,

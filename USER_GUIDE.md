@@ -561,6 +561,11 @@ Following a full live reception audit on `https://dazzwed.vercel.app`, the platf
    - **3-Step Visual Strip:** Clean vector icons illustrating `01. Scan QR Code` -> `02. Take Pictures` -> `03. Saved Automatically` (straightforward guidance explaining photos are saved directly to the couple's wedding album without analog darkroom jargon).
    - **Zero Raw Emojis:** All printable graphics and preview banners use precision vector SVGs for crisp, cross-platform editorial typography on both screen and physical A4 printing.
 
+6. **Drive Health Telemetry & Client Host Diagnostics RBAC:**
+   - **Universal Diagnostic Access:** Both platform Superadmins and authenticated Client Hosts (such as Dinda & Harsya) have full permission to invoke `/api/admin/drive-health` (supporting both `GET` and `POST` methods).
+   - **Peace of Mind for Hosts:** Client hosts can trigger `Run Live Health Check` on their dashboard at any time to verify cloud vault operational status, quota, and test upload/delete responsiveness without receiving `403 Forbidden: Superadmin access required` errors.
+   - **Platform Configuration Isolation:** Root OAuth credential management and reconnection flows (`/admin/connect-drive` and `/api/auth/google/start`) remain strictly restricted to Superadmins, with client dashboard views displaying non-interactive platform vault indicators instead of broken configuration links.
+
 
 
 

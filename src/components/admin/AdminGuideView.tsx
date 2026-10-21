@@ -622,6 +622,21 @@ export function AdminGuideView() {
                   : "Pertahanan produksi yang diperkokoh berdasarkan audit venue langsung. Keamanan tautan tamu menerapkan validasi ketat token ?t=, menolak tautan yang salah seketika bahkan jika cookie sesi lama ada di browser, dengan pembedaan tegas antara 'Tautan Kamera Tidak Valid' dan 'Waktu Akses Kamera Selesai'. Pipeline dual-master menangkap foto asli RAW murni langsung dari kanvas 2D video mentah (tanpa WebGL LUT, butiran grain, vignet, atau stempel tanggal) berdampingan dengan foto film yang telah dicuci. Nama tamu yang terdaftar ditampilkan jelas di pil filter galeri, kartu foto, dan folder .ZIP, tanpa ada folder kosong yang dibuat. Dashboard admin menghubungkan metrik 'Tamu Terdaftar' langsung ke tabel Roll Tamu (?view=rolls). Telemetri Drive menghadirkan banner peringatan token invalid_grant dengan tombol hubungkan ulang OAuth 1-klik, serta fitur 'Sinkron Drive' untuk membersihkan baris database yatim. Poster cetak A4 diperbarui dengan logo horizontal resmi Unveiled, lubang perforasi film 35mm, bingkai jendela bidik (viewfinder), glif kamera vektor, instruksi bahasa Inggris yang lugas menggunakan frasa 'Take Pictures', serta panduan penyimpanan otomatis agar tamu undangan langsung memahami kamera interaktif."}
               </p>
             </div>
+
+            {/* Control 22: Multi-Tenant Drive Health Telemetry & Client Host Diagnostics RBAC */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 22: Multi-Tenant Drive Health Telemetry & Client Host Diagnostics RBAC" : "Kontrol 22: Telemetri Kesehatan Google Drive Multi-Tenant & RBAC Diagnostik Klien"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Both platform Superadmins and authenticated Client Hosts (the couple) are authorized to trigger real-time Google Drive health checks (/api/admin/drive-health) directly from the admin dashboard. Hosts can click 'Run Live Health Check' at any time to verify storage quota, OAuth validity, and test upload/delete responsiveness with zero 403 Forbidden errors. Platform OAuth connection workflows (/admin/connect-drive and /api/auth/google/start) remain strictly isolated to Superadmins, while client hosts enjoy full operational visibility and peace of mind on their wedding day."
+                  : "Superadmin platform maupun Klien Host (pasangan pengantin) memiliki izin untuk memicu pemeriksaan kesehatan Google Drive secara real-time (/api/admin/drive-health) langsung dari dashboard admin. Klien dapat mengklik 'Run Live Health Check' kapan saja untuk memverifikasi kuota penyimpanan, validitas OAuth, serta tes unggah/hapus responsif tanpa kendala 403 Forbidden. Pengaturan koneksi OAuth (/admin/connect-drive dan /api/auth/google/start) tetap terisolasi khusus Superadmin, sementara klien mendapatkan visibilitas operasional yang tenang dan jelas di hari pernikahan."}
+              </p>
+            </div>
           </div>
         </div>
       )}

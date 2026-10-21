@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { DriveHealthResult } from "@/lib/drive/health";
 
 interface DashboardViewProps {
+  isSuperadmin?: boolean;
   event: {
     id: string;
     slug: string;
@@ -50,6 +51,7 @@ interface DashboardViewProps {
 }
 
 export function DashboardView({
+  isSuperadmin = false,
   event,
   metrics,
   recentPhotos,
@@ -103,9 +105,15 @@ export function DashboardView({
               <p className="text-zinc-300">{metrics.storageMessage || "Drive storage is over 85% full. Uploads will automatically pause at 98%."}</p>
             </div>
           </div>
-          <Link href="/admin/connect-drive" className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 font-medium text-amber-300 transition-colors">
-            Check Quota
-          </Link>
+          {isSuperadmin ? (
+            <Link href="/admin/connect-drive" className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 font-medium text-amber-300 transition-colors">
+              Check Quota
+            </Link>
+          ) : (
+            <span className="px-3 py-1 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400 font-mono text-[11px]">
+              Platform Vault
+            </span>
+          )}
         </div>
       )}
 
@@ -397,9 +405,13 @@ export function DashboardView({
         ) : (
           <div className="text-xs text-zinc-400 font-mono bg-zinc-900/40 p-3.5 rounded-xl border border-zinc-900 flex items-center justify-between">
             <span>Root Folder: {event.drive_root_folder_id || "Not connected"}</span>
-            <Link href="/admin/connect-drive" className="text-amber-400 hover:text-amber-300 transition-colors">
-              {event.drive_root_folder_id ? "Manage Connection →" : "Connect Google Drive →"}
-            </Link>
+            {isSuperadmin ? (
+              <Link href="/admin/connect-drive" className="text-amber-400 hover:text-amber-300 transition-colors">
+                {event.drive_root_folder_id ? "Manage Connection →" : "Connect Google Drive →"}
+              </Link>
+            ) : (
+              <span className="text-zinc-500">Connected Vault</span>
+            )}
           </div>
         )}
       </div>
