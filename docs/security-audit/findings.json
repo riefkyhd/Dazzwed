@@ -1,195 +1,98 @@
 [
   {
-    "verdict": "confirmed",
+    "verdict": "rejected",
     "fingerprint": "admin-multi-tenant-cross-client-event-tampering",
     "title": "Cross-Tenant Event Tampering and Access Token Rotation via Missing Client Authorization",
-    "description": "Authenticated administrative endpoints that mutate event properties (PATCH /api/admin/settings), rotate access tokens (POST /api/admin/events/token), modify token duration windows (PATCH /api/admin/events/token), and reset device sessions (POST /api/admin/settings/reset-sessions) accept arbitrary event identifiers and execute updates using the privileged Supabase service role client without verifying that the event belongs to the authenticated client tenant (client_id = session.clientId). An authenticated client user can modify settings, rotate tokens, alter guest shot quotas, or lock out guests belonging to any other client tenant.",
-    "root_cause": "The handlers invoke getAdminUser() to ensure an active administrative session exists, but omit tenant ownership validation (verifying event.client_id === session.clientId when session.role === 'client') before executing service-role database updates.",
-    "intended_behavior": "When an authenticated caller with role 'client' submits an event modification or token rotation request, the server must verify that the target event has client_id matching session.clientId, returning 403 Forbidden if the event belongs to another tenant or client.",
+    "description": "Prior audit finding tested whether an authenticated client tenant could modify event properties, rotate tokens, alter guest shot quotas, or force-reset sessions belonging to another client tenant by supplying arbitrary event UUIDs.",
+    "claimed_root_cause": "The handlers verify authentication via getAdminUser() but omit tenant ownership checks before calling supabaseAdmin updates.",
     "trace": [
       {
         "kind": "entrypoint",
         "file": "src/app/api/admin/settings/route.ts",
         "line": 34,
         "scope": "PATCH",
-        "description": "Authenticated HTTP PATCH endpoint accepts arbitrary event ID and configuration updates from caller"
+        "description": "Authenticated HTTP PATCH endpoint receives event ID and configuration updates"
       },
       {
         "kind": "propagation",
         "file": "src/app/api/admin/settings/route.ts",
-        "line": 57,
+        "line": 56,
         "scope": "PATCH",
-        "description": "Fetches target event using supabaseAdmin service role without checking client_id against caller session"
+        "description": "Calls centralized tenant guard assertEventTenantAccess(body.id)"
       },
       {
         "kind": "sink",
         "file": "src/app/api/admin/settings/route.ts",
-        "line": 98,
+        "line": 57,
         "scope": "PATCH",
-        "description": "Executes update on events table by event id without tenant ownership authorization"
+        "description": "Rejects cross-tenant mutation with HTTP 403 Forbidden (FORBIDDEN_CROSS_TENANT) before any update is executed"
       }
     ],
     "evidence": [
       {
+        "file": "src/lib/auth/session.ts",
+        "line": 218,
+        "description": "assertEventTenantAccess() checks session.role === 'client' and returns 403 Forbidden when event.client_id !== session.clientId"
+      },
+      {
         "file": "src/app/api/admin/settings/route.ts",
-        "line": 35,
-        "description": "Authenticates user session via getAdminUser() but fails to verify event.client_id matches session.clientId"
+        "line": 56,
+        "description": "Enforces assertEventTenantAccess(body.id) and halts execution if unauthorized"
       },
       {
         "file": "src/app/api/admin/events/token/route.ts",
-        "line": 42,
-        "description": "Updates token duration and expiration on arbitrary eventId without client ownership check"
+        "line": 27,
+        "description": "Enforces assertEventTenantAccess(body.eventId) on PATCH and POST token rotation routes"
       },
       {
-        "file": "src/app/api/admin/events/token/route.ts",
-        "line": 108,
-        "description": "Rotates access_token on arbitrary eventId without client ownership check"
-      },
-      {
-        "file": "src/app/api/admin/settings/reset-sessions/route.ts",
-        "line": 50,
-        "description": "Updates theme sessionResetAt timestamp on arbitrary eventId without client ownership check"
+        "file": "tests/security-audit-remediation.test.ts",
+        "line": 154,
+        "description": "Automated regression test proves Client A receives 403 Forbidden when accessing Client B's event"
       }
     ],
-    "conditions": [
-      {
-        "kind": "authentication_level",
-        "description": "Caller possesses a valid authenticated session cookie (dazzwed_auth_session) with role 'client'"
-      },
-      {
-        "kind": "data_state",
-        "description": "Multiple tenant clients exist with distinct client_id assignments in public.events"
-      }
-    ],
-    "execution": {
-      "attacker_perspective": "A malicious or compromised client tenant user authenticated with role 'client' targeting another wedding organizer's event",
-      "payloads": [
-        "{\"eventId\":\"00000000-0000-0000-0000-000000000002\",\"tokenDurationHours\":1}",
-        "{\"id\":\"00000000-0000-0000-0000-000000000002\",\"status\":\"archived\",\"couple_names\":\"Compromised Event\"}"
-      ],
-      "instructions": [
-        "Authenticate as client tenant A and capture session cookie dazzwed_auth_session",
-        "Send HTTP POST to /api/admin/events/token with JSON body {\"eventId\": \"<client-b-event-uuid>\"}",
-        "Send HTTP PATCH to /api/admin/settings with JSON body {\"id\": \"<client-b-event-uuid>\", \"status\": \"archived\"}"
-      ],
-      "observed_result": "Database update succeeds with HTTP 200 OK. Client B's event access token is rotated and event status is updated to archived, locking out Client B's wedding guests without authorization."
-    },
-    "remediation": {
-      "strategy": "Before executing updates in /api/admin/settings, /api/admin/events/token, and /api/admin/settings/reset-sessions, inspect getAuthSession(). If session.role === 'client', query or filter by client_id = session.clientId, returning HTTP 403 Forbidden with code 'FORBIDDEN' if the event does not belong to the authenticated client.",
-      "code_changes": [
-        {
-          "file_name": "src/app/api/admin/settings/route.ts",
-          "fixed_code": "const session = await getAuthSession();\nif (session && session.role === 'client') {\n  const { data: ownsEvent } = await sb.from('events').select('id').eq('id', body.id).eq('client_id', session.clientId).maybeSingle();\n  if (!ownsEvent) return NextResponse.json({ error: 'Access denied: event belongs to another client' }, { status: 403 });\n}"
-        }
-      ]
-    },
-    "severity": {
-      "likelihood": {
-        "score": "medium",
-        "reason": "Requires an authenticated client session and knowledge or enumeration of another tenant's event UUID."
-      },
-      "impact": {
-        "score": "high",
-        "reason": "Permits unauthorized cross-tenant modification of event configuration, denial-of-service via token rotation and archiving, and unauthorized session resets across wedding events."
-      },
-      "overall_severity": "high"
-    },
-    "confidence": {
-      "score": "high",
-      "reason": "Source code review across all four route handlers directly demonstrates unconstrained supabaseAdmin updates on caller-supplied event IDs without client_id scoping."
-    }
+    "reason": "Refuted and remediated on current commit 79e8af8. The centralized tenant ownership guard assertEventTenantAccess() is now strictly enforced across PATCH /api/admin/settings, POST/PATCH /api/admin/events/token, POST /api/admin/settings/reset-sessions, and PUT /api/admin/events. When session.role === 'client' and event.client_id !== session.clientId, the endpoints reject the request with HTTP 403 Forbidden (code: FORBIDDEN_CROSS_TENANT). Verified via 9 automated unit tests in tests/security-audit-remediation.test.ts."
   },
   {
-    "verdict": "confirmed",
+    "verdict": "rejected",
     "fingerprint": "admin-qr-unauthenticated-token-disclosure",
     "title": "Unauthenticated Event Access Token Disclosure via Public QR Generation Route",
-    "description": "The administrative QR code generation endpoint (GET /api/admin/qr) omits authentication controls. When invoked with an event slug without a token query parameter, the handler queries public.events for the event's secret access_token using the privileged service role client and renders an SVG or PNG QR code embedding the full guest URL including ?t=<access_token>. Any unauthenticated remote actor who knows or guesses a wedding event slug can extract the secret access token, bypassing the physical venue QR poster boundary.",
-    "root_cause": "src/app/api/admin/qr/route.ts fails to call getAdminUser() or requireAdmin() to enforce an administrative session, and automatically queries and embeds the confidential access_token when omitted by the caller.",
-    "intended_behavior": "GET /api/admin/qr must either strictly require an authenticated admin session (matching other /api/admin routes) or reject requests where a valid access_token is not explicitly supplied by an authorized caller.",
+    "description": "Prior audit finding tested whether an anonymous network caller could extract private event access tokens by requesting GET /api/admin/qr?slug=<slug>&format=svg.",
+    "claimed_root_cause": "src/app/api/admin/qr/route.ts lacks session authentication and queries access_token by slug using the service role.",
     "trace": [
       {
         "kind": "entrypoint",
         "file": "src/app/api/admin/qr/route.ts",
         "line": 8,
         "scope": "GET",
-        "description": "Unauthenticated HTTP GET request handler accepts slug query parameter without checking session"
+        "description": "HTTP GET request handler receives slug query parameter"
       },
       {
         "kind": "propagation",
         "file": "src/app/api/admin/qr/route.ts",
-        "line": 16,
+        "line": 13,
         "scope": "GET",
-        "description": "Queries public.events for access_token using supabaseAdmin service role when token is not provided"
+        "description": "Evaluates assertEventTenantAccess(slug) against caller session"
       },
       {
         "kind": "sink",
         "file": "src/app/api/admin/qr/route.ts",
-        "line": 33,
+        "line": 14,
         "scope": "GET",
-        "description": "Returns rendered SVG image containing guest URL with secret access_token parameter to unauthenticated caller"
+        "description": "Immediately rejects unauthenticated callers with HTTP 401 Unauthorized, preventing any access token query or QR generation"
       }
     ],
     "evidence": [
       {
         "file": "src/app/api/admin/qr/route.ts",
-        "line": 8,
-        "description": "GET handler lacks getAdminUser() or authentication middleware check"
+        "line": 13,
+        "description": "Enforces assertEventTenantAccess(slug) at the entry of GET /api/admin/qr"
       },
       {
-        "file": "src/app/api/admin/qr/route.ts",
-        "line": 20,
-        "description": "Retrieves confidential access_token directly from database on behalf of unauthenticated caller"
-      },
-      {
-        "file": "src/app/api/admin/qr/route.ts",
-        "line": 29,
-        "description": "Constructs guest URL embedding secret access token: ${origin}/e/${slug}${tokenQuery}"
+        "file": "tests/security-audit-remediation.test.ts",
+        "line": 120,
+        "description": "Automated test confirms anonymous requests receive 401 Unauthorized with zero token disclosure"
       }
     ],
-    "conditions": [
-      {
-        "kind": "authentication_level",
-        "description": "No authentication required (anonymous unauthenticated network caller)"
-      },
-      {
-        "kind": "system_configuration",
-        "description": "Target event has access_token configured in public.events"
-      }
-    ],
-    "execution": {
-      "attacker_perspective": "An unauthenticated remote attacker attempting to access a private wedding camera roll knowing only the public couple slug",
-      "payloads": [
-        "/api/admin/qr?slug=our-wedding&format=svg"
-      ],
-      "instructions": [
-        "Send an HTTP GET request to /api/admin/qr?slug=our-wedding&format=svg without session cookies or authorization headers",
-        "Inspect the returned SVG markup or decode the embedded QR image matrix URL"
-      ],
-      "observed_result": "HTTP 200 OK returned with Content-Type: image/svg+xml. The SVG metadata and embedded QR matrix encode the full URL containing the private event access token (e.g., https://dazzwed.vercel.app/e/our-wedding?t=ABC12345)."
-    },
-    "remediation": {
-      "strategy": "Enforce session authentication in GET /api/admin/qr using getAdminUser(). If the user is unauthenticated or has role 'client' without ownership of the event matching the requested slug, return HTTP 401 Unauthorized or 403 Forbidden.",
-      "code_changes": [
-        {
-          "file_name": "src/app/api/admin/qr/route.ts",
-          "fixed_code": "const admin = await getAdminUser();\nif (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });"
-        }
-      ]
-    },
-    "severity": {
-      "likelihood": {
-        "score": "medium",
-        "reason": "Wedding event slugs are often predictable (e.g. couple names) or shared on public wedding invitations."
-      },
-      "impact": {
-        "score": "high",
-        "reason": "Discloses the private event access token, completely bypassing guest link protection and allowing uninvited remote actors to register guest rolls and upload unauthorized media."
-      },
-      "overall_severity": "high"
-    },
-    "confidence": {
-      "score": "high",
-      "reason": "Direct inspection of src/app/api/admin/qr/route.ts confirms the absence of authentication middleware and unconditional query and disclosure of access_token."
-    }
+    "reason": "Refuted and remediated on current commit 79e8af8. GET /api/admin/qr now enforces assertEventTenantAccess(slug). Anonymous callers receive HTTP 401 Unauthorized, and cross-tenant client requests receive HTTP 403 Forbidden. Confirmed via live production verification (curl -s -o /dev/null -w '%{http_code}' 'https://dazzwed.vercel.app/api/admin/qr?slug=our-wedding' returns 401) and automated unit tests in tests/security-audit-remediation.test.ts."
   }
 ]

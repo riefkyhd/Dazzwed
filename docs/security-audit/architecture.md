@@ -1,48 +1,35 @@
-# Architecture & Attack Surface Analysis
+# Dazzwed Architecture and Trust Boundaries (Run 2 — Revalidation)
 
-**Target**: Dazzwed (Unveiled)  
-**Commit**: `9bd1b41cf67587e35ebc1ea94f1401e5cffc3f82`  
-**Profile**: `standard`  
-
----
-
-## 1. Product & Security Model
-Dazzwed is a multi-tenant digital disposable camera platform for weddings. Guests scan physical QR codes at event venues, take analog film-simulated pictures directly in mobile browsers, and upload them to a centralized Google Drive vault in real-time.
-
-### Principals & Privilege Hierarchy
-- **Anonymous Public User**: Can view landing page `/` and public static assets.
-- **Wedding Guest**: Scans `/e/[slug]?t=[access_token]`. Must supply a valid event token. On registration (`POST /api/guests`), receives a scoped `dz_guest_session` UUID cookie. May reserve up to `shots_per_guest` exposures via atomic `reserve_shot` RPC and upload image chunks.
-- **Client Host (The Couple)**: Authenticated via `/api/auth/login` (`role: client`). Bound to their `client_id` in database. Can manage their assigned event(s), rotate tokens, toggle photos (`hide`/`unhide`), trigger PKZIP downloads, and run drive health diagnostics.
-- **Platform Superadmin**: Authenticated via `/api/auth/login` (`role: superadmin`). Unrestricted platform console (`/superadmin`), connects global Google Drive OAuth vault (`/admin/connect-drive`), provisions client accounts, adjusts package quotas.
-- **Cron / System Tasks**: Invocations to `/api/cron/*` protected by bearer secret headers.
+**Target:** Dazzwed (Next.js 16 + React 19 + Supabase + Google Drive)  
+**Source Commit:** `79e8af88b1993551c420874e6660f1694a68f3f2`  
+**Prior Run:** `run-1` (Commit `9bd1b41cf67587e35ebc1ea94f1401e5cffc3f82`)  
+**Objective:** Independent revalidation of prior confirmed findings after multi-tenant guard implementation.  
 
 ---
 
-## 2. Tech Stack & Runtimes
-- **Framework**: Next.js 16 (App Router with Turbopack, React 19).
-- **Backend / Database**: Supabase (PostgreSQL with Row Level Security, custom PL/pgSQL functions, and PGlite local harness).
-- **Storage**: Google Drive API v3 (resumable multi-chunk uploads, AES-256-GCM token encryption).
-- **Authentication**: Custom cryptographic HMAC SHA-256 session tokens (`dazzwed_auth_session`) with scrypt password hashing and instant database status revocation.
+## 1. Core Architectural Principals
+
+1. **Anonymous / Semi-Anonymous Guest:** Attendees scanning physical QR posters at wedding venues. Possess ephemeral UUID guest cookies and localized 6-character roll codes.
+2. **Client Host (Tenant):** Authenticated wedding couples or event planners (`session.role === 'client'`). Scope is strictly confined to events where `events.client_id = session.clientId`.
+3. **Superadmin (Platform Owner):** Platform administrator managing all clients, platform quotas, and root Google Drive vault connections (`session.role === 'superadmin'`).
+4. **Cloud Database (Supabase / PostgreSQL):** Stores relational state, row-level concurrency locks (`SELECT FOR UPDATE`), client accounts, and encrypted credentials.
+5. **Archival Cloud Vault (Google Drive):** Stores original and stylized photo binaries organized into hierarchical guest folders.
 
 ---
 
-## 3. Trust Boundaries & Core Controls
-1. **TB1: Guest Link & Token Ingress (`/e/[slug]?t=`)**: Enforces constant-time `validateEventToken` comparison against `public.events.access_token`. Rejects mutated or expired tokens immediately even if a browser session cookie exists.
-2. **TB2: Guest Quota & Shot Reservation (`/api/photos/init`)**: Enforced at the database transaction layer via `public.reserve_shot` function with `FOR UPDATE` row-level locks, preventing concurrency race conditions or client-side quota bypasses.
-3. **TB3: Photo Ingress & Resumable Chunk Processing (`/api/photos/chunk`)**: Validates chunk size bounds, cryptographic SHA-256 payload integrity, and limits chunk uploads to actively pending reservations.
-4. **TB4: Multi-Tenant RBAC & Client Host Scoping (`/api/admin/*`, `/superadmin/*`)**: Resolves session role (`client` vs `superadmin`). Validates active client status in PostgreSQL on every request. Scopes database queries to `client_id`.
-5. **TB5: Google Drive Credential & Vault Isolation**: Platform refresh tokens are encrypted at rest using AES-256-GCM. Client hosts can execute non-destructive connection health checks (`/api/admin/drive-health`), but OAuth connection endpoints (`/api/auth/google/start`) are strictly restricted to Superadmins.
+## 2. Core Trust Boundaries (Revalidated)
 
----
-
-## 4. Prior Coverage & Exclusions
-Initial clean security audit run (`run-1`). No prior coverage ledgers exist.
-
----
-
-## 5. Companion Selection
-- `WEB-PROTOCOL-AND-AUTH.md`: Covers session management, OAuth callback flow, token rotation, and timing side-channel protections.
-- `DATA-ISOLATION-AND-LIFECYCLE.md`: Covers multi-tenant client isolation, photo deletion/hiding, and drive reconciliation.
-- `RESOURCE-EXHAUSTION-AND-AVAILABILITY.md`: Covers storage guard thresholds (85% warning, 98% halt), chunk upload size limits, and rate-limiting.
-- `CLIENT-SIDE.md`: Covers camera state persistence, IndexedDB offline queues, and token reflection in QR stationery.
-- `CLOUD-AND-DEPLOYMENT.md`: Covers Vercel serverless environment variables, Supabase service role keys, and Google Drive scopes.
+- **Boundary 1: Administrative Multi-Tenant Isolation:**
+  - *Prior State (Run 1):* Missing client ownership checks in mutation endpoints allowed cross-tenant IDOR tampering.
+  - *Current State (Run 2):* Handled centrally by `assertEventTenantAccess()` in `src/lib/auth/session.ts`. Enforced across `PATCH /api/admin/settings`, `POST/PATCH /api/admin/events/token`, `POST /api/admin/settings/reset-sessions`, `PUT /api/admin/events`, `POST /api/admin/photos/reconcile`, and `GET /api/admin/photos`.
+- **Boundary 2: QR Asset Generation and Access Token Exposure:**
+  - *Prior State (Run 1):* `GET /api/admin/qr` was completely unauthenticated and disclosed cleartext `access_token` in rendered QR images.
+  - *Current State (Run 2):* Enforces `assertEventTenantAccess(slug)`, returning 401 for anonymous callers and 403 for cross-tenant access.
+- **Boundary 3: Guest Ingress & Access Token Check:**
+  - Event tokens verified via timing-safe comparison in `src/lib/event-token.ts`.
+- **Boundary 4: Photo Shot Quota & Race-Condition Lock:**
+  - Database row-level locks via `reserve_shot` in PostgreSQL.
+- **Boundary 5: Resumable Upload Integrity:**
+  - SHA-256 chunk hash bounds before binary assembly in `/api/photos/chunk`.
+- **Boundary 6: OAuth Credential Vault Security:**
+  - AES-256-GCM encryption with randomized IVs and authentication tags.

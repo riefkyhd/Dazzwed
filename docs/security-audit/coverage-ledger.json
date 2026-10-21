@@ -20,25 +20,25 @@
       "WEB-PROTOCOL-AND-AUTH.md#Authentication and credential handling"
     ],
     "excluded_blocks": [],
-    "prior_status": "new",
+    "prior_status": "prior_covered_changed_source",
     "attempts": [],
-    "wave": 1,
+    "wave": 2,
     "status": "covered",
-    "agent_id": "hunter-wave1-lead",
+    "agent_id": "reverifier-lead",
     "reviewed_paths": [
       "src/app/api/admin/events/token/route.ts",
       "src/lib/event-server.ts"
     ],
     "local_checks": [
       {
-        "agent_id": "hunter-wave1-lead",
+        "agent_id": "reverifier-lead",
         "reviewed_paths": [
           "src/app/api/admin/events/token/route.ts",
           "src/lib/event-server.ts"
         ],
-        "invariant": "Database-backed unique token generation ensuring non-repeating rotation across all events",
+        "invariant": "Database-backed unique token generation and non-repeating token rotation across all events",
         "method": "source",
-        "result": "Verified bounded retry loop checking public.events and database partial UNIQUE index 0013",
+        "result": "Verified generateUniqueEventToken and migration 0013 unique constraint prevent token collisions",
         "artifact": null
       }
     ],
@@ -66,18 +66,18 @@
       "WEB-PROTOCOL-AND-AUTH.md#Authorization and object scope"
     ],
     "excluded_blocks": [],
-    "prior_status": "new",
+    "prior_status": "prior_covered_changed_source",
     "attempts": [],
-    "wave": 1,
+    "wave": 2,
     "status": "covered",
-    "agent_id": "hunter-wave1-lead",
+    "agent_id": "reverifier-lead",
     "reviewed_paths": [
       "src/app/api/admin/photos/[id]/route.ts",
       "src/lib/supabase/auth.ts"
     ],
     "local_checks": [
       {
-        "agent_id": "hunter-wave1-lead",
+        "agent_id": "reverifier-lead",
         "reviewed_paths": [
           "src/app/api/admin/photos/[id]/route.ts",
           "src/lib/supabase/auth.ts"
@@ -112,18 +112,18 @@
       "WEB-PROTOCOL-AND-AUTH.md#OAuth, OIDC, and third-party federation"
     ],
     "excluded_blocks": [],
-    "prior_status": "new",
+    "prior_status": "prior_covered_changed_source",
     "attempts": [],
-    "wave": 1,
+    "wave": 2,
     "status": "covered",
-    "agent_id": "hunter-wave1-lead",
+    "agent_id": "reverifier-lead",
     "reviewed_paths": [
       "src/app/api/auth/google/start/route.ts",
       "src/lib/security/encryption.ts"
     ],
     "local_checks": [
       {
-        "agent_id": "hunter-wave1-lead",
+        "agent_id": "reverifier-lead",
         "reviewed_paths": [
           "src/app/api/auth/google/start/route.ts",
           "src/lib/security/encryption.ts"
@@ -158,18 +158,18 @@
       "WEB-PROTOCOL-AND-AUTH.md#Session and transport discipline"
     ],
     "excluded_blocks": [],
-    "prior_status": "new",
+    "prior_status": "prior_covered_changed_source",
     "attempts": [],
-    "wave": 1,
+    "wave": 2,
     "status": "covered",
-    "agent_id": "hunter-wave1-lead",
+    "agent_id": "reverifier-lead",
     "reviewed_paths": [
       "src/app/api/auth/login/route.ts",
       "src/lib/auth/session.ts"
     ],
     "local_checks": [
       {
-        "agent_id": "hunter-wave1-lead",
+        "agent_id": "reverifier-lead",
         "reviewed_paths": [
           "src/app/api/auth/login/route.ts",
           "src/lib/auth/session.ts"
@@ -204,18 +204,18 @@
       "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Storage, queue, and payload bounds"
     ],
     "excluded_blocks": [],
-    "prior_status": "new",
+    "prior_status": "prior_covered_changed_source",
     "attempts": [],
-    "wave": 1,
+    "wave": 2,
     "status": "covered",
-    "agent_id": "hunter-wave1-lead",
+    "agent_id": "reverifier-lead",
     "reviewed_paths": [
       "src/app/api/photos/chunk/route.ts",
       "src/lib/drive/resumable.ts"
     ],
     "local_checks": [
       {
-        "agent_id": "hunter-wave1-lead",
+        "agent_id": "reverifier-lead",
         "reviewed_paths": [
           "src/app/api/photos/chunk/route.ts",
           "src/lib/drive/resumable.ts"
@@ -250,18 +250,18 @@
       "DATA-ISOLATION-AND-LIFECYCLE.md#Multi-tenant and multi-user isolation"
     ],
     "excluded_blocks": [],
-    "prior_status": "new",
+    "prior_status": "prior_covered_changed_source",
     "attempts": [],
-    "wave": 1,
+    "wave": 2,
     "status": "covered",
-    "agent_id": "hunter-wave1-lead",
+    "agent_id": "reverifier-lead",
     "reviewed_paths": [
       "src/app/api/photos/init/route.ts",
       "supabase/migrations/0001_init.sql"
     ],
     "local_checks": [
       {
-        "agent_id": "hunter-wave1-lead",
+        "agent_id": "reverifier-lead",
         "reviewed_paths": [
           "src/app/api/photos/init/route.ts",
           "supabase/migrations/0001_init.sql"
@@ -296,18 +296,18 @@
       "DATA-ISOLATION-AND-LIFECYCLE.md#Multi-tenant and multi-user isolation"
     ],
     "excluded_blocks": [],
-    "prior_status": "new",
+    "prior_status": "prior_covered_changed_source",
     "attempts": [],
-    "wave": 1,
+    "wave": 2,
     "status": "covered",
-    "agent_id": "hunter-wave1-lead",
+    "agent_id": "reverifier-lead",
     "reviewed_paths": [
       "src/app/api/superadmin/clients/route.ts",
       "src/lib/auth/session.ts"
     ],
     "local_checks": [
       {
-        "agent_id": "hunter-wave1-lead",
+        "agent_id": "reverifier-lead",
         "reviewed_paths": [
           "src/app/api/superadmin/clients/route.ts",
           "src/lib/auth/session.ts"
@@ -342,25 +342,25 @@
       "WEB-PROTOCOL-AND-AUTH.md#Authentication and credential handling"
     ],
     "excluded_blocks": [],
-    "prior_status": "new",
+    "prior_status": "prior_covered_changed_source",
     "attempts": [],
-    "wave": 1,
+    "wave": 2,
     "status": "covered",
-    "agent_id": "hunter-wave1-lead",
+    "agent_id": "reverifier-lead",
     "reviewed_paths": [
       "src/app/e/[slug]/page.tsx",
       "src/lib/event-token.ts"
     ],
     "local_checks": [
       {
-        "agent_id": "hunter-wave1-lead",
+        "agent_id": "reverifier-lead",
         "reviewed_paths": [
           "src/app/e/[slug]/page.tsx",
           "src/lib/event-token.ts"
         ],
         "invariant": "Strict constant-time token check rejecting corrupted tokens even with existing session cookie",
         "method": "source",
-        "result": "Verified validateEventToken timingSafeEqual check and strict error reason branch (invalid vs expired)",
+        "result": "Verified validateEventToken timingSafeEqual check and pre-hydration initialGuest safety",
         "artifact": null
       }
     ],

@@ -1,8 +1,8 @@
 {
-  "run_id": "dazzwed-audit-20261021-01",
+  "run_id": "dazzwed-audit-20261021-02",
   "repo": "Dazzwed",
   "target": "/Users/administrator/Documents/Kiki/Dazzwed",
-  "source_ref": "9bd1b41cf67587e35ebc1ea94f1401e5cffc3f82",
+  "source_ref": "79e8af88b1993551c420874e6660f1694a68f3f2",
   "profile": "standard",
   "scope_paths": [],
   "budget": 20,
@@ -14,7 +14,9 @@
     "DATA-ISOLATION-AND-LIFECYCLE.md",
     "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md"
   ],
-  "prior_run_paths": [],
+  "prior_run_paths": [
+    "/Users/administrator/security-audit-skill/Dazzwed/run-1"
+  ],
   "shared_file_owners": {
     "architecture.md": "parent",
     "coverage-ledger.json": "parent",
