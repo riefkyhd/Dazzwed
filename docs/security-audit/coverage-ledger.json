@@ -1,0 +1,370 @@
+[
+  {
+    "coverage_id": "src%2Fapp%2Fapi%2Fadmin%2Fevents%2Ftoken%2Froute.ts%23POST::src%2Flib%2Fevent-server.ts%23generateUniqueEventToken::src%2Flib%2Fevents::ATTACK-CLASSES.md%23Cryptography%20and%20secrets",
+    "canonical_refs": {
+      "surface": "src/app/api/admin/events/token/route.ts#POST",
+      "boundary": "src/lib/event-server.ts#generateUniqueEventToken",
+      "subsystem": "src/lib/events",
+      "attack_class": "ATTACK-CLASSES.md#Cryptography and secrets"
+    },
+    "surface": "Event Token Rotation",
+    "boundary": "Cryptographic Collision-Free Generation",
+    "subsystem": "Event Management",
+    "attack_class": "Cryptography and secrets",
+    "starting_paths": [
+      "src/app/api/admin/events/token/route.ts",
+      "src/lib/event-server.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Cryptography and secrets",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Authentication and credential handling"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-wave1-lead",
+    "reviewed_paths": [
+      "src/app/api/admin/events/token/route.ts",
+      "src/lib/event-server.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-wave1-lead",
+        "reviewed_paths": [
+          "src/app/api/admin/events/token/route.ts",
+          "src/lib/event-server.ts"
+        ],
+        "invariant": "Database-backed unique token generation ensuring non-repeating rotation across all events",
+        "method": "source",
+        "result": "Verified bounded retry loop checking public.events and database partial UNIQUE index 0013",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fapp%2Fapi%2Fadmin%2Fphotos%2F%5Bid%5D%2Froute.ts%23GET::src%2Flib%2Fsupabase%2Fauth.ts%23getAdminUser::src%2Fapp%2Fapi%2Fadmin%2Fphotos::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/app/api/admin/photos/[id]/route.ts#GET",
+      "boundary": "src/lib/supabase/auth.ts#getAdminUser",
+      "subsystem": "src/app/api/admin/photos",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Admin Retina Image Proxy",
+    "boundary": "Admin Session and Event Isolation",
+    "subsystem": "Photo Moderation",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "src/app/api/admin/photos/[id]/route.ts",
+      "src/lib/supabase/auth.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Authorization and object scope"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-wave1-lead",
+    "reviewed_paths": [
+      "src/app/api/admin/photos/[id]/route.ts",
+      "src/lib/supabase/auth.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-wave1-lead",
+        "reviewed_paths": [
+          "src/app/api/admin/photos/[id]/route.ts",
+          "src/lib/supabase/auth.ts"
+        ],
+        "invariant": "Authenticated session check and client_id event ownership isolation on photo access",
+        "method": "source",
+        "result": "Verified caller session resolution and Google Drive direct binary streaming without token leakage",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fapp%2Fapi%2Fauth%2Fgoogle%2Fstart%2Froute.ts%23GET::src%2Flib%2Fsecurity%2Fencryption.ts%23encryptToken::src%2Flib%2Fsecurity::ATTACK-CLASSES.md%23Cryptography%20and%20secrets",
+    "canonical_refs": {
+      "surface": "src/app/api/auth/google/start/route.ts#GET",
+      "boundary": "src/lib/security/encryption.ts#encryptToken",
+      "subsystem": "src/lib/security",
+      "attack_class": "ATTACK-CLASSES.md#Cryptography and secrets"
+    },
+    "surface": "Google Drive OAuth Initiation",
+    "boundary": "AES-256-GCM Token Encryption",
+    "subsystem": "Cloud Integration",
+    "attack_class": "Cryptography and secrets",
+    "starting_paths": [
+      "src/app/api/auth/google/start/route.ts",
+      "src/lib/security/encryption.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Cryptography and secrets",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#OAuth, OIDC, and third-party federation"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-wave1-lead",
+    "reviewed_paths": [
+      "src/app/api/auth/google/start/route.ts",
+      "src/lib/security/encryption.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-wave1-lead",
+        "reviewed_paths": [
+          "src/app/api/auth/google/start/route.ts",
+          "src/lib/security/encryption.ts"
+        ],
+        "invariant": "AES-256-GCM authenticated encryption for Google refresh tokens with superadmin authorization",
+        "method": "source",
+        "result": "Verified AES-256-GCM with distinct IVs and auth tag verification during decryptToken",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fapp%2Fapi%2Fauth%2Flogin%2Froute.ts%23POST::src%2Flib%2Fauth%2Fsession.ts%23verifyClientPassword::src%2Flib%2Fauth::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/app/api/auth/login/route.ts#POST",
+      "boundary": "src/lib/auth/session.ts#verifyClientPassword",
+      "subsystem": "src/lib/auth",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Admin and Client Login Endpoint",
+    "boundary": "Password Hashing and Session Grant",
+    "subsystem": "Authentication",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "src/app/api/auth/login/route.ts",
+      "src/lib/auth/session.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Session and transport discipline"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-wave1-lead",
+    "reviewed_paths": [
+      "src/app/api/auth/login/route.ts",
+      "src/lib/auth/session.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-wave1-lead",
+        "reviewed_paths": [
+          "src/app/api/auth/login/route.ts",
+          "src/lib/auth/session.ts"
+        ],
+        "invariant": "Scrypt timing-safe password verification and active client status check",
+        "method": "source",
+        "result": "Verified timingSafeEqual comparison and instant revocation when client status is not active in DB",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fapp%2Fapi%2Fphotos%2Fchunk%2Froute.ts%23POST::src%2Fapp%2Fapi%2Fphotos%2Fchunk%2Froute.ts%23size_bytes_and_hash_validation::src%2Flib%2Fdrive::ATTACK-CLASSES.md%23Resource%20and%20file%20handling",
+    "canonical_refs": {
+      "surface": "src/app/api/photos/chunk/route.ts#POST",
+      "boundary": "src/app/api/photos/chunk/route.ts#size_bytes_and_hash_validation",
+      "subsystem": "src/lib/drive",
+      "attack_class": "ATTACK-CLASSES.md#Resource and file handling"
+    },
+    "surface": "Resumable Photo Chunk Upload",
+    "boundary": "Chunk Size and Hash Enforcement",
+    "subsystem": "Storage Pipeline",
+    "attack_class": "Resource and file handling",
+    "starting_paths": [
+      "src/app/api/photos/chunk/route.ts",
+      "src/lib/drive/resumable.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Resource and file handling",
+    "selected_companion_blocks": [
+      "RESOURCE-EXHAUSTION-AND-AVAILABILITY.md#Storage, queue, and payload bounds"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-wave1-lead",
+    "reviewed_paths": [
+      "src/app/api/photos/chunk/route.ts",
+      "src/lib/drive/resumable.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-wave1-lead",
+        "reviewed_paths": [
+          "src/app/api/photos/chunk/route.ts",
+          "src/lib/drive/resumable.ts"
+        ],
+        "invariant": "Strict chunk size bounds and sha256 checksum verification before buffer concatenation",
+        "method": "source",
+        "result": "Verified chunk bounds checking, pending shot reservation match, and storage guard 98% hard limit",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fapp%2Fapi%2Fphotos%2Finit%2Froute.ts%23POST::supabase%2Fmigrations%2F0001_init.sql%23reserve_shot::src%2Flib%2Fqueue::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/app/api/photos/init/route.ts#POST",
+      "boundary": "supabase/migrations/0001_init.sql#reserve_shot",
+      "subsystem": "src/lib/queue",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Photo Shot Reservation",
+    "boundary": "Row-Level Locked Database Quota",
+    "subsystem": "Photo Pipeline",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "src/app/api/photos/init/route.ts",
+      "supabase/migrations/0001_init.sql"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Multi-tenant and multi-user isolation"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-wave1-lead",
+    "reviewed_paths": [
+      "src/app/api/photos/init/route.ts",
+      "supabase/migrations/0001_init.sql"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-wave1-lead",
+        "reviewed_paths": [
+          "src/app/api/photos/init/route.ts",
+          "supabase/migrations/0001_init.sql"
+        ],
+        "invariant": "Atomic quota enforcement preventing concurrent over-allocation of shots per guest",
+        "method": "source",
+        "result": "Verified reserve_shot stored procedure uses SELECT FOR UPDATE row locking and enforces shots_per_guest",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fapp%2Fapi%2Fsuperadmin%2Fclients%2Froute.ts%23POST::src%2Flib%2Fauth%2Fsession.ts%23requireSuperadmin::src%2Fapp%2Fapi%2Fsuperadmin::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/app/api/superadmin/clients/route.ts#POST",
+      "boundary": "src/lib/auth/session.ts#requireSuperadmin",
+      "subsystem": "src/app/api/superadmin",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Superadmin Client Provisioning",
+    "boundary": "Platform Role Check and Isolation",
+    "subsystem": "Multi-Tenant SaaS",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "src/app/api/superadmin/clients/route.ts",
+      "src/lib/auth/session.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "DATA-ISOLATION-AND-LIFECYCLE.md#Multi-tenant and multi-user isolation"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-wave1-lead",
+    "reviewed_paths": [
+      "src/app/api/superadmin/clients/route.ts",
+      "src/lib/auth/session.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-wave1-lead",
+        "reviewed_paths": [
+          "src/app/api/superadmin/clients/route.ts",
+          "src/lib/auth/session.ts"
+        ],
+        "invariant": "Strict superadmin role gating preventing horizontal privilege escalation across tenant clients",
+        "method": "source",
+        "result": "Verified requireSuperadmin rejects client role with 403 Forbidden and isolates client records",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  },
+  {
+    "coverage_id": "src%2Fapp%2Fe%2F%5Bslug%5D%2Fpage.tsx%23GET::src%2Flib%2Fevent-token.ts%23validateEventToken::src%2Fapp%2Fe::ATTACK-CLASSES.md%23Access%20control",
+    "canonical_refs": {
+      "surface": "src/app/e/[slug]/page.tsx#GET",
+      "boundary": "src/lib/event-token.ts#validateEventToken",
+      "subsystem": "src/app/e",
+      "attack_class": "ATTACK-CLASSES.md#Access control"
+    },
+    "surface": "Guest Camera Access Link",
+    "boundary": "Event Token Verification",
+    "subsystem": "Guest Ingress",
+    "attack_class": "Access control",
+    "starting_paths": [
+      "src/app/e/[slug]/page.tsx",
+      "src/lib/event-token.ts"
+    ],
+    "ordinary_attack_class_block": "ATTACK-CLASSES.md#Access control",
+    "selected_companion_blocks": [
+      "WEB-PROTOCOL-AND-AUTH.md#Authentication and credential handling"
+    ],
+    "excluded_blocks": [],
+    "prior_status": "new",
+    "attempts": [],
+    "wave": 1,
+    "status": "covered",
+    "agent_id": "hunter-wave1-lead",
+    "reviewed_paths": [
+      "src/app/e/[slug]/page.tsx",
+      "src/lib/event-token.ts"
+    ],
+    "local_checks": [
+      {
+        "agent_id": "hunter-wave1-lead",
+        "reviewed_paths": [
+          "src/app/e/[slug]/page.tsx",
+          "src/lib/event-token.ts"
+        ],
+        "invariant": "Strict constant-time token check rejecting corrupted tokens even with existing session cookie",
+        "method": "source",
+        "result": "Verified validateEventToken timingSafeEqual check and strict error reason branch (invalid vs expired)",
+        "artifact": null
+      }
+    ],
+    "result_fingerprints": [],
+    "unresolved": []
+  }
+]
