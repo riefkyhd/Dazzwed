@@ -450,15 +450,11 @@ export function LookLabView() {
   return (
     <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-4 border-b border-zinc-800">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 pb-6 border-b border-zinc-800/80">
         <div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <h1 className="text-xl sm:text-2xl font-serif font-bold text-white tracking-tight">Look Lab v2</h1>
-            <span className="text-[10px] sm:text-xs font-mono uppercase bg-amber-400/10 text-amber-400 border border-amber-400/20 px-2 py-0.5 rounded-full">
-              Camera System Tuner
-            </span>
-          </div>
-          <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+          <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-zinc-400 font-medium">Color Calibration Studio</span>
+          <h1 className="text-2xl sm:text-3xl font-serif font-normal text-zinc-100 tracking-tight mt-1">Look Lab & Film Curation</h1>
+          <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl leading-relaxed">
             Physically modeled camera systems: Lens Model → Film Response → OKLCH Grading → Emulsion Optics.
           </p>
         </div>
@@ -467,9 +463,25 @@ export function LookLabView() {
           <button
             type="button"
             onClick={copyRecipeJson}
-            className="flex-1 sm:flex-initial text-center px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-200 border border-zinc-700 cursor-pointer transition-colors"
+            className="h-8 flex-1 sm:flex-initial px-3.5 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 text-xs font-mono text-zinc-300 hover:text-white border border-zinc-800 cursor-pointer transition-colors flex items-center justify-center gap-1.5"
           >
-            {copySuccess ? "Copied!" : "Export JSON"}
+            {copySuccess ? (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-emerald-400">
+                  <polyline points="20 6 9 17 4 12" />
+                </svg>
+                <span className="text-emerald-400">Copied!</span>
+              </>
+            ) : (
+              <>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-400">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="7 10 12 15 17 10" />
+                  <line x1="12" y1="15" x2="12" y2="3" />
+                </svg>
+                <span>Export JSON</span>
+              </>
+            )}
           </button>
           <button
             type="button"
@@ -477,9 +489,14 @@ export function LookLabView() {
               setJsonText(JSON.stringify(currentRecipe, null, 2));
               setShowJson(true);
             }}
-            className="flex-1 sm:flex-initial text-center px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-mono text-zinc-200 border border-zinc-700 cursor-pointer transition-colors"
+            className="h-8 flex-1 sm:flex-initial px-3.5 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 text-xs font-mono text-zinc-300 hover:text-white border border-zinc-800 cursor-pointer transition-colors flex items-center justify-center gap-1.5"
           >
-            Import JSON
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-400">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="17 8 12 3 7 8" />
+              <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            <span>Import JSON</span>
           </button>
         </div>
       </div>
@@ -503,15 +520,25 @@ export function LookLabView() {
                 {currentRecipe.name.toUpperCase()} ({currentRecipe.aspectRatio})
               </div>
               {currentRecipe.lutUrl && (
-                <div className="bg-amber-400 text-black px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider shadow-sm">
-                  🎞️ 3D LUT: {currentRecipe.lutUrl.replace("/luts/", "")}
+                <div className="bg-amber-400 text-zinc-950 px-2 py-0.5 rounded-full text-[9px] font-mono font-bold uppercase tracking-wider shadow-sm flex items-center gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                    <rect width="18" height="18" x="3" y="3" rx="2" />
+                    <path d="M7 3v18" />
+                    <path d="M3 7.5h4" />
+                    <path d="M3 12h18" />
+                    <path d="M3 16.5h4" />
+                    <path d="M17 3v18" />
+                    <path d="M17 7.5h4" />
+                    <path d="M17 16.5h4" />
+                  </svg>
+                  <span>3D LUT: {currentRecipe.lutUrl.replace("/luts/", "")}</span>
                 </div>
               )}
             </div>
           </div>
 
           {/* Preset Selector & Source Switcher */}
-          <div className="flex flex-col gap-2.5 p-3 bg-zinc-900/60 rounded-xl border border-zinc-800">
+          <div className="flex flex-col gap-2.5 p-3.5 bg-white/[0.02] rounded-xl border border-white/[0.07]">
             <div className="flex items-center justify-between pb-1.5 border-b border-zinc-800/80">
               <div className="flex items-center gap-2">
                 <span className="text-[11px] font-mono font-bold text-zinc-300 uppercase tracking-wider">
@@ -521,12 +548,12 @@ export function LookLabView() {
               </div>
 
               {/* Source Switcher */}
-              <div className="flex items-center justify-center gap-1 bg-black/60 p-0.5 rounded-lg border border-zinc-800 text-xs font-mono">
+              <div className="flex items-center justify-center gap-0.5 bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-800 text-xs font-mono">
                 <button
                   type="button"
                   onClick={() => setSourceType("chart")}
                   className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
-                    sourceType === "chart" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                    sourceType === "chart" ? "bg-zinc-800 text-white font-medium" : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
                   Chart
@@ -535,7 +562,7 @@ export function LookLabView() {
                   type="button"
                   onClick={() => setSourceType("fixture")}
                   className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
-                    sourceType === "fixture" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                    sourceType === "fixture" ? "bg-zinc-800 text-white font-medium" : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
                   Fixture
@@ -544,7 +571,7 @@ export function LookLabView() {
                   type="button"
                   onClick={() => setSourceType("camera")}
                   className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
-                    sourceType === "camera" ? "bg-zinc-800 text-white font-semibold" : "text-zinc-400 hover:text-zinc-200"
+                    sourceType === "camera" ? "bg-zinc-800 text-white font-medium" : "text-zinc-400 hover:text-zinc-200"
                   }`}
                 >
                   Camera
@@ -554,8 +581,18 @@ export function LookLabView() {
 
             {/* Group 1: Authentic 3D LUT Film Stocks */}
             <div className="space-y-1.5">
-              <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-semibold flex items-center gap-1">
-                <span>🎞️ Authentic 3D LUT Film Stocks</span>
+              <div className="text-[10px] font-mono text-amber-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                  <rect width="18" height="18" x="3" y="3" rx="2" />
+                  <path d="M7 3v18" />
+                  <path d="M3 7.5h4" />
+                  <path d="M3 12h18" />
+                  <path d="M3 16.5h4" />
+                  <path d="M17 3v18" />
+                  <path d="M17 7.5h4" />
+                  <path d="M17 16.5h4" />
+                </svg>
+                <span>Authentic 3D LUT Film Stocks</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {BUILTIN_LOOKS.filter((p) => Boolean(p.lutUrl)).map((preset) => (
@@ -565,8 +602,8 @@ export function LookLabView() {
                     onClick={() => handleSelectPreset(preset.id)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer flex items-center gap-1.5 ${
                       selectedPresetId === preset.id
-                        ? "bg-amber-400 text-black font-bold shadow-md ring-1 ring-amber-300"
-                        : "text-zinc-300 bg-zinc-800/90 hover:bg-zinc-700/90 border border-zinc-700/70"
+                        ? "bg-amber-400 text-zinc-950 font-medium shadow-sm"
+                        : "text-zinc-300 bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800"
                     }`}
                   >
                     <span>{preset.name}</span>
@@ -578,8 +615,12 @@ export function LookLabView() {
 
             {/* Group 2: Calibrated Procedural Recipes */}
             <div className="space-y-1.5 pt-1 border-t border-zinc-800/60">
-              <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-semibold flex items-center gap-1">
-                <span>✨ Calibrated Procedural Recipes</span>
+              <div className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-amber-400/80">
+                  <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+                  <path d="m17 4 3 3" />
+                </svg>
+                <span>Calibrated Procedural Recipes</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {BUILTIN_LOOKS.filter((p) => !p.lutUrl).map((preset) => (
@@ -589,8 +630,8 @@ export function LookLabView() {
                     onClick={() => handleSelectPreset(preset.id)}
                     className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
                       selectedPresetId === preset.id
-                        ? "bg-amber-400 text-black font-bold shadow-md ring-1 ring-amber-300"
-                        : "text-zinc-400 bg-zinc-900 hover:text-zinc-200 hover:bg-zinc-800 border border-zinc-800"
+                        ? "bg-amber-400 text-zinc-950 font-medium shadow-sm"
+                        : "text-zinc-400 bg-zinc-900/80 hover:text-zinc-200 hover:bg-zinc-800 border border-zinc-800"
                     }`}
                   >
                     {preset.name}
@@ -633,14 +674,14 @@ export function LookLabView() {
         </div>
 
         {/* Right Column: Tabbed Controls (5 cols) */}
-        <div className="lg:col-span-5 bg-zinc-950 p-4 sm:p-5 rounded-2xl border border-zinc-800 shadow-xl space-y-5 max-h-[520px] lg:max-h-[720px] overflow-y-auto">
+        <div className="lg:col-span-5 bg-white/[0.02] p-4 sm:p-5 rounded-2xl border border-white/[0.07] shadow-xl space-y-5 max-h-[520px] lg:max-h-[720px] overflow-y-auto">
           {/* Navigation Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-zinc-900 rounded-xl border border-zinc-800 text-xs font-mono">
+          <div className="flex items-center gap-1 p-0.5 bg-zinc-900/90 rounded-lg border border-zinc-800 text-xs font-mono">
             <button
               type="button"
               onClick={() => setActiveTab("params")}
-              className={`flex-1 py-1.5 rounded-lg text-center cursor-pointer transition-colors ${
-                activeTab === "params" ? "bg-amber-400 text-black font-bold" : "text-zinc-400 hover:text-white"
+              className={`flex-1 py-1.5 rounded-md text-center cursor-pointer transition-colors ${
+                activeTab === "params" ? "bg-white/[0.08] text-white font-medium border border-white/10 shadow-sm" : "text-zinc-400 hover:text-white"
               }`}
             >
               Parameters
@@ -648,8 +689,8 @@ export function LookLabView() {
             <button
               type="button"
               onClick={() => setActiveTab("ref-fit")}
-              className={`flex-1 py-1.5 rounded-lg text-center cursor-pointer transition-colors ${
-                activeTab === "ref-fit" ? "bg-amber-400 text-black font-bold" : "text-zinc-400 hover:text-white"
+              className={`flex-1 py-1.5 rounded-md text-center cursor-pointer transition-colors ${
+                activeTab === "ref-fit" ? "bg-white/[0.08] text-white font-medium border border-white/10 shadow-sm" : "text-zinc-400 hover:text-white"
               }`}
             >
               Reference Fit
@@ -657,8 +698,8 @@ export function LookLabView() {
             <button
               type="button"
               onClick={() => setActiveTab("checklist")}
-              className={`flex-1 py-1.5 rounded-lg text-center cursor-pointer transition-colors ${
-                activeTab === "checklist" ? "bg-amber-400 text-black font-bold" : "text-zinc-400 hover:text-white"
+              className={`flex-1 py-1.5 rounded-md text-center cursor-pointer transition-colors ${
+                activeTab === "checklist" ? "bg-white/[0.08] text-white font-medium border border-white/10 shadow-sm" : "text-zinc-400 hover:text-white"
               }`}
             >
               Scene Checklist
@@ -669,7 +710,7 @@ export function LookLabView() {
           {activeTab === "params" && (
             <div className="space-y-4">
               {/* Action Toolbar & State Status */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-800">
+              <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-zinc-800/80">
                 <div className="flex items-center gap-2">
                   <h2 className="text-xs font-mono uppercase tracking-wider text-amber-400 font-semibold">
                     Camera System Stages
@@ -702,13 +743,16 @@ export function LookLabView() {
                     onClick={handleRevertToDefault}
                     disabled={!isModified}
                     title="Reset all sliders back to original preset defaults"
-                    className={`px-2.5 py-1 rounded-lg text-xs font-mono border transition-all flex items-center gap-1 ${
+                    className={`h-7 px-2.5 rounded-md text-xs font-mono border transition-all flex items-center gap-1.5 ${
                       isModified
                         ? "bg-zinc-800 hover:bg-zinc-700 text-amber-300 border-amber-400/30 cursor-pointer active:scale-95 shadow-sm"
                         : "bg-zinc-900/60 text-zinc-600 border-zinc-800 cursor-not-allowed opacity-50"
                     }`}
                   >
-                    <span>↺</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                      <path d="M3 3v5h5" />
+                    </svg>
                     <span>Revert</span>
                   </button>
 
@@ -717,9 +761,13 @@ export function LookLabView() {
                     type="button"
                     onClick={handleSavePreset}
                     title="Save current tuned sliders to browser storage"
-                    className="px-2.5 py-1 rounded-lg text-xs font-mono bg-amber-400 hover:bg-amber-300 text-black font-bold border border-amber-400 transition-all cursor-pointer flex items-center gap-1 active:scale-95 shadow-sm"
+                    className="h-7 px-3 rounded-md text-xs font-mono bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium transition-all cursor-pointer flex items-center gap-1.5 active:scale-95 shadow-sm"
                   >
-                    <span>💾</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                      <polyline points="17 21 17 13 7 13 7 21" />
+                      <polyline points="7 3 7 8 15 8" />
+                    </svg>
                     <span>Save</span>
                   </button>
                 </div>
@@ -727,7 +775,9 @@ export function LookLabView() {
 
               {saveStatus && (
                 <div className="px-3 py-1.5 rounded-lg bg-amber-400/10 border border-amber-400/30 text-amber-300 text-xs font-mono animate-in fade-in flex items-center gap-2">
-                  <span>✓</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-amber-400">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
                   <span>{saveStatus}</span>
                 </div>
               )}

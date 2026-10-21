@@ -19,6 +19,7 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
   const [qrSvg, setQrSvg] = useState<string>("");
   const [emblemDataUrl, setEmblemDataUrl] = useState<string>("");
   const [isGeneratingPng, setIsGeneratingPng] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -270,47 +271,70 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
     window.print();
   }
 
+  function handleCopyGuestUrl() {
+    if (!guestUrl) return;
+    navigator.clipboard.writeText(guestUrl);
+    setCopiedUrl(true);
+    setTimeout(() => setCopiedUrl(false), 2000);
+  }
+
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-6 py-6 sm:py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
       {/* Controls Header - hidden during print */}
-      <div className="print:hidden pb-6 mb-6 sm:mb-8 border-b border-zinc-800">
-        <span className="text-xs font-mono uppercase tracking-widest text-amber-400">Printables</span>
-        <h1 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-1">QR Code & Vertical A4 Poster</h1>
-        <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+      <div className="print:hidden pb-6 mb-6 sm:mb-8 border-b border-zinc-800/80">
+        <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-zinc-400 font-medium">Printables & Stationary</span>
+        <h1 className="text-2xl sm:text-3xl font-serif font-normal text-zinc-100 tracking-tight mt-1">QR Code & Vertical A4 Poster</h1>
+        <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl leading-relaxed">
           High-resolution vertical A4 portrait printable poster with Unveiled branding and guest camera instructions.
         </p>
       </div>
 
       {/* Configuration & Action Bar - hidden during print */}
-      <div className="print:hidden p-4 sm:p-6 mb-8 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-4">
+      <div className="print:hidden p-5 sm:p-6 mb-8 rounded-2xl bg-white/[0.02] border border-white/[0.07] space-y-5">
         <div>
-          <label className="block text-xs font-mono uppercase tracking-wider text-zinc-400 mb-1.5">
+          <label className="block text-[11px] font-mono uppercase tracking-[0.14em] text-zinc-400 mb-2">
             Event Guest URL (Includes Active Token)
           </label>
           <div className="flex flex-col sm:flex-row gap-2">
-            <input
-              type="text"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="https://your-domain.com"
-              className="w-full sm:flex-1 min-w-0 px-3.5 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 focus:border-amber-400 focus:outline-none text-xs font-mono text-zinc-200 truncate"
-            />
-            <span className="self-center text-xs font-mono text-amber-400 break-all text-center sm:text-left">
-              /e/{event.slug}{event.access_token ? `?t=${event.access_token}` : ""}
-            </span>
+            <div className="flex-1 flex items-center min-w-0 bg-zinc-900/80 border border-zinc-800 rounded-lg px-3 py-2 text-xs font-mono text-zinc-200 focus-within:border-amber-400/60 focus-within:ring-1 focus-within:ring-amber-400/30">
+              <span className="truncate">{guestUrl}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleCopyGuestUrl}
+              className="h-9 px-3.5 rounded-lg bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-800 text-zinc-300 hover:text-white text-xs font-medium transition-colors flex items-center justify-center gap-1.5 shrink-0 cursor-pointer"
+            >
+              {copiedUrl ? (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-emerald-400">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                  <span className="text-emerald-400 font-sans">Copied</span>
+                </>
+              ) : (
+                <>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+                    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+                  </svg>
+                  <span className="font-sans">Copy URL</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
         {/* Primary Action Buttons: Complete Poster Downloads & Print */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 pt-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 pt-1">
           <button
             onClick={handleDownloadPosterPng}
             disabled={!qrDataUrl || isGeneratingPng}
-            className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-100 transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px] disabled:opacity-50"
+            className="w-full h-9 px-4 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-amber-400 shrink-0">
-              <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
-              <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-amber-400 shrink-0">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
             <span className="truncate">{isGeneratingPng ? "Preparing Poster…" : "Download Poster (PNG)"}</span>
           </button>
@@ -318,23 +342,24 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
           <button
             onClick={handleDownloadPosterSvg}
             disabled={!qrDataUrl}
-            className="w-full px-4 py-2.5 rounded-xl bg-zinc-900 border border-zinc-700 hover:bg-zinc-800 text-xs font-semibold text-zinc-100 transition-all flex items-center justify-center gap-2 cursor-pointer min-h-[44px] disabled:opacity-50"
+            className="w-full h-9 px-4 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-amber-400 shrink-0">
-              <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.235a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.129V2.75Z" />
-              <path d="M3.5 12.75a.75.75 0 0 0-1.5 0v2.5A2.75 2.75 0 0 0 4.75 18h10.5A2.75 2.75 0 0 0 18 15.25v-2.5a.75.75 0 0 0-1.5 0v2.5c0 .69-.56 1.25-1.25 1.25H4.75c-.69 0-1.25-.56-1.25-1.25v-2.5Z" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-amber-400 shrink-0">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+              <polyline points="7 10 12 15 17 10" />
+              <line x1="12" y1="15" x2="12" y2="3" />
             </svg>
             <span className="truncate">Download Poster (SVG)</span>
           </button>
 
           <button
             onClick={handlePrint}
-            className="w-full px-5 py-2.5 rounded-xl bg-amber-400 text-black font-semibold text-xs hover:bg-amber-300 transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-400/10 cursor-pointer min-h-[44px]"
+            className="w-full h-9 px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium text-xs transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
-              <path fillRule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v3.5A1.75 1.75 0 0 1 13.25 8H6.75A1.75 1.75 0 0 1 5 6.25v-3.5Zm1.5 0v3.5c0 .138.112.25.25.25h6.5a.25.25 0 0 0 .25-.25v-3.5a.25.25 0 0 0-.25-.25h-6.5a.25.25 0 0 0-.25.25Z" clipRule="evenodd" />
-              <path fillRule="evenodd" d="M2.5 7A1.5 1.5 0 0 0 1 8.5v5A1.5 1.5 0 0 0 2.5 15h1.75v-2.25a2.25 2.25 0 0 1 2.25-2.25h7a2.25 2.25 0 0 1 2.25 2.25V15h1.75a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 17.5 7h-15Zm12 2a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5Z" clipRule="evenodd" />
-              <path d="M5.75 12A.75.75 0 0 0 5 12.75v4.5c0 .966.784 1.75 1.75 1.75h6.5A1.75 1.75 0 0 0 15 17.25v-4.5a.75.75 0 0 0-.75-.75h-8.5Z" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 shrink-0">
+              <polyline points="6 9 6 2 18 2 18 9" />
+              <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+              <rect width="12" height="8" x="6" y="14" />
             </svg>
             <span className="truncate">Print A4 Poster</span>
           </button>
@@ -364,7 +389,7 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
       </div>
 
       {/* Printable Vertical A4 Poster Section */}
-      <div className="flex justify-center items-center py-4 w-full overflow-hidden print-card-wrapper">
+      <div className="flex justify-center items-center py-6 sm:py-10 px-4 rounded-2xl bg-black/40 border border-white/[0.06] w-full overflow-hidden print-card-wrapper shadow-2xl">
         {/*
           Vertical A4 Poster: 210mm x 297mm (ISO 216 1 : 1.4142 ratio).
           Uses high-resolution vector SVG for both on-screen display, 300 DPI PNG rasterization,

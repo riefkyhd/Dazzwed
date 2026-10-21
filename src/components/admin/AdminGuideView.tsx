@@ -592,6 +592,21 @@ export function AdminGuideView() {
                   : "Sistem desain darkroom mewah ujung-ke-ujung yang diterapkan di seluruh antarmuka administratif. Menggantikan seluruh emoji kartun dengan ikon vektor Lucide berpresisi stroke 1.75px. Superadmin dilengkapi header 3-zona yang selaras dengan bilah navigasi atas, strip KPI tenang dengan wadah ikon 32x32px, kartu klien rapi dengan salin kode akses DZ-XXXXXX 1-klik dan generator undangan WhatsApp bebas emoji, serta kartu radio tingkat paket yang interaktif. Dashboard Acara menghadirkan tipografi display serif yang elegan, titik status kamera 6px, tautan slug monospace, kluster aksi cepat h-8 yang ringkas (Cetak QR, Unduh Semua, Kamera Tamu), dan tabel unggahan yang tenang. Pengaturan disusun ulang menjadi 5 bagian darkroom yang tenang dengan input standar dan manajemen resep 3D LUT yang mulus."}
               </p>
             </div>
+
+            {/* Control 20: Complete Luxury Editorial Sweep: Gallery, A4 Print Studio & Look Lab */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-stone-300" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Complete Luxury Editorial Sweep: Gallery, A4 Print Studio & Look Lab" : "Sapuan Editorial Mewah Lengkap: Galeri, Studio Cetak A4 & Look Lab"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Unified editorial darkroom polish across Photo Gallery moderation, A4 Print Signage Studio, and Look Lab film curation. Photo Gallery and Lightbox feature zero cartoon emojis, replacing raw text symbols with precision 1.75px Lucide vector icons (Sparkles for Film, Circle for RAW Original, Eye/EyeOff for moderation, and Chevron navigation) on dark glass action docks with preserved 44px touch targets. QR & Print Studio introduces a 1-click URL copy action, primary Gold Printer CTA, and darkroom preview mat framing while keeping 100% of @media print layout rules pixel-perfect for physical A4 printing. Look Lab eliminates raw emoji badges in favor of Lucide Film and Sparkles icons, providing refined stage bisection controls, standardized sliders, and seamless JSON/LUT curation."
+                  : "Penyelarasan editorial darkroom mewah yang menyeluruh di seluruh moderasi Galeri Foto, Studio Cetak Poster A4, dan kurasi film Look Lab. Galeri Foto dan Lightbox bebas emoji kartun, menggantikan simbol teks dengan ikon vektor Lucide 1.75px (Sparkles untuk Film, Circle untuk RAW Original, Eye/EyeOff untuk moderasi, dan navigasi Chevron) di atas dock aksi kaca gelap dengan target sentuh 44px yang terjaga. QR & Print Studio menghadirkan aksi salin URL 1-klik, tombol cetak utama Gold Printer, dan pembingkaian mat darkroom sembari menjaga 100% aturan tata letak @media print agar hasil cetak fisik A4 tetap presisi. Look Lab meniadakan lencana emoji untuk digantikan ikon vektor Lucide Film dan Sparkles, menyediakan kontrol biseksi tahapan yang rapi, slider standar, serta kurasi JSON/LUT yang mulus."}
+              </p>
+            </div>
           </div>
         </div>
       )}

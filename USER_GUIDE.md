@@ -508,5 +508,24 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Standardized Form Controls:** Uniform dark inputs (`bg-zinc-900/80 border border-zinc-800 text-sm rounded-lg focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30`).
    - **Zero Cartoon Emojis:** Replaced all emojis (`✨`, `📁`, `⚡`, `⚠️`, `✓`) across alerts, modals, and dropdowns with crisp `1.75px` stroke Lucide vector icons.
 
+---
+
+## 17. Complete Luxury Editorial Sweep: Gallery, A4 Print Studio & Look Lab
+
+1. **Editorial Photo Gallery & Lightbox (`PhotosManagementView.tsx` & `AdminPhotoLightbox.tsx`):**
+   - **Typography & Darkroom Surfaces:** Display serif header (`Photo Gallery & Rolls`), uppercase tracked category badges, and monospace counters on quiet darkroom surfaces (`bg-white/[0.02] border border-white/[0.07]`).
+   - **Zero Raw Emojis / Text Symbols:** Replaced all raw symbols (`✦`, `◯`, `📁`, `⏳`, `←`, `→`, `✕`, `✓`) with precision `1.75px` stroke Lucide vector icons (`Sparkles`, `Circle`, `Eye`, `EyeOff`, `ChevronLeft`, `ChevronRight`, `Download`, `X`).
+   - **Dark Glass Lightbox Action Dock:** Features high-contrast dark glass master toggles (`Film` with `Sparkles` icon vs. `Original` with `Circle` icon), preserved `44x44px` touch targets, and fluid swipe gestures.
+   - **Bulk PKZIP Export Modal:** Restructured with tactile darkroom option cards (`Per Guest Folders`, `By Variant`, `Both Film & Originals`) and animated monospace progress indicator.
+
+2. **QR Code & Vertical A4 Poster Studio (`QrGeneratorView.tsx`):**
+   - **Editorial Controls:** Warm display serif header, 1-click guest camera URL copy action with visual checkmark feedback, and a primary Gold `Print A4 Poster` CTA with Lucide `Printer` icon.
+   - **Darkroom Preview Mat:** Framed in a calm `bg-black/40 border border-white/[0.06]` mat for presentation while keeping 100% of `@media print` rules pixel-perfect for physical A4 paper printing.
+
+3. **Look Lab Color Calibration Studio (`LookLabView.tsx`):**
+   - **Vector Curated Stocks:** Replaced decorative emojis (`🎞️`, `✨`, `💾`) with Lucide `Film`, `Sparkles`, `Save`, and `RotateCcw` vector SVGs.
+   - **Darkroom Segmented Controls:** Clean tab switching (`Parameters`, `Reference Fit`, `Scene Checklist`), standardized stage bisection selectors, and uniform parameter sliders.
+
+
 
 
