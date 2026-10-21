@@ -712,6 +712,21 @@ export function AdminGuideView() {
                   : "Mengikuti standar ketat antislop-layoutmobile: (1) Jarak bebas bawah tablet yang terjamin (pb-24 lg:pb-8) mencegah bilah aplikasi bawah menutupi konten pada layar < 1024px. (2) Target sentuh standar 44x44px pada seluruh tombol modal interaktif, tombol unduh poster, dan penutup sheet. (3) Unit ketinggian viewport dinamis (dvh) serta inset area aman perangkat (env(safe-area-inset-bottom)) pada sheet pengaturan dan resep tamu, melindungi tombol aksi dari gangguan bilah gestur ponsel."}
               </p>
             </div>
+
+            {/* Control 28: Multi-Tenant Drive OAuth & Guest Identity Preservation */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 28: Multi-Tenant Drive OAuth & Guest Identity Preservation" : "Kontrol 28: OAuth Drive Multi-Tenant & Perlindungan Identitas Nama Tamu"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Guarantees robust guest session preservation and multi-event cloud vaults: (1) Guest Display Name Integrity: Session refresh and telemetry synchronization requests protect existing guest names from being wiped back to 'Guest' on page reloads or camera resumption. (2) Event-Scoped Drive OAuth: Google Drive authorization on /admin/connect-drive dynamically binds to the active event's unique slug and couple names, ensuring each couple's cloud vault is independently provisioned and authorized without cross-tenant collision."
+                  : "Menjamin integritas sesi tamu dan isolasi vault multi-event: (1) Integritas Nama Tamu: Sinkronisasi sesi latar belakang melindungi nama tamu yang telah dimasukkan agar tidak terhapus kembali menjadi 'Guest' saat muat ulang halaman atau membuka kembali kamera. (2) OAuth Drive Sesuai Event: Otorisasi Google Drive pada /admin/connect-drive otomatis terikat ke slug dan nama pasangan event yang sedang aktif, memastikan vault Google Drive setiap pasangan terhubung secara tepat tanpa tercampur antartenant."}
+              </p>
+            </div>
           </div>
         </div>
       )}

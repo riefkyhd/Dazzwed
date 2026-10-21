@@ -178,8 +178,8 @@ export function GuestApp({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             eventSlug: event.slug,
-            name: guestName,
-            guestId: targetGuestId || guestIdRef.current || undefined,
+            name: guestName || undefined,
+            guestId: targetGuestId !== undefined ? (targetGuestId || undefined) : (guestIdRef.current || undefined),
             consentVersion: CONSENT_VERSION,
             consentAlbum: consentParams?.consentAlbum ?? local?.album ?? true,
             consentTelemetry: consentParams?.consentTelemetry ?? local?.telemetry ?? false,
@@ -426,6 +426,7 @@ export function GuestApp({
       document.documentElement.requestFullscreen().catch(() => {});
     }
 
+    sessionResolvedRef.current = true;
     saveLocalConsent({ album: consent.album, telemetry: consent.telemetry });
     setConsentGranted(true);
 

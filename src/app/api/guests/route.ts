@@ -22,6 +22,7 @@ const body = z.object({
 
 const cookieName = (slug: string) => `dc_g_${slug}`;
 const clean = (s?: string | null) => {
+  if (s === undefined) return undefined;
   const v = (s ?? "").replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 60);
   return v || null;
 };
@@ -151,7 +152,7 @@ export async function POST(req: Request) {
         consent_telemetry: consentTelemetry,
       };
 
-      if (name !== undefined) {
+      if (name !== undefined && name !== null) {
         patchWithConsent.display_name = name;
         guest.display_name = name;
       }

@@ -106,6 +106,7 @@ The admin navigation uses a streamlined 5-link primary bar with an account popov
 - **Primary Desktop Nav (Single-Line, `>= 1024px`):** `Dashboard` (`/admin`), `Gallery` (`/admin/photos` & `/admin/guests`), `QR & Print` (`/admin/qr`), `Look Lab` (`/admin/look-lab`), and `Settings` (`/admin/settings`).
 - **Right Utility & Account Menu:** Quick `? Guide` pill button + Account trigger (`username ▾`) containing full admin email, `Connect Google Drive`, `System Health` diagnostics, and `Sign Out`.
 - **Mobile & Tablet App Bar (`< 1024px`):** Fixed bottom app navigation bar and expandable drawer with ergonomic 44px touch targets, dynamic safe-area insets (`env(safe-area-inset-bottom)`), and full tablet bottom padding clearance (`pb-24 lg:pb-8`) to prevent content overlap across all touchscreens.
+- **Event-Scoped Google Drive Vaulting & Guest Identity:** One-time OAuth authorization under `/admin/connect-drive` binds directly to the active event's unique slug and couple names. Guest display names are immutably preserved across background session syncs, page reloads, and camera resumptions.
 
 ---
 
