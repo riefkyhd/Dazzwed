@@ -554,11 +554,12 @@ Following a full live reception audit on `https://dazzwed.vercel.app`, the platf
    - **Safe Storage Reconciliation Tool:** An in-app `Sync Drive` action in the gallery checks confirmed photo records against Google Drive with bounded concurrency. If Drive returns `404 Not Found` or `trashed: true`, orphaned database rows are safely marked as failed, aligning Supabase, gallery counts, and .ZIP exports 1:1 with Google Drive.
    - **Zero Empty Folders in .ZIP:** Guest folders are only generated in PKZIP archives when photo binaries are successfully fetched, guaranteeing 0 empty directories.
 
-5. **Anti-QRIS 35mm Disposable Camera Print Redesign:**
-   - **Unmistakable Analog Visuals:** The A4 print stationary (`/admin/qr`) features 35mm film stock sprocket perforations, viewfinder corner crop marks `[ + ]`, and a bold darkroom header badge: `DISPOSABLE FILM CAMERA • SCAN TO SHOOT`.
-   - **Indonesian Anti-Amplop Callout:** Embeds an explicit notice: `BUKAN QRIS / BUKAN AMPLOP DIGITAL • GRATIS UNTUK SEMUA TAMU` so wedding guests immediately recognize the interactive camera rather than assuming it is a digital money transfer.
-   - **3-Step Visual Strip:** Clean vector icons illustrating `01. Scan QR Kamera` -> `02. Potret Bebas` -> `03. Cuci Otomatis ke Album Pengantin`.
-   - **Zero Raw Emojis:** All printable graphics and preview banners use precision vector SVGs for crisp, cross-platform editorial typography.
+5. **Refined 35mm Guest Camera A4 Print Signage:**
+   - **Horizontal Brand Logo:** Centered horizontal brand mark + wordmark (`/Unveiled_logo_horizontal_transparent.png`) providing balanced editorial proportions.
+   - **Unmistakable Analog Visuals:** The A4 print stationary (`/admin/qr`) features 35mm film stock sprocket perforations, viewfinder corner crop marks `[ + ]`, and a bold darkroom header badge: `GUEST CAMERA • SCAN TO TAKE PICTURES`.
+   - **Clean English & Straightforward Phrasing:** Clear, international English copy throughout utilizing familiar "Take Pictures" terminology (`Scan with your phone to take pictures` and `15 PHOTOS PER GUEST • NO APP REQUIRED`).
+   - **3-Step Visual Strip:** Clean vector icons illustrating `01. Scan QR Code` -> `02. Take Pictures` -> `03. Saved Automatically` (straightforward guidance explaining photos are saved directly to the couple's wedding album without analog darkroom jargon).
+   - **Zero Raw Emojis:** All printable graphics and preview banners use precision vector SVGs for crisp, cross-platform editorial typography on both screen and physical A4 printing.
 
 
 
