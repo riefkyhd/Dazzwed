@@ -64,6 +64,7 @@ export function LookDrawerSheet({
 
       {/* Sheet Content with slide-up / slide-down physics */}
       <div
+        style={{ paddingBottom: "max(1.5rem, calc(env(safe-area-inset-bottom) + 0.75rem))" }}
         className={`w-full max-w-md mx-auto bg-zinc-900 border-t border-zinc-700/80 rounded-t-3xl p-6 space-y-4 shadow-2xl transition-transform duration-250 ease-[cubic-bezier(0.32,0.72,0,1)] ${
           visible ? "translate-y-0" : "translate-y-full"
         }`}

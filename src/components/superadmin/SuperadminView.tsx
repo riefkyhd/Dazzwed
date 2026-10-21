@@ -283,7 +283,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
         </div>
 
         {/* Zone 2: Segmented Directory Filter */}
-        <div className="inline-flex items-center bg-zinc-900/90 border border-zinc-800 p-0.5 rounded-lg text-xs font-medium self-start lg:self-center">
+        <div className="inline-flex max-w-full overflow-x-auto items-center bg-zinc-900/90 border border-zinc-800 p-0.5 rounded-lg text-xs font-medium self-start lg:self-center">
           <button
             type="button"
             onClick={() => setClientFilter("all")}

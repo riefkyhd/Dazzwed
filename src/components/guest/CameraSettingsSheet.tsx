@@ -310,8 +310,9 @@ export function CameraSettingsSheet({
           transform: sheetTransform,
           transition: sheetTransition,
           touchAction: "none",
+          paddingBottom: "max(1.5rem, calc(env(safe-area-inset-bottom) + 0.75rem))",
         }}
-        className="w-full max-w-md mx-auto bg-zinc-900 border-t border-zinc-700/80 rounded-t-3xl p-6 max-h-[88vh] flex flex-col shadow-2xl cursor-grab active:cursor-grabbing will-change-transform"
+        className="w-full max-w-md mx-auto bg-zinc-900 border-t border-zinc-700/80 rounded-t-3xl p-6 max-h-[88dvh] flex flex-col shadow-2xl cursor-grab active:cursor-grabbing will-change-transform"
       >
         {/* Grab Handle Pill - visual affordance with enlarged hit area */}
         <div className="w-full flex items-center justify-center -mt-2 mb-1 py-1 touch-none">

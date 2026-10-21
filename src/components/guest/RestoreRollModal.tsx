@@ -140,7 +140,7 @@ export function RestoreRollModal({
           type="button"
           onClick={handleDismiss}
           aria-label="Close"
-          className="absolute top-4 right-4 text-zinc-400 hover:text-white p-1 cursor-pointer"
+          className="absolute top-2 right-2 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-zinc-400 hover:text-white cursor-pointer touch-manipulation"
         >
           ✕
         </button>
@@ -230,14 +230,14 @@ export function RestoreRollModal({
             <button
               type="button"
               onClick={handleDismiss}
-              className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-zinc-300 font-medium text-xs hover:bg-zinc-800 transition"
+              className="flex-1 min-h-[44px] py-2.5 rounded-xl border border-zinc-700 text-zinc-300 font-medium text-xs hover:bg-zinc-800 transition flex items-center justify-center touch-manipulation"
             >
               {t(lang, "close")}
             </button>
             <button
               type="submit"
               disabled={loading || code.length < 6 || !consentAlbum}
-              className="flex-1 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-bold text-xs transition cursor-pointer"
+              className="flex-1 min-h-[44px] py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-zinc-950 font-bold text-xs transition cursor-pointer flex items-center justify-center touch-manipulation"
             >
               {loading ? "…" : t(lang, "restoreBtn")}
             </button>

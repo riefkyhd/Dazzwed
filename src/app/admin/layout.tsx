@@ -50,7 +50,7 @@ export default async function AdminLayout({
           }))}
         />
       )}
-      <main className="w-full pb-24 md:pb-8">{children}</main>
+      <main className="w-full pb-24 lg:pb-8">{children}</main>
     </div>
   );
 }

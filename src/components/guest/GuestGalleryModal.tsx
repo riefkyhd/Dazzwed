@@ -151,7 +151,7 @@ export function GuestGalleryModal({
             type="button"
             onClick={handleDismiss}
             aria-label="Close"
-            className="w-8 h-8 rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition cursor-pointer"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-[32px] sm:min-h-[32px] rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition cursor-pointer touch-manipulation"
           >
             ✕
           </button>

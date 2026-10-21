@@ -116,7 +116,7 @@ export function AdminGuideView() {
               </div>
             </div>
 
-            <div className="space-y-2.5 text-xs sm:text-sm text-zinc-300 pl-11 leading-relaxed">
+            <div className="space-y-2.5 text-xs sm:text-sm text-zinc-300 pl-1 sm:pl-11 leading-relaxed">
               <div className="flex items-start gap-2">
                 <span className="text-amber-400 font-bold shrink-0">✓</span>
                 <span>
@@ -163,7 +163,7 @@ export function AdminGuideView() {
               </div>
             </div>
 
-            <div className="space-y-3 text-xs sm:text-sm text-zinc-300 pl-11 leading-relaxed">
+            <div className="space-y-3 text-xs sm:text-sm text-zinc-300 pl-1 sm:pl-11 leading-relaxed">
               <div className="p-4 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200">
                 <div className="font-bold flex items-center gap-2 mb-1 text-amber-300">
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 shrink-0">
@@ -215,7 +215,7 @@ export function AdminGuideView() {
               </div>
             </div>
 
-            <div className="space-y-2.5 text-xs sm:text-sm text-zinc-300 pl-11 leading-relaxed">
+            <div className="space-y-2.5 text-xs sm:text-sm text-zinc-300 pl-1 sm:pl-11 leading-relaxed">
               <div className="flex items-start gap-2">
                 <span className="text-amber-400 font-bold shrink-0">✓</span>
                 <span>
@@ -262,7 +262,7 @@ export function AdminGuideView() {
               </div>
             </div>
 
-            <div className="space-y-2.5 text-xs sm:text-sm text-zinc-300 pl-11 leading-relaxed">
+            <div className="space-y-2.5 text-xs sm:text-sm text-zinc-300 pl-1 sm:pl-11 leading-relaxed">
               <div className="flex items-start gap-2">
                 <span className="text-amber-400 font-bold shrink-0">✓</span>
                 <span>
@@ -695,6 +695,21 @@ export function AdminGuideView() {
                 {lang === "en"
                   ? "Incorporates 3 security audit mitigations: (1) OAuth 2.0 CSRF Protection: Google Drive callback enforces superadmin authentication and verifies cryptographic HMAC-SHA256 session-bound state tokens, blocking unauthorized account binding. (2) Strict Photo Proxy Scoping: All image requests to /api/admin/photos/[id] (both UUIDs and Google Drive IDs) are verified against the database and caller's tenant ownership, eliminating unauthorized file streaming. (3) Bounded & Protected LUT Management: /api/admin/luts enforces a 2 MB ceiling, protects built-in stock presets from being overwritten, and isolates client uploads with tenant-specific namespaces."
                   : "Menerapkan 3 mitigasi audit keamanan: (1) Perlindungan CSRF OAuth 2.0: Callback Google Drive mewajibkan otentikasi superadmin dan memverifikasi token status kriptografis HMAC-SHA256 yang terikat sesi, mencegah pembajakan akun vault. (2) Otorisasi Ketat Proxy Foto: Seluruh permintaan gambar ke /api/admin/photos/[id] (baik UUID maupun ID Drive) diverifikasi terhadap database dan kepemilikan tenant pemanggil, mencegah streaming file tanpa izin. (3) Manajemen LUT Aman & Terisolasi: /api/admin/luts menerapkan batas ukuran 2 MB, melindungi preset bawaan dari penimpaan, dan mengisolasi unggahan kustom klien dengan namespace tenant khusus."}
+              </p>
+            </div>
+
+            {/* Control 27: Responsive Mobile & Tablet Ergonomics (antislop-layoutmobile) */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 27: Responsive Mobile & Tablet Ergonomics" : "Kontrol 27: Ergonomi Responsif Ponsel & Tablet"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Adheres strictly to the antislop-layoutmobile standard: (1) Guaranteed tablet bottom clearance (pb-24 lg:pb-8) preventing fixed bottom app bars from obscuring content on viewports < 1024px. (2) Standardized 44x44px touch targets on all interactive modal triggers, poster download CTAs, and sheet closures. (3) Dynamic viewport height units (dvh) and hardware safe-area insets (env(safe-area-inset-bottom)) across guest settings and look sheets, protecting critical actions from notch/home indicator clipping."
+                  : "Mengikuti standar ketat antislop-layoutmobile: (1) Jarak bebas bawah tablet yang terjamin (pb-24 lg:pb-8) mencegah bilah aplikasi bawah menutupi konten pada layar < 1024px. (2) Target sentuh standar 44x44px pada seluruh tombol modal interaktif, tombol unduh poster, dan penutup sheet. (3) Unit ketinggian viewport dinamis (dvh) serta inset area aman perangkat (env(safe-area-inset-bottom)) pada sheet pengaturan dan resep tamu, melindungi tombol aksi dari gangguan bilah gestur ponsel."}
               </p>
             </div>
           </div>

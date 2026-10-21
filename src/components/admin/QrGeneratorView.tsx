@@ -349,7 +349,7 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
           <button
             onClick={handleDownloadPosterPng}
             disabled={!qrDataUrl || isGeneratingPng}
-            className="w-full h-9 px-4 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="w-full h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] px-4 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 touch-manipulation"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-amber-400 shrink-0">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -362,7 +362,7 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
           <button
             onClick={handleDownloadPosterSvg}
             disabled={!qrDataUrl}
-            className="w-full h-9 px-4 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            className="w-full h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] px-4 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-200 transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 touch-manipulation"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-amber-400 shrink-0">
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
@@ -374,7 +374,7 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
 
           <button
             onClick={handlePrint}
-            className="w-full h-9 px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium text-xs transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full h-11 sm:h-9 min-h-[44px] sm:min-h-[36px] px-5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium text-xs transition-colors shadow-sm flex items-center justify-center gap-2 cursor-pointer touch-manipulation"
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 shrink-0">
               <polyline points="6 9 6 2 18 2 18 9" />
