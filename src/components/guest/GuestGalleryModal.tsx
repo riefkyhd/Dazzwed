@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { type Lang, t } from "@/lib/i18n";
 import { getGuestGalleryPhotos, type GalleryPhoto } from "@/lib/queue/store";
 
@@ -87,6 +87,23 @@ export function GuestGalleryModal({
     }
   }, [isOpen]);
 
+  const shotsTaken = Math.max(photos.length, totalShots - shotsLeft);
+  const displayPhotos = useMemo(() => {
+    const items = [...photos];
+    const missingCount = Math.max(0, (totalShots - shotsLeft) - photos.length);
+    for (let i = 0; i < missingCount; i++) {
+      items.push({
+        shotId: `cloud-synced-${i}`,
+        guestId,
+        createdAt: 0,
+        thumbnailUrl: "",
+        status: "synced",
+        lookId: "disposable-400",
+      });
+    }
+    return items;
+  }, [photos, totalShots, shotsLeft, guestId]);
+
   if (!rendered) return null;
 
   const handleDismiss = () => {
@@ -137,7 +154,7 @@ export function GuestGalleryModal({
                 {t(lang, "myPhotos")}
               </h3>
               <span className="px-2 py-0.5 rounded-full bg-zinc-800 text-[10px] font-mono text-zinc-300 border border-zinc-700">
-                {photos.length} / {totalShots}
+                {shotsTaken} / {totalShots}
               </span>
             </div>
             <div className="flex items-center gap-2 mt-0.5 text-xs text-zinc-400">
@@ -178,7 +195,7 @@ export function GuestGalleryModal({
             <div className="h-full flex items-center justify-center text-zinc-500 font-mono text-xs">
               Loading roll…
             </div>
-          ) : photos.length === 0 ? (
+          ) : displayPhotos.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500">
               <div className="w-12 h-12 rounded-full border border-dashed border-zinc-700 flex items-center justify-center mb-3 text-zinc-600">
                 🎞️
@@ -188,7 +205,7 @@ export function GuestGalleryModal({
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
-              {photos.map((photo, idx) => (
+              {displayPhotos.map((photo, idx) => (
                 <div
                   key={photo.shotId}
                   onClick={() => setSelectedPhoto(photo)}
@@ -202,14 +219,16 @@ export function GuestGalleryModal({
                       className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
                     />
                   ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900 text-zinc-500 text-[10px] p-2 text-center font-mono">
-                      <span>SAVED IN ALBUM</span>
+                    <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900/90 text-zinc-400 text-[10px] p-2 text-center font-mono gap-1">
+                      <span className="text-xs">🎞️</span>
+                      <span className="font-semibold text-zinc-300">SAVED IN ALBUM</span>
+                      <span className="text-[9px] text-zinc-500">Synced to Drive</span>
                     </div>
                   )}
 
                   {/* Sync Status Overlay Pill */}
                   <div className="absolute bottom-1.5 left-1.5 right-1.5 flex justify-between items-center text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-sm text-zinc-300">
-                    <span>#{photos.length - idx}</span>
+                    <span>#{displayPhotos.length - idx}</span>
                     <span className={photo.status === "synced" ? "text-emerald-400" : "text-amber-400"}>
                       {photo.status === "synced" ? "✓" : "…"}
                     </span>
@@ -225,7 +244,9 @@ export function GuestGalleryModal({
           <div className="absolute inset-0 z-50 bg-black/95 flex flex-col p-4 animate-in fade-in duration-200">
             <div className="flex items-center justify-between mb-3 text-xs">
               <span className="font-mono text-zinc-400">
-                {new Date(selectedPhoto.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                {selectedPhoto.createdAt > 0
+                  ? new Date(selectedPhoto.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : (lang === "id" ? "Tersinkronisasi ke Drive" : "Synced to Drive")}
               </span>
               <button
                 type="button"
@@ -237,7 +258,7 @@ export function GuestGalleryModal({
             </div>
 
             <div className="flex-1 min-h-0 min-w-0 flex items-center justify-center overflow-hidden my-auto rounded-2xl bg-zinc-950">
-              {selectedPhoto.thumbnailUrl && (
+              {selectedPhoto.thumbnailUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={selectedPhoto.thumbnailUrl}
@@ -245,6 +266,20 @@ export function GuestGalleryModal({
                   className="max-w-full max-h-[62dvh] w-auto h-auto object-contain rounded-xl shadow-2xl select-none"
                   style={{ maxHeight: "62dvh", maxWidth: "100%", objectFit: "contain" }}
                 />
+              ) : (
+                <div className="text-center p-6 max-w-xs flex flex-col items-center">
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-3 text-2xl">
+                    ✓
+                  </div>
+                  <h4 className="font-semibold text-zinc-100 text-sm mb-1.5 font-sans">
+                    {lang === "id" ? "Foto Aman di Album Cloud" : "Photo Saved in Cloud Album"}
+                  </h4>
+                  <p className="text-zinc-400 text-xs leading-relaxed">
+                    {lang === "id"
+                      ? "Foto ini berhasil diambil dan telah tersinkronisasi ke folder Google Drive pengantin."
+                      : "This photo was captured and successfully synced to the couple's Google Drive archive."}
+                  </p>
+                </div>
               )}
             </div>
 

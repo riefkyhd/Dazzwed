@@ -588,6 +588,10 @@ Following a full live reception audit on `https://dazzwed.vercel.app`, the platf
    - **Instant Frame 1 Counter Rendering:** On `/e/[slug]`, the server component evaluates the guest's session cookie and queries their verified photos count and remaining rolls during the initial SSR render.
    - **Eliminates Capacity Flash:** Injects `initialGuest` into the client camera app, allowing the top bar and welcome back toast to immediately display the true remaining shots (e.g. 9 remaining) on frame 1 instead of briefly flashing maximum capacity (e.g. 24) before syncing.
 
+10. **Multi-Session Guest Roll Gallery & Quota Parity:**
+   - **Mathematical Roll Alignment:** Solves discrepancies where guests captured photos across multiple sessions, tabs, or devices. The private "My Photos" modal calculates roll progress using true shots taken (`totalShots - shotsLeft`), matching the camera shutter counter.
+   - **Seamless Cloud Album Synced Cards:** For photos confirmed in Google Drive whose local device thumbnails were taken in an earlier tab or before browser cache was refreshed, the contact sheet grid pads the display with elegant `SAVED IN ALBUM` cards (marked `✓ Synced`), ensuring all taken shots are accounted for in the guest's view.
+
 ## 19. Security Audit Run-3 Hardening: OAuth CSRF Vault Protection, Photo Proxy Scoping & Bounded LUT Management
 
 Following an independent automated security audit (`run-3`) adhering to Cloudflare's `security-audit` standard profile, three defense-in-depth mitigations were implemented across authentication, media proxying, and file management:

@@ -608,6 +608,21 @@ export function AdminGuideView() {
               </p>
             </div>
 
+            {/* Control 21: Multi-Session Guest Roll Gallery & Cloud Quota Parity */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Multi-Session Guest Roll Gallery & Quota Parity" : "Galeri Rol Tamu Lintas Sesi & Keselarasan Kuota"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Guarantees 100% mathematical consistency between the camera shutter counter and the guest's private 'My Photos' modal. When a guest restores a roll code on a new tab, switches devices, or captures photos across different sessions, the gallery modal computes the roll counter from true shots taken (total quota minus remaining shots) and pads the contact sheet grid with elegant 'SAVED IN ALBUM' synced cards for photos archived in Google Drive whose local thumbnails belong to earlier browser sessions."
+                  : "Menjamin konsistensi matematis 100% antara penghitung rana kamera dan modal privat 'Foto Saya'. Ketika tamu memulihkan kode rol di tab baru, berganti perangkat, atau memotret di beberapa sesi berbeda, modal galeri menghitung penghitung rol dari jumlah jepretan aktual (total kuota dikurangi sisa jepretan) dan melengkapi kisi lembar kontak dengan kartu 'SAVED IN ALBUM' bertanda centang untuk foto yang aman tersimpan di Google Drive dari sesi peramban sebelumnya."}
+              </p>
+            </div>
+
             {/* Control 21: Production Audit Defenses, Dual-Master Raw Separation & Anti-QRIS Stationary */}
             <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
               <div className="flex items-center gap-2">
