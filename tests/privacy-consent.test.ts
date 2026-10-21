@@ -81,6 +81,51 @@ describe("Privacy & Consent Compliance (Indonesia UU PDP)", () => {
     expect(hasValidConsent()).toBe(false);
   });
 
+  it("conditionally renders 'Withdraw consent & delete my roll' on LandingScreen only when hasActiveRoll is true", async () => {
+    // Next.js Image component needs document and window.location if window is mocked
+    if (typeof (globalThis as any).window !== "undefined" && !(globalThis as any).window.location) {
+      (globalThis as any).window.location = { href: "http://localhost:3000" };
+    }
+    if (typeof (globalThis as any).document === "undefined") {
+      (globalThis as any).document = {
+        documentElement: { dataset: {} },
+        querySelector: () => null,
+        createElement: () => ({ setAttribute: () => {}, getAttribute: () => null }),
+      };
+    } else if (!(globalThis as any).document.documentElement) {
+      (globalThis as any).document.documentElement = { dataset: {} };
+    }
+    const { renderToString } = await import("react-dom/server");
+    const React = await import("react");
+    const { LandingScreen } = await import("@/components/guest/LandingScreen");
+
+    const baseProps = {
+      coupleNames: "Romeo & Juliet",
+      shotsPerGuest: 15,
+      eventSlug: "romeo-juliet",
+      lang: "en" as const,
+      onLanguageChange: () => {},
+      onStartCamera: () => {},
+      onNativePhoto: () => {},
+    };
+
+    const escapeHtml = (str: string) => str.replace(/&/g, "&amp;");
+
+    // When hasActiveRoll is false or undefined (first-time visitor)
+    const htmlUnregistered = renderToString(React.createElement(LandingScreen, { ...baseProps }));
+    expect(htmlUnregistered).toContain(escapeHtml(CONSENT_COPY.en.rightsTitle));
+    expect(htmlUnregistered).not.toContain(escapeHtml(CONSENT_COPY.en.withdrawAction));
+
+    const htmlExplicitFalse = renderToString(React.createElement(LandingScreen, { ...baseProps, hasActiveRoll: false }));
+    expect(htmlExplicitFalse).toContain(escapeHtml(CONSENT_COPY.en.rightsTitle));
+    expect(htmlExplicitFalse).not.toContain(escapeHtml(CONSENT_COPY.en.withdrawAction));
+
+    // When hasActiveRoll is true (returning guest with active roll)
+    const htmlActive = renderToString(React.createElement(LandingScreen, { ...baseProps, hasActiveRoll: true }));
+    expect(htmlActive).toContain(escapeHtml(CONSENT_COPY.en.rightsTitle));
+    expect(htmlActive).toContain(escapeHtml(CONSENT_COPY.en.withdrawAction));
+  });
+
   it("inspects remote guests table structure", async () => {
     const { createClient } = await import("@supabase/supabase-js");
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://rusmfbednwwdzfavsjhf.supabase.co";

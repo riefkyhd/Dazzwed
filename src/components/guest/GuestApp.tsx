@@ -841,6 +841,7 @@ export function GuestApp({
             eventSlug={event.slug}
             tokenExpiresAt={tokenExpiresAt}
             lang={lang}
+            hasActiveRoll={Boolean(guestId)}
             onLanguageChange={handleLanguageChange}
             onStartCamera={handleStartCamera}
             onNativePhoto={handleNativePhoto}

@@ -23,6 +23,7 @@ interface LandingScreenProps {
   eventSlug: string;
   tokenExpiresAt?: string | null;
   lang: Lang;
+  hasActiveRoll?: boolean;
   onLanguageChange: (lang: Lang) => void;
   onStartCamera: (name: string, consent: ConsentSubmission) => void;
   onNativePhoto: (file: File, name: string | null, quickThumb?: string, consent?: ConsentSubmission) => void;
@@ -36,6 +37,7 @@ export function LandingScreen({
   eventSlug,
   tokenExpiresAt,
   lang,
+  hasActiveRoll,
   onLanguageChange,
   onStartCamera,
   onNativePhoto,
@@ -299,17 +301,19 @@ export function LandingScreen({
                 <p className="text-[11px]">{copy.rightsBody}</p>
               </div>
 
-              {/* UU PDP Right to Erasure Self-Service Action */}
-              <div className="pt-2 border-t border-zinc-800/80">
-                <button
-                  type="button"
-                  disabled={isDeletingRoll}
-                  onClick={handleWithdrawConsent}
-                  className="text-[11px] text-rose-400/80 hover:text-rose-300 transition underline underline-offset-4 cursor-pointer disabled:opacity-50"
-                >
-                  {isDeletingRoll ? "Processing..." : copy.withdrawAction}
-                </button>
-              </div>
+              {/* UU PDP Right to Erasure Self-Service Action — only rendered when an active roll exists */}
+              {hasActiveRoll && (
+                <div className="pt-2 border-t border-zinc-800/80">
+                  <button
+                    type="button"
+                    disabled={isDeletingRoll}
+                    onClick={handleWithdrawConsent}
+                    className="text-[11px] text-rose-400/80 hover:text-rose-300 transition underline underline-offset-4 cursor-pointer disabled:opacity-50"
+                  >
+                    {isDeletingRoll ? "Processing..." : copy.withdrawAction}
+                  </button>
+                </div>
+              )}
             </div>
           </details>
 
