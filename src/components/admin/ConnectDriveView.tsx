@@ -176,16 +176,26 @@ export function ConnectDriveView({
 
       {/* Connect / Reconnect Button */}
       <div className="p-6 rounded-2xl bg-zinc-900 border border-zinc-800 text-center space-y-4">
-        <h2 className="text-base font-bold text-white">One-Time Account Authorization</h2>
+        <h2 className="text-base font-bold text-white">
+          {health?.ok ? "Google Drive Vault Active" : "One-Time Account Authorization"}
+        </h2>
         <p className="text-xs text-zinc-400 max-w-md mx-auto leading-relaxed">
-          Click below to log in with the dedicated wedding Google account for <b className="text-zinc-200">{activeCoupleNames}</b> (<code className="text-zinc-300">/e/{activeSlug}</code>). This grants the app <code className="text-zinc-300">drive.file</code> scope and generates your vault refresh token.
+          {health?.ok ? (
+            <>
+              Your master Google Drive account (<b className="text-zinc-200">{health.userEmail}</b>) is connected and auto-provisions folders for all events. Re-authorization is only required if you wish to switch to a different Google account.
+            </>
+          ) : (
+            <>
+              Click below to log in with the dedicated wedding Google account for <b className="text-zinc-200">{activeCoupleNames}</b> (<code className="text-zinc-300">/e/{activeSlug}</code>). This grants the app <code className="text-zinc-300">drive.file</code> scope and generates your vault refresh token.
+            </>
+          )}
         </p>
 
         <a
           href={`/api/auth/google/start?slug=${encodeURIComponent(activeSlug)}`}
           className="inline-block py-3 px-6 rounded-xl bg-accent text-accent-fg font-bold text-sm shadow-lg hover:brightness-110 active:scale-95 transition-all"
         >
-          {connected ? "Re-authorize Google Account" : `Authorize Google Account for ${activeCoupleNames}`}
+          {health?.ok ? "Switch Google Account (Optional)" : `Authorize Google Account for ${activeCoupleNames}`}
         </a>
       </div>
     </div>

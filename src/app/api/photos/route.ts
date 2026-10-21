@@ -113,7 +113,25 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Event access window has expired", code: "EVENT_EXPIRED" }, { status: 403 });
     }
 
-    const rootFolderId = event.drive_root_folder_id;
+    let rootFolderId = event.drive_root_folder_id;
+    if (!rootFolderId) {
+      try {
+        const { refreshToken } = await resolveDriveTokens();
+        if (refreshToken) {
+          const { createRootFolder } = await import("@/lib/drive/folders");
+          const drive = getDriveClient(refreshToken);
+          rootFolderId = await createRootFolder(drive, event.couple_names);
+          const sbEarly = supabaseAdmin();
+          await sbEarly
+            .from("events")
+            .update({ drive_root_folder_id: rootFolderId })
+            .eq("id", event.id);
+        }
+      } catch (autoErr) {
+        console.error("Failed to auto-provision event root folder in Drive:", autoErr);
+      }
+    }
+
     if (!rootFolderId) {
       return NextResponse.json(
         { error: "Google Drive is not linked to this event yet" },

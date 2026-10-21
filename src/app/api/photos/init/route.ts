@@ -139,9 +139,30 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Event access window has expired", code: "EVENT_EXPIRED" }, { status: 403 });
     }
 
-    const rootFolderId = event.drive_root_folder_id;
+    // Initiate Google Drive Resumable Upload Session
+    const { refreshToken } = await resolveDriveTokens();
+    if (!refreshToken) {
+      return NextResponse.json(
+        { error: "Google Drive is not connected. Please connect Drive in Admin Settings." },
+        { status: 503 }
+      );
+    }
+    const drive = getDriveClient(refreshToken);
+
+    let rootFolderId = event.drive_root_folder_id;
     if (!rootFolderId) {
-      return NextResponse.json({ error: "Drive not linked" }, { status: 503 });
+      try {
+        const { createRootFolder } = await import("@/lib/drive/folders");
+        rootFolderId = await createRootFolder(drive, event.couple_names);
+        const sbEarly = supabaseAdmin();
+        await sbEarly
+          .from("events")
+          .update({ drive_root_folder_id: rootFolderId })
+          .eq("id", event.id);
+      } catch (autoErr) {
+        console.error("Failed to auto-provision event root folder in Drive:", autoErr);
+        return NextResponse.json({ error: "Drive not linked" }, { status: 503 });
+      }
     }
 
     const sb = supabaseAdmin();
@@ -163,16 +184,6 @@ export async function POST(req: Request) {
         { status: 403 }
       );
     }
-
-    // Initiate Google Drive Resumable Upload Session
-    const { refreshToken } = await resolveDriveTokens();
-    if (!refreshToken) {
-      return NextResponse.json(
-        { error: "Google Drive is not connected. Please connect Drive in Admin Settings." },
-        { status: 503 }
-      );
-    }
-    const drive = getDriveClient(refreshToken);
 
     // Ensure per-guest folder exists: `${cleanName} (${rollCode})`
     // Isolates folders even when guests have the same name
