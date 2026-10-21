@@ -6,10 +6,21 @@ import { PhotosManagementView } from "@/components/admin/PhotosManagementView";
 import { computeRollCodeFromGuestId } from "@/lib/guest/session";
 import { getActiveAdminEvent } from "@/lib/events/active";
 
+import { EmptyEventOnboardingView } from "@/components/admin/EmptyEventOnboardingView";
+import { getAuthSession } from "@/lib/auth/session";
+
 export const dynamic = "force-dynamic";
 
-export default async function AdminPhotosPage() {
+interface AdminPhotosPageProps {
+  searchParams?: Promise<{ view?: string; guest?: string }>;
+}
+
+export default async function AdminPhotosPage({ searchParams }: AdminPhotosPageProps) {
   await requireAdmin();
+
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const initialView = resolvedSearchParams?.view === "rolls" ? "table" : "editorial";
+  const initialGuestFilter = resolvedSearchParams?.guest || "all";
 
   const sb = supabaseAdmin();
 
@@ -17,7 +28,14 @@ export default async function AdminPhotosPage() {
   const event = await getActiveAdminEvent();
 
   if (!event) {
-    return <div className="p-8 text-center text-zinc-400">Event not found.</div>;
+    const session = await getAuthSession();
+    return (
+      <EmptyEventOnboardingView
+        clientName={session?.name}
+        clientEmail={session?.email}
+        isSuperadmin={session?.role === "superadmin"}
+      />
+    );
   }
 
   // 2. Fetch guests and photos concurrently in parallel
@@ -75,6 +93,8 @@ export default async function AdminPhotosPage() {
       rootFolderId={event.drive_root_folder_id}
       shotsPerGuest={event.shots_per_guest}
       eventSlug={event.slug || "wedding"}
+      initialView={initialView}
+      initialGuestFilter={initialGuestFilter}
     />
   );
 }

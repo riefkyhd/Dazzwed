@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/supabase/auth";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { SettingsView } from "@/components/admin/SettingsView";
 import { getActiveAdminEvent } from "@/lib/events/active";
+import { EmptyEventOnboardingView } from "@/components/admin/EmptyEventOnboardingView";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -17,9 +18,11 @@ export default async function AdminSettingsPage() {
 
   if (!event) {
     return (
-      <div className="max-w-4xl mx-auto p-8 text-center text-zinc-400">
-        No event found.
-      </div>
+      <EmptyEventOnboardingView
+        clientName={session?.name}
+        clientEmail={session?.email}
+        isSuperadmin={session?.role === "superadmin"}
+      />
     );
   }
 

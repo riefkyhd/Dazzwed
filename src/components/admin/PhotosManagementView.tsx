@@ -36,6 +36,8 @@ interface PhotosManagementViewProps {
   rootFolderId: string | null;
   shotsPerGuest: number;
   eventSlug?: string;
+  initialView?: "editorial" | "table";
+  initialGuestFilter?: string;
 }
 
 export function PhotosManagementView({
@@ -44,14 +46,17 @@ export function PhotosManagementView({
   rootFolderId,
   shotsPerGuest,
   eventSlug = "wedding",
+  initialView = "editorial",
+  initialGuestFilter = "all",
 }: PhotosManagementViewProps) {
   const [photos, setPhotos] = useState<PhotoItem[]>(initialPhotos);
-  const [viewMode, setViewMode] = useState<"editorial" | "table">("editorial");
+  const [viewMode, setViewMode] = useState<"editorial" | "table">(initialView);
   const [statusFilter, setStatusFilter] = useState<"all" | "confirmed" | "hidden" | "failed">("all");
-  const [guestFilter, setGuestFilter] = useState<string>("all");
+  const [guestFilter, setGuestFilter] = useState<string>(initialGuestFilter);
   const [presetFilter, setPresetFilter] = useState<string>("all");
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [visibleLimit, setVisibleLimit] = useState<number>(24);
+  const [isReconciling, setIsReconciling] = useState(false);
 
   const [activeLightboxIndex, setActiveLightboxIndex] = useState<number | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -181,6 +186,36 @@ export function PhotosManagementView({
       setActionLoading(null);
     }
   }, [activeLightboxIndex]);
+
+  // Safe Google Drive Storage Reconciliation
+  const handleReconcile = async () => {
+    if (
+      !confirm(
+        "Run Google Drive Storage Reconciliation?\n\nThis will safely check active photo records against Google Drive. Any orphaned database records whose files were deleted or belong to an old Drive account will be marked as failed so gallery counts and .ZIP exports match Drive 1:1."
+      )
+    ) {
+      return;
+    }
+    setIsReconciling(true);
+    try {
+      const res = await fetch("/api/admin/photos/reconcile", { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Reconciliation failed");
+      setNotification(data.message || `Reconciliation complete: ${data.verified} verified, ${data.orphaned} cleaned up.`);
+      if (data.orphaned > 0) {
+        // Refresh photos list
+        const refRes = await fetch("/api/admin/photos");
+        const refData = await refRes.json();
+        if (refData.photos) {
+          setPhotos(refData.photos);
+        }
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : String(err));
+    } finally {
+      setIsReconciling(false);
+    }
+  };
 
   // Bulk ZIP Export State
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
@@ -489,6 +524,23 @@ export function PhotosManagementView({
               </svg>
             </a>
           )}
+
+          {/* Sync & Reconcile Missing Drive Records */}
+          <button
+            type="button"
+            onClick={handleReconcile}
+            disabled={isReconciling}
+            className="h-8 px-3 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-medium text-xs transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer disabled:opacity-50"
+            title="Scan and reconcile database records with actual Google Drive storage"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={`w-3.5 h-3.5 text-amber-400 ${isReconciling ? "animate-spin" : ""}`}>
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M16 21h5v-5" />
+            </svg>
+            <span>{isReconciling ? "Reconciling…" : "Sync Drive"}</span>
+          </button>
         </div>
       </div>
 
@@ -528,7 +580,7 @@ export function PhotosManagementView({
                 <option value="all">All Rolls ({guestsWithStats.length})</option>
                 {guestsWithStats.map((g) => (
                   <option key={g.id} value={g.id}>
-                    Roll {g.roll_code} {g.display_name ? `(${g.display_name})` : ""} — {g.totalShots} shots
+                    {g.display_name ? `${g.display_name} (${g.roll_code})` : `Roll ${g.roll_code}`} — {g.totalShots} shots
                   </option>
                 ))}
               </select>
@@ -713,8 +765,8 @@ export function PhotosManagementView({
                       {/* Compact Bottom Gradient Overlay */}
                       <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-90 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity p-2.5 flex flex-col justify-between pointer-events-none">
                         <div className="flex items-center justify-between gap-1">
-                          <span className="px-1.5 py-0.5 rounded bg-black/70 text-amber-300 font-mono text-[10px] backdrop-blur-sm">
-                            Roll {rollCode}
+                          <span className="px-1.5 py-0.5 rounded bg-black/70 text-amber-300 font-mono text-[10px] backdrop-blur-sm max-w-[140px] truncate" title={guestName ? `${guestName} (${rollCode})` : `Roll ${rollCode}`}>
+                            {guestName ? `${guestName} (${rollCode})` : `Roll ${rollCode}`}
                           </span>
                           {photo.original_drive_file_id && (
                             <span className="px-1 py-0.5 rounded bg-black/70 text-zinc-300 font-mono text-[9px] backdrop-blur-sm" title="RAW Original Available">
@@ -775,6 +827,7 @@ export function PhotosManagementView({
                       <th className="py-2.5 px-3">Quota</th>
                       <th className="py-2.5 px-3">Last Seen</th>
                       <th className="py-2.5 px-3">Drive Folder</th>
+                      <th className="py-2.5 px-3 text-right">Gallery</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-900 font-mono">
@@ -826,6 +879,20 @@ export function PhotosManagementView({
                             ) : (
                               <span className="text-zinc-600">—</span>
                             )}
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setGuestFilter(guest.id);
+                                setViewMode("editorial");
+                                window.scrollTo({ top: 0, behavior: "smooth" });
+                              }}
+                              className="px-2.5 py-1 rounded-md bg-white/[0.04] hover:bg-white/[0.08] text-amber-400 hover:text-amber-300 text-[11px] font-sans font-medium transition-colors cursor-pointer inline-flex items-center gap-1"
+                            >
+                              <span>View Photos</span>
+                              <span>&rarr;</span>
+                            </button>
                           </td>
                         </tr>
                       );

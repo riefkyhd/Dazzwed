@@ -579,22 +579,34 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
             )}
           </div>
 
-          {/* Guest Link Display & Copy */}
+          {/* Guest Link Display & Copy (Strictly Read-Only) */}
           <div>
-            <label className="block text-xs text-zinc-300 mb-1.5 font-medium">
-              Active Guest Camera Link
-            </label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-xs text-zinc-300 font-medium flex items-center gap-1.5">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-amber-400/80">
+                  <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+                <span>Event Guest URL (Includes Active Token)</span>
+              </label>
+              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
+                Locked &bull; Read-Only
+              </span>
+            </div>
             <div className="flex items-center gap-2">
-              <input
-                type="text"
-                readOnly
-                value={
-                  typeof window !== "undefined"
-                    ? `${window.location.origin}/e/${initialEvent.slug}${accessToken ? `?t=${accessToken}` : ""}`
-                    : `/e/${initialEvent.slug}${accessToken ? `?t=${accessToken}` : ""}`
-                }
-                className="flex-1 px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-xs font-mono text-zinc-300 select-all"
-              />
+              <div className="relative flex-1">
+                <input
+                  type="text"
+                  readOnly
+                  aria-readonly="true"
+                  value={
+                    typeof window !== "undefined"
+                      ? `${window.location.origin}/e/${initialEvent.slug}${accessToken ? `?t=${accessToken}` : ""}`
+                      : `/e/${initialEvent.slug}${accessToken ? `?t=${accessToken}` : ""}`
+                  }
+                  className="w-full px-3.5 py-2 rounded-lg bg-zinc-950/70 border border-zinc-800 text-xs font-mono text-zinc-300 select-all cursor-text focus:outline-none focus:border-amber-400/40"
+                />
+              </div>
               <button
                 type="button"
                 onClick={handleCopyLink}

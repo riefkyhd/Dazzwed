@@ -1410,9 +1410,18 @@ export function useCamera(enabled: boolean, defaultLookId?: string, mirrorFront:
 
           await new Promise((r) => setTimeout(r, 20));
 
+          // Clean Dual-Master RAW capture: always prefer raw video element or raw 2D snapCanvas,
+          // never the post-filtered WebGL preview canvas c.
+          const rawVideoSource =
+            snapCanvasFallback && !isCanvasBlankOrBlack(snapCanvasFallback)
+              ? snapCanvasFallback
+              : v && v.videoWidth > 0 && v.videoHeight > 0
+              ? v
+              : frozenSource;
+
           let originalBlob: Blob;
           try {
-            originalBlob = await renderShot(frozenSource, {
+            originalBlob = await renderShot(rawVideoSource, {
               zoom: effectiveDigitalZoom,
               aspect: targetAspect,
               applyFilter: false,

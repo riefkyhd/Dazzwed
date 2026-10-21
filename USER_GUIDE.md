@@ -526,6 +526,41 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Vector Curated Stocks:** Replaced decorative emojis (`🎞️`, `✨`, `💾`) with Lucide `Film`, `Sparkles`, `Save`, and `RotateCcw` vector SVGs.
    - **Darkroom Segmented Controls:** Clean tab switching (`Parameters`, `Reference Fit`, `Scene Checklist`), standardized stage bisection selectors, and uniform parameter sliders.
 
+---
+
+## 18. Production Audit Hardening, Dual-Master Separation & Anti-QRIS Camera Stationary
+
+Following a full live reception audit on `https://dazzwed.vercel.app`, the platform introduces 16 surgical production hardening defenses across security, authentication, photo-rendering, storage reconciliation, and physical print design:
+
+1. **Strict Guest Link Token Security (`/e/[slug]`):**
+   - **No Cookie Bypass on Invalid Tokens:** If a candidate token parameter (`?t=` or `?token=`) is provided in the URL, it must strictly match the event's active access token. Corrupted, mutated, or tampered links (e.g. `?t=103685F6fds`) are rejected immediately, even if the visitor's browser holds a previous valid session cookie.
+   - **Distinct Error Screens:** Visitors with corrupted or missing tokens are presented with a dedicated **"Camera Link Invalid"** screen (`CAMERA LINK INVALID` badge with instructions to scan the venue QR code), reserving the **"Camera Roll Concluded"** screen strictly for events whose scheduled expiration has elapsed.
+   - **Locked Monospace Guest URL in Settings:** The guest URL in event settings is rendered in a locked read-only container with an explicit lock icon, preventing accidental host keystrokes over the domain.
+
+2. **Server-Side Authentication Redirects & Onboarding:**
+   - **Immediate Login Redirect:** Visiting `/admin/login` while already authenticated immediately redirects to `/superadmin` for Platform Owners and `/admin` for Hosts.
+   - **Superadmin Direct Routing:** Superadmin sign-ins default directly to `/superadmin` instead of the event admin console.
+   - **Extended Quota Limits:** Removed the arbitrary `<= 10` limit on `max_events` in `/superadmin` (increased to `999`), enabling wedding planners and production agencies to manage dozens or hundreds of client rolls.
+   - **Zero-Event Empty Onboarding State:** Client accounts with 0 assigned events receive a luxury onboarding card with a direct `+ Create Your First Event Roll` action instead of an alarming database migration error.
+   - **Locked Client Assignment in Edit Event:** The Client Owner assignment dropdown in the Superadmin Edit Event modal is locked by default with an intentional `Transfer Ownership` toggle, preventing accidental client reassignments.
+
+3. **Dual-Master RAW Separation & Guest Name Integration:**
+   - **Pure 2D RAW Capture:** When saving RAW originals (`originalBlob`), the capture pipeline bypasses the WebGL shader completely, capturing directly from the raw `<video>` element into an offscreen 2D canvas with exact sensor crop and mirror geometry, guaranteeing **zero LUT, zero grain, zero halation, zero vignette, and zero date stamps** on the archival original.
+   - **Prominent Guest Names:** Registered guest names (`Napa`, `Syaffa`, `Son`) are highlighted across gallery roll filter pills, photo card overlays, and .ZIP download folders.
+   - **Dedicated Guest Rolls Directory:** The Admin Gallery features a dedicated Guest Rolls mode (`/admin/photos?view=rolls`), and clicking `Guests Registered` on the dashboard navigates straight to this directory with 1-click `View Photos` filtering.
+
+4. **Safe Google Drive Reconciliation & Zero-Empty ZIPs:**
+   - **OAuth Reconnect Banners:** Proactively detects `invalid_grant` or probe failures across `/superadmin` and `/admin/health`, rendering a prominent amber alert banner with a 1-click `Reconnect Google Drive` button and instructions to verify Google Cloud OAuth "In Production" status.
+   - **Safe Storage Reconciliation Tool:** An in-app `Sync Drive` action in the gallery checks confirmed photo records against Google Drive with bounded concurrency. If Drive returns `404 Not Found` or `trashed: true`, orphaned database rows are safely marked as failed, aligning Supabase, gallery counts, and .ZIP exports 1:1 with Google Drive.
+   - **Zero Empty Folders in .ZIP:** Guest folders are only generated in PKZIP archives when photo binaries are successfully fetched, guaranteeing 0 empty directories.
+
+5. **Anti-QRIS 35mm Disposable Camera Print Redesign:**
+   - **Unmistakable Analog Visuals:** The A4 print stationary (`/admin/qr`) features 35mm film stock sprocket perforations, viewfinder corner crop marks `[ + ]`, and a bold darkroom header badge: `DISPOSABLE FILM CAMERA • SCAN TO SHOOT`.
+   - **Indonesian Anti-Amplop Callout:** Embeds an explicit notice: `BUKAN QRIS / BUKAN AMPLOP DIGITAL • GRATIS UNTUK SEMUA TAMU` so wedding guests immediately recognize the interactive camera rather than assuming it is a digital money transfer.
+   - **3-Step Visual Strip:** Clean vector icons illustrating `01. Scan QR Kamera` -> `02. Potret Bebas` -> `03. Cuci Otomatis ke Album Pengantin`.
+   - **Zero Raw Emojis:** All printable graphics and preview banners use precision vector SVGs for crisp, cross-platform editorial typography.
+
+
 
 
 

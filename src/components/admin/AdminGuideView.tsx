@@ -607,6 +607,21 @@ export function AdminGuideView() {
                   : "Penyelarasan editorial darkroom mewah yang menyeluruh di seluruh moderasi Galeri Foto, Studio Cetak Poster A4, dan kurasi film Look Lab. Galeri Foto dan Lightbox bebas emoji kartun, menggantikan simbol teks dengan ikon vektor Lucide 1.75px (Sparkles untuk Film, Circle untuk RAW Original, Eye/EyeOff untuk moderasi, dan navigasi Chevron) di atas dock aksi kaca gelap dengan target sentuh 44px yang terjaga. QR & Print Studio menghadirkan aksi salin URL 1-klik, tombol cetak utama Gold Printer, dan pembingkaian mat darkroom sembari menjaga 100% aturan tata letak @media print agar hasil cetak fisik A4 tetap presisi. Look Lab meniadakan lencana emoji untuk digantikan ikon vektor Lucide Film dan Sparkles, menyediakan kontrol biseksi tahapan yang rapi, slider standar, serta kurasi JSON/LUT yang mulus."}
               </p>
             </div>
+
+            {/* Control 21: Production Audit Defenses, Dual-Master Raw Separation & Anti-QRIS Stationary */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 21: Production Audit Defenses, Dual-Master Raw Separation & Anti-QRIS Stationary" : "Kontrol 21: Keamanan Audit Produksi, Pemisahan RAW Dual-Master & Poster Anti-QRIS"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Hardened production defenses based on live venue audit. Guest link security enforces strict ?t= token validation, rejecting corrupted links immediately even if a stale session cookie exists, with clear distinction between 'Camera Link Invalid' and 'Camera Roll Concluded'. Dual-master pipeline captures RAW originals straight from an offscreen 2D video canvas (zero WebGL LUT, grain, vignette, or date stamps) alongside developed film outputs. Registered guest names are highlighted across gallery filter pills, photo cards, and .ZIP folders, with zero empty folders generated. Admin dashboard links 'Guests Registered' directly to a dedicated Guest Rolls table (?view=rolls). Drive telemetry features proactive invalid_grant alert banners with 1-click OAuth reconnection, accompanied by an in-app 'Sync Drive' tool to purge orphaned database records. Finally, A4 print stationary features a complete Anti-QRIS camera redesign with 35mm film sprockets, viewfinder framing, an aperture glyph, and bold 'BUKAN QRIS / BUKAN AMPLOP DIGITAL' guidance so Indonesian wedding guests instantly recognize the interactive camera."
+                  : "Pertahanan produksi yang diperkokoh berdasarkan audit venue langsung. Keamanan tautan tamu menerapkan validasi ketat token ?t=, menolak tautan yang salah seketika bahkan jika cookie sesi lama ada di browser, dengan pembedaan tegas antara 'Tautan Kamera Tidak Valid' dan 'Waktu Akses Kamera Selesai'. Pipeline dual-master menangkap foto asli RAW murni langsung dari kanvas 2D video mentah (tanpa WebGL LUT, butiran grain, vignet, atau stempel tanggal) berdampingan dengan foto film yang telah dicuci. Nama tamu yang terdaftar ditampilkan jelas di pil filter galeri, kartu foto, dan folder .ZIP, tanpa ada folder kosong yang dibuat. Dashboard admin menghubungkan metrik 'Tamu Terdaftar' langsung ke tabel Roll Tamu (?view=rolls). Telemetri Drive menghadirkan banner peringatan token invalid_grant dengan tombol hubungkan ulang OAuth 1-klik, serta fitur 'Sinkron Drive' untuk membersihkan baris database yatim. Poster cetak A4 didesain ulang menjadi format Anti-QRIS dengan lubang perforasi film 35mm, bingkai jendela bidik (viewfinder), glif bukaan lensa, dan tulisan tegas 'BUKAN QRIS / BUKAN AMPLOP DIGITAL' agar tamu undangan langsung mengenali kamera interaktif."}
+              </p>
+            </div>
           </div>
         </div>
       )}

@@ -6,6 +6,9 @@ import { DashboardView } from "@/components/admin/DashboardView";
 import { getAdaptiveStorageGuard } from "@/lib/drive/health";
 import { getActiveAdminEvent } from "@/lib/events/active";
 
+import { EmptyEventOnboardingView } from "@/components/admin/EmptyEventOnboardingView";
+import { getAuthSession } from "@/lib/auth/session";
+
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
@@ -17,10 +20,13 @@ export default async function AdminDashboardPage() {
   const event = await getActiveAdminEvent();
 
   if (!event) {
+    const session = await getAuthSession();
     return (
-      <div className="max-w-4xl mx-auto p-8 text-center text-zinc-400">
-        No event found in the database. Please initialize the database migration first.
-      </div>
+      <EmptyEventOnboardingView
+        clientName={session?.name}
+        clientEmail={session?.email}
+        isSuperadmin={session?.role === "superadmin"}
+      />
     );
   }
 

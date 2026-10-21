@@ -347,34 +347,8 @@ export async function renderShot(
     height: crop.sh / effectiveH,
   };
 
-  // If clean original requested, draw directly without filter
+  // If clean original requested, draw directly without filter using pure 2D canvas (Zero WebGL, Zero LUT, Zero grain, Zero stamp)
   if (!applyFilter) {
-    if (src instanceof HTMLVideoElement || src instanceof HTMLCanvasElement) {
-      try {
-        const { pipeline: p, canvas: glCanvas } = getSharedCapturePipeline();
-        if (glCanvas.width !== out.width || glCanvas.height !== out.height) {
-          glCanvas.width = out.width;
-          glCanvas.height = out.height;
-        }
-        const renderedRaw = p.render(src, look, {
-          width: out.width,
-          height: out.height,
-          isCapture: true,
-          intensity: 0,
-          flashUsed: false,
-          cropRect: normCropRect,
-          mirror,
-          rotation: isRotated ? tiltAngle : 0,
-        });
-        if (renderedRaw && !isCanvasBlankOrBlack(glCanvas)) {
-          canvas.width = canvas.height = 0;
-          return await toBlob(glCanvas, quality);
-        }
-      } catch (e) {
-        console.warn("Raw WebGL capture failed, attempting 2D fallback:", e);
-      }
-    }
-
     const ctx = canvas.getContext("2d");
     if (!ctx) throw new Error("no 2d context");
     ctx.imageSmoothingQuality = "high";

@@ -31,14 +31,19 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
   const sessionCookie = cookieStore.get(guestCookieName(slug))?.value;
   const hasValidSessionCookie = Boolean(sessionCookie && z.string().uuid().safeParse(sessionCookie).success);
+  const hasTokenParam = Boolean(candidateToken);
   const tokenValid = validateEventToken(candidateToken, event.access_token);
   const isExpired = event.token_expires_at ? new Date() >= new Date(event.token_expires_at) : false;
 
+  // Strict token validation: If a token param was supplied in the URL, it MUST be valid.
+  // A cookie can only permit access if NO token param was provided in the URL.
+  const isUnauthorized = hasTokenParam ? !tokenValid : !hasValidSessionCookie;
+
   // Anti-oracle: do not leak couple names if token is invalid or expired
-  if (isExpired || (!tokenValid && !hasValidSessionCookie)) {
+  if (isExpired || isUnauthorized) {
     return {
-      title: "Camera Access Closed",
-      description: "This camera link is expired or closed.",
+      title: isExpired ? "Camera Access Expired" : "Camera Access Closed",
+      description: isExpired ? "This camera link has expired." : "This camera link is invalid or closed.",
     };
   }
 
@@ -67,12 +72,17 @@ export default async function GuestPage({ params, searchParams }: PageProps) {
 
   const sessionCookie = cookieStore.get(guestCookieName(slug))?.value;
   const hasValidSessionCookie = Boolean(sessionCookie && z.string().uuid().safeParse(sessionCookie).success);
+  const hasTokenParam = Boolean(candidateToken);
   const tokenValid = validateEventToken(candidateToken, event.access_token);
   const isExpired = event.token_expires_at ? new Date() >= new Date(event.token_expires_at) : false;
 
+  // Strict token validation: If a token param was supplied in the URL, it MUST be valid.
+  // A cookie can only permit access if NO token param was provided in the URL.
+  const isUnauthorized = hasTokenParam ? !tokenValid : !hasValidSessionCookie;
+
   // Block unauthorized or expired guests with zero metadata leakage
-  if (isExpired || (!tokenValid && !hasValidSessionCookie)) {
-    return <EventExpiredScreen eventSlug={slug} />;
+  if (isExpired || isUnauthorized) {
+    return <EventExpiredScreen eventSlug={slug} reason={isExpired ? "expired" : "invalid"} />;
   }
 
   // Handle paused or archived events gracefully

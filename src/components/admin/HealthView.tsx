@@ -109,23 +109,55 @@ export function HealthView({
       {/* Drive Probe Banner */}
       {driveHealth && (
         <div
-          className={`p-4 rounded-2xl border text-xs font-mono flex items-center justify-between ${
+          className={`p-4 rounded-xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md ${
             driveHealth.ok && driveHealth.testUploadOk
-              ? "bg-emerald-950/40 border-emerald-800/80 text-emerald-300"
-              : "bg-red-950/40 border-red-800/80 text-red-300"
+              ? "bg-emerald-950/30 border-emerald-800/60 text-emerald-300"
+              : "bg-amber-400/[0.08] border-amber-400/30 text-amber-200"
           }`}
         >
-          <div>
-            <div className="font-bold uppercase tracking-wider mb-0.5">
-              {driveHealth.ok ? "Google Drive Operational" : "Drive Probe Failed"}
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-black/30 border border-white/10 flex items-center justify-center shrink-0">
+              {driveHealth.ok ? (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-emerald-400">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" />
+                  <polyline points="22 4 12 14.01 9 11.01" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-400">
+                  <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+                  <line x1="12" y1="9" x2="12" y2="13" />
+                  <line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+              )}
             </div>
             <div>
-              {driveHealth.userEmail ? `Connected Account: ${driveHealth.userEmail}` : driveHealth.error || "Probe completed"}
+              <div className="font-semibold text-white uppercase tracking-wider text-[11px] font-mono">
+                {driveHealth.ok ? "Google Drive Operational" : "Drive Probe Failed — Action Required"}
+              </div>
+              <div className="text-zinc-300 mt-0.5 text-xs">
+                {driveHealth.userEmail ? `Connected Account: ${driveHealth.userEmail}` : driveHealth.error || "Probe completed"}
+              </div>
+              {!driveHealth.ok && (
+                <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                  Tip: In Google Cloud Console &rarr; OAuth consent screen, set Publishing status to &ldquo;In Production&rdquo; to prevent 7-day token revocations.
+                </p>
+              )}
             </div>
           </div>
-          <span className="px-2.5 py-1 rounded-full bg-black/40 font-bold">
-            1-Byte Test Write: {driveHealth.testUploadOk ? "OK" : "FAILED"}
-          </span>
+          {!driveHealth.ok && (
+            <a
+              href="/admin/connect-drive"
+              className="h-8 px-3.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium text-xs flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer self-start sm:self-center shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                <path d="M16 21h5v-5" />
+              </svg>
+              <span>Reconnect Google Drive</span>
+            </a>
+          )}
         </div>
       )}
 

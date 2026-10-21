@@ -101,7 +101,38 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: error?.message || "Failed to create client" }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, client, generatedPassword: password });
+    // Auto-provision initial Event Roll if requested (default: true)
+    let starterEvent: any = null;
+    const shouldCreateStarter = (body as any).createStarterEvent !== false;
+    if (shouldCreateStarter) {
+      const cleanSlugBase = body.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const starterSlug = `${cleanSlugBase || "event"}-${Math.random().toString(36).slice(2, 6)}`;
+      const { data: createdEvent } = await sb
+        .from("events")
+        .insert({
+          slug: starterSlug,
+          couple_names: `${body.name.trim()}'s Wedding`,
+          shots_per_guest: 27,
+          status: "active",
+          package_tier: "classic_35mm",
+          package_max_guests: 300,
+          package_max_shots_per_guest: 27,
+          dual_master_enabled: true,
+          client_id: client.id,
+          access_token: generateEventToken(),
+          token_duration_hours: 72,
+        })
+        .select()
+        .maybeSingle();
+      starterEvent = createdEvent;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      client,
+      starterEvent,
+      generatedPassword: password,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     return NextResponse.json({ error: msg }, { status: 500 });

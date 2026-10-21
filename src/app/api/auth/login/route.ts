@@ -59,7 +59,12 @@ export async function POST(req: Request) {
           maxAge: 30 * 24 * 3600,
         });
 
-        return NextResponse.json({ ok: true, role: "superadmin", user: { id: data.user.id, email: data.user.email } });
+        return NextResponse.json({
+          ok: true,
+          role: "superadmin",
+          redirectTo: "/superadmin",
+          user: { id: data.user.id, email: data.user.email },
+        });
       }
     }
 
@@ -104,6 +109,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
           ok: true,
           role: "client",
+          redirectTo: "/admin",
           user: { id: client.id, email: client.email, name: client.name },
         });
       }

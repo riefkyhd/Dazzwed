@@ -204,13 +204,16 @@ export function DashboardView({
           </div>
         </div>
 
-        {/* Total Guests */}
-        <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">
+        {/* Total Guests - Links directly to Guest Rolls view */}
+        <Link
+          href="/admin/photos?view=rolls"
+          className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/20 transition-all space-y-3 block group cursor-pointer"
+        >
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 font-medium">
+            <span className="text-[11px] font-sans uppercase tracking-[0.14em] text-zinc-400 group-hover:text-zinc-200 transition-colors font-medium">
               Guests Registered
             </span>
-            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300">
+            <div className="w-8 h-8 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center text-zinc-300 group-hover:bg-white/[0.08] transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-sky-400">
                 <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
                 <circle cx="9" cy="7" r="4" />
@@ -222,10 +225,13 @@ export function DashboardView({
           <p className="text-2xl sm:text-3xl font-mono font-semibold text-zinc-100 tracking-tight">
             {metrics.totalGuests}
           </p>
-          <div className="flex items-center text-xs text-zinc-400 font-mono text-[11px]">
+          <div className="flex items-center justify-between text-xs text-zinc-400 font-mono text-[11px]">
             <span>Avg {metrics.totalGuests > 0 ? (metrics.confirmedCount / metrics.totalGuests).toFixed(1) : 0} shots/guest</span>
+            <span className="text-sky-400 group-hover:translate-x-0.5 transition-transform flex items-center gap-1 font-sans text-[11px]">
+              View Rolls &rarr;
+            </span>
           </div>
-        </div>
+        </Link>
 
         {/* Estimated Storage */}
         <div className="p-5 rounded-xl bg-white/[0.02] border border-white/[0.07] hover:border-white/10 transition-colors space-y-3">

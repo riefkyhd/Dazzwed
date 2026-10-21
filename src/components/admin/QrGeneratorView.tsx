@@ -103,8 +103,16 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
         .replace(/'/g, "&apos;");
 
     const nameLen = event.couple_names.length;
-    const nameFontSize = nameLen > 28 ? 48 : nameLen > 20 ? 56 : 64;
+    const nameFontSize = nameLen > 28 ? 44 : nameLen > 20 ? 52 : 60;
     const emblemHref = emblemDataUrl || "/unveiled-transparent.png";
+
+    // 35mm film stock sprocket perforations along left & right margins
+    const sprockets: string[] = [];
+    for (let i = 0; i < 22; i++) {
+      const y = 120 + i * 68;
+      sprockets.push(`<rect x="72" y="${y}" width="22" height="34" rx="6" fill="#1A1816" fill-opacity="0.09" />`);
+      sprockets.push(`<rect x="1106" y="${y}" width="22" height="34" rx="6" fill="#1A1816" fill-opacity="0.09" />`);
+    }
 
     return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1697" width="1200" height="1697">
@@ -117,67 +125,83 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
   <!-- Background Warm Luxury Paper -->
   <rect width="1200" height="1697" fill="#FDFBF7" />
 
+  <!-- 35mm Film Sprocket Perforations -->
+  ${sprockets.join("\n  ")}
+
   <!-- Double Gold Borders -->
   <rect x="44" y="44" width="1112" height="1609" rx="28" fill="none" stroke="#D4AF37" stroke-width="3" stroke-opacity="0.45" />
-  <rect x="60" y="60" width="1080" height="1577" rx="20" fill="none" stroke="#D4AF37" stroke-width="1.5" stroke-opacity="0.3" />
+  <rect x="112" y="60" width="976" height="1577" rx="20" fill="none" stroke="#D4AF37" stroke-width="1.5" stroke-opacity="0.3" />
 
   <!-- Brand Emblem -->
-  <image href="${emblemHref}" x="525" y="90" width="150" height="150" preserveAspectRatio="xMidYMid meet" />
+  <image href="${emblemHref}" x="525" y="80" width="150" height="150" preserveAspectRatio="xMidYMid meet" />
 
   <!-- Subtitle -->
-  <text x="600" y="278" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="600" fill="#8C7A5B" letter-spacing="6">${escapeXml(eventSubtitle.toUpperCase())}</text>
+  <text x="600" y="258" text-anchor="middle" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-size="16" font-weight="600" fill="#8C7A5B" letter-spacing="6">${escapeXml(eventSubtitle.toUpperCase())}</text>
 
   <!-- Couple Names -->
-  <text x="600" y="358" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${nameFontSize}" font-weight="normal" fill="#1A1816" letter-spacing="-0.5">${escapeXml(event.couple_names)}</text>
+  <text x="600" y="328" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="${nameFontSize}" font-weight="normal" fill="#1A1816" letter-spacing="-0.5">${escapeXml(event.couple_names)}</text>
 
-  <!-- Hero QR Card Box (660 x 660 px — 55% of A4 width) -->
-  <rect x="270" y="420" width="660" height="660" rx="32" fill="#FFFFFF" stroke="#EBE7DF" stroke-width="3" filter="url(#poster-card-shadow)" />
+  <!-- Bold Camera Header Badge (Unmistakable Analog 35mm Disposable Camera) -->
+  <rect x="260" y="362" width="680" height="52" rx="26" fill="#1A1816" />
+  <g transform="translate(294, 376)">
+    <!-- Vector Camera Glyph -->
+    <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" fill="none" stroke="#D4AF37" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+    <circle cx="12" cy="13" r="3" fill="none" stroke="#D4AF37" stroke-width="2" />
+  </g>
+  <text x="618" y="395" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, monospace" font-size="16" font-weight="bold" fill="#D4AF37" letter-spacing="3">DISPOSABLE FILM CAMERA • SCAN TO SHOOT</text>
 
-  <!-- Inner Gold Corner Accent Marks -->
-  <path d="M 295 445 L 295 480 M 295 445 L 330 445" fill="none" stroke="#D4AF37" stroke-width="2.5" stroke-opacity="0.75" />
-  <path d="M 905 445 L 905 480 M 905 445 L 870 445" fill="none" stroke="#D4AF37" stroke-width="2.5" stroke-opacity="0.75" />
-  <path d="M 295 1055 L 295 1020 M 295 1055 L 330 1055" fill="none" stroke="#D4AF37" stroke-width="2.5" stroke-opacity="0.75" />
-  <path d="M 905 1055 L 905 1020 M 905 1055 L 870 1055" fill="none" stroke="#D4AF37" stroke-width="2.5" stroke-opacity="0.75" />
+  <!-- Hero QR Card Box (640 x 640 px) -->
+  <rect x="280" y="430" width="640" height="640" rx="30" fill="#FFFFFF" stroke="#EBE7DF" stroke-width="3" filter="url(#poster-card-shadow)" />
 
-  <!-- Hero High-Density QR Code (560 x 560 px — scans effortlessly from 2 meters away) -->
-  ${qrDataUrl ? `<image href="${qrDataUrl}" x="320" y="470" width="560" height="560" />` : ""}
+  <!-- Viewfinder Frame Corner Guides [ + ] -->
+  <path d="M 305 455 L 305 490 M 305 455 L 340 455" fill="none" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" />
+  <path d="M 895 455 L 895 490 M 895 455 L 860 455" fill="none" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" />
+  <path d="M 305 1045 L 305 1010 M 305 1045 L 340 1045" fill="none" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" />
+  <path d="M 895 1045 L 895 1010 M 895 1045 L 860 1045" fill="none" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" />
+
+  <!-- Hero High-Density QR Code (540 x 540 px) -->
+  ${qrDataUrl ? `<image href="${qrDataUrl}" x="330" y="480" width="540" height="540" />` : ""}
+
+  <!-- Anti-QRIS & Anti-Amplop Indonesian Notice -->
+  <rect x="250" y="1086" width="700" height="42" rx="10" fill="#1A1816" fill-opacity="0.05" stroke="#D4AF37" stroke-width="1.2" stroke-dasharray="6 4" />
+  <text x="600" y="1113" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" font-weight="bold" fill="#8C7A5B" letter-spacing="1.5">BUKAN QRIS / BUKAN AMPLOP DIGITAL • GRATIS UNTUK SEMUA TAMU</text>
 
   <!-- Scan Instruction Headline -->
-  <text x="600" y="1132" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="32" font-weight="600" fill="#1A1816" letter-spacing="0.2">Scan with your phone to start snapping</text>
+  <text x="600" y="1170" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="32" font-weight="600" fill="#1A1816" letter-spacing="0.2">Kamera Film Tamu • Langsung dari HP</text>
 
   <!-- Photos Quota & Value Badge -->
-  <text x="600" y="1172" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, monospace" font-size="20" font-weight="bold" fill="#8C7A5B" letter-spacing="2">${event.shots_per_guest} DISPOSABLE PHOTOS • NO APP REQUIRED</text>
+  <text x="600" y="1206" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" font-weight="bold" fill="#8C7A5B" letter-spacing="2">${event.shots_per_guest} FOTO PER HP • TANPA DOWNLOAD APLIKASI</text>
 
   <!-- 3-Step Guide Container -->
-  <rect x="140" y="1215" width="920" height="235" rx="24" fill="#F4EFE6" fill-opacity="0.85" stroke="#E6DEC8" stroke-width="2" />
+  <rect x="140" y="1235" width="920" height="235" rx="24" fill="#F4EFE6" fill-opacity="0.85" stroke="#E6DEC8" stroke-width="2" />
 
   <!-- Vertical Column Dividers -->
-  <line x1="446" y1="1235" x2="446" y2="1430" stroke="#E6DEC8" stroke-width="2" />
-  <line x1="753" y1="1235" x2="753" y2="1430" stroke="#E6DEC8" stroke-width="2" />
+  <line x1="446" y1="1255" x2="446" y2="1450" stroke="#E6DEC8" stroke-width="2" />
+  <line x1="753" y1="1255" x2="753" y2="1450" stroke="#E6DEC8" stroke-width="2" />
 
   <!-- Step 1 -->
-  <circle cx="293" cy="1272" r="24" fill="#D4AF37" />
-  <text x="293" y="1280" text-anchor="middle" font-family="ui-monospace, monospace" font-size="20" font-weight="bold" fill="#FFFFFF">1</text>
-  <text x="293" y="1328" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="bold" fill="#1A1816">Scan Code</text>
-  <text x="293" y="1364" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#6B655B">Point camera &amp; tap link</text>
-  <text x="293" y="1394" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#8C7A5B">Works on iOS &amp; Android</text>
+  <circle cx="293" cy="1290" r="22" fill="#D4AF37" />
+  <text x="293" y="1297" text-anchor="middle" font-family="ui-monospace, monospace" font-size="18" font-weight="bold" fill="#FFFFFF">1</text>
+  <text x="293" y="1342" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#1A1816">01. Scan QR Kamera</text>
+  <text x="293" y="1378" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#6B655B">Buka kamera HP biasa &amp; tap link</text>
+  <text x="293" y="1408" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#8C7A5B">Langsung buka di Safari / Chrome</text>
 
   <!-- Step 2 -->
-  <circle cx="600" cy="1272" r="24" fill="#D4AF37" />
-  <text x="600" y="1280" text-anchor="middle" font-family="ui-monospace, monospace" font-size="20" font-weight="bold" fill="#FFFFFF">2</text>
-  <text x="600" y="1328" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="bold" fill="#1A1816">Snap Photos</text>
-  <text x="600" y="1364" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#6B655B">Capture candid memories</text>
-  <text x="600" y="1394" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#8C7A5B">Authentic analog film looks</text>
+  <circle cx="600" cy="1290" r="22" fill="#D4AF37" />
+  <text x="600" y="1297" text-anchor="middle" font-family="ui-monospace, monospace" font-size="18" font-weight="bold" fill="#FFFFFF">2</text>
+  <text x="600" y="1342" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#1A1816">02. Potret Bebas</text>
+  <text x="600" y="1378" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#6B655B">Abadikan momen candid seru</text>
+  <text x="600" y="1408" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#8C7A5B">Filter analog 35mm otomatis</text>
 
   <!-- Step 3 -->
-  <circle cx="907" cy="1272" r="24" fill="#D4AF37" />
-  <text x="907" y="1280" text-anchor="middle" font-family="ui-monospace, monospace" font-size="20" font-weight="bold" fill="#FFFFFF">3</text>
-  <text x="907" y="1328" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="bold" fill="#1A1816">Auto-Saved</text>
-  <text x="907" y="1364" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="16" fill="#6B655B">Saved to couple&apos;s album</text>
-  <text x="907" y="1394" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#8C7A5B">Direct to Google Drive</text>
+  <circle cx="907" cy="1290" r="22" fill="#D4AF37" />
+  <text x="907" y="1297" text-anchor="middle" font-family="ui-monospace, monospace" font-size="18" font-weight="bold" fill="#FFFFFF">3</text>
+  <text x="907" y="1342" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#1A1816">03. Cuci Otomatis</text>
+  <text x="907" y="1378" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="15" fill="#6B655B">Foto otomatis tersimpan ke album</text>
+  <text x="907" y="1408" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="14" fill="#8C7A5B">Tersimpan aman untuk pengantin</text>
 
   <!-- Bottom Section: Privacy & Direct URL -->
-  <text x="600" y="1512" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="19" font-weight="500" fill="#8C7A5B">Photos stored privately for the couple&apos;s album &#x2665;</text>
+  <text x="600" y="1512" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="500" fill="#8C7A5B">Foto tersimpan privat untuk album kenangan mempelai &#x2665;</text>
   <text x="600" y="1552" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, monospace" font-size="18" fill="#A8A196">${escapeXml(cleanGuestUrl)}</text>
 </svg>`;
   }

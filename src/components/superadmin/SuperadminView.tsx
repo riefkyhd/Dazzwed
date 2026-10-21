@@ -40,6 +40,7 @@ interface SuperadminViewProps {
   initialClients: SuperadminClient[];
   initialUnassignedEvents: SuperadminEvent[];
   allEvents: SuperadminEvent[];
+  driveHealth?: { ok: boolean; error?: string } | null;
 }
 
 const PACKAGE_TIERS = [
@@ -54,6 +55,7 @@ export function SuperadminView({
   initialClients,
   initialUnassignedEvents,
   allEvents,
+  driveHealth,
 }: SuperadminViewProps) {
   const router = useRouter();
   const [clients, setClients] = useState<SuperadminClient[]>(initialClients);
@@ -72,12 +74,14 @@ export function SuperadminView({
     email: "",
     maxEvents: 1,
     notes: "",
+    createStarterEvent: true,
   });
   const [isSubmittingClient, setIsSubmittingClient] = useState(false);
   const [clientFormError, setClientFormError] = useState<string | null>(null);
 
   // Edit Event Modal State
   const [editingEvent, setEditingEvent] = useState<SuperadminEvent | null>(null);
+  const [isTransferringOwnership, setIsTransferringOwnership] = useState(false);
   const [eventForm, setEventForm] = useState({
     clientId: "",
     packageTier: "classic_35mm",
@@ -199,7 +203,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
         email: data.client.email,
         accessCode: data.client.access_code,
       });
-      setClientForm({ name: "", email: "", maxEvents: 1, notes: "" });
+      setClientForm({ name: "", email: "", maxEvents: 1, notes: "", createStarterEvent: true });
       triggerHaptic([20, 50]);
     } catch (err) {
       setClientFormError(err instanceof Error ? err.message : String(err));
@@ -211,6 +215,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
   // Open Edit Event Modal
   const openEditEvent = (ev: SuperadminEvent) => {
     setEditingEvent(ev);
+    setIsTransferringOwnership(false);
     setEventForm({
       clientId: ev.client_id || "",
       packageTier: ev.package_tier || "classic_35mm",
@@ -346,6 +351,41 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
           </button>
         </div>
       </header>
+
+      {/* Drive OAuth Alert Banner */}
+      {driveHealth && !driveHealth.ok && (
+        <div className="p-4 rounded-xl bg-amber-400/[0.08] border border-amber-400/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-start gap-3">
+            <div className="w-8 h-8 rounded-lg bg-amber-400/10 border border-amber-400/20 flex items-center justify-center shrink-0 text-amber-400">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10" />
+                <line x1="12" y1="8" x2="12" y2="12" />
+                <line x1="12" y1="16" x2="12.01" y2="16" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-white">
+                Google Drive OAuth Disconnected or Expired ({driveHealth.error || "invalid_grant"})
+              </p>
+              <p className="text-[11px] text-zinc-400 mt-0.5 leading-relaxed">
+                Guest photo uploads and .ZIP archiving will fail until Drive is reconnected. In Google Cloud Console, ensure Publishing status is set to &ldquo;In Production&rdquo; to prevent 7-day token expirations.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin/connect-drive"
+            className="h-8 px-3.5 rounded-lg bg-amber-400 hover:bg-amber-300 text-zinc-950 font-medium text-xs flex items-center gap-1.5 shrink-0 transition-colors cursor-pointer self-start sm:self-center"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M16 21h5v-5" />
+            </svg>
+            <span>Reconnect Google Drive</span>
+          </Link>
+        </div>
+      )}
 
       {/* Platform KPI Metrics */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -751,13 +791,30 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
                   <input
                     type="number"
                     min={1}
-                    max={10}
+                    max={999}
                     value={clientForm.maxEvents}
                     onChange={(e) => setClientForm({ ...clientForm, maxEvents: parseInt(e.target.value, 10) || 1 })}
                     className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none transition-colors"
                   />
                   <p className="text-[10px] text-zinc-500 mt-1">
-                    Default 1. Set to 2 or 3 for multi-event packages (e.g. Engagement + Wedding).
+                    Default 1. Supports any package size (e.g. 5, 20, 100 event rolls for wedding planners).
+                  </p>
+                </div>
+
+                <div className="pt-1">
+                  <label className="flex items-center gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={clientForm.createStarterEvent}
+                      onChange={(e) => setClientForm({ ...clientForm, createStarterEvent: e.target.checked })}
+                      className="w-4 h-4 rounded bg-zinc-900 border-zinc-700 text-amber-400 focus:ring-0 cursor-pointer"
+                    />
+                    <span className="text-xs text-zinc-300 select-none">
+                      Create initial Event Roll for this client (Recommended)
+                    </span>
+                  </label>
+                  <p className="text-[10px] text-zinc-500 ml-6.5 mt-0.5">
+                    Automatically provisions an active starter event so the client avoids empty-state confusion on first sign-in.
                   </p>
                 </div>
 
@@ -810,21 +867,51 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
 
             <form onSubmit={handleSaveEvent} className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-zinc-300 mb-1">
-                  Assign to Client
-                </label>
-                <select
-                  value={eventForm.clientId}
-                  onChange={(e) => setEventForm({ ...eventForm, clientId: e.target.value })}
-                  className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none"
-                >
-                  <option value="">(Unassigned / Platform Owner)</option>
-                  {clients.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.email})
-                    </option>
-                  ))}
-                </select>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-medium text-zinc-300">
+                    Client Owner Assignment
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsTransferringOwnership((prev) => !prev)}
+                    className="text-[11px] font-mono text-amber-400/90 hover:text-amber-300 transition-colors flex items-center gap-1 cursor-pointer"
+                  >
+                    {isTransferringOwnership ? "Cancel Transfer" : "Transfer Ownership"}
+                  </button>
+                </div>
+
+                {!isTransferringOwnership ? (
+                  <div className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-900/60 border border-zinc-800 text-xs flex items-center justify-between">
+                    <span className="text-zinc-200">
+                      {eventForm.clientId
+                        ? (() => {
+                            const c = clients.find((item) => item.id === eventForm.clientId);
+                            return c ? `${c.name} (${c.email})` : "Assigned Client";
+                          })()
+                        : "(Unassigned / Platform Owner)"}
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-zinc-400">
+                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                      </svg>
+                      Locked
+                    </span>
+                  </div>
+                ) : (
+                  <select
+                    value={eventForm.clientId}
+                    onChange={(e) => setEventForm({ ...eventForm, clientId: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-amber-400/40 text-white text-sm focus:border-amber-400/60 focus:outline-none"
+                  >
+                    <option value="">(Unassigned / Platform Owner)</option>
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.email})
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
 
               <div>

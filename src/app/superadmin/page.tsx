@@ -1,6 +1,7 @@
 import React from "react";
 import { requireSuperadmin } from "@/lib/auth/session";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { checkDriveHealth } from "@/lib/drive/health";
 import { SuperadminView } from "@/components/superadmin/SuperadminView";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,9 @@ export const revalidate = 0;
 export default async function SuperadminPage() {
   const superadmin = await requireSuperadmin();
   const sb = supabaseAdmin();
+
+  // Check Drive integration health concurrently
+  const driveHealth = await checkDriveHealth().catch(() => null);
 
   // Fetch clients, events, and metrics
   let clients: any[] = [];
@@ -82,6 +86,7 @@ export default async function SuperadminPage() {
         initialClients={clientsWithEvents}
         initialUnassignedEvents={unassignedEvents}
         allEvents={enrichedEvents}
+        driveHealth={driveHealth}
       />
     </div>
   );

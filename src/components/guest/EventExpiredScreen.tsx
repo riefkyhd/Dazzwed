@@ -8,19 +8,24 @@ import { clearSessionTriple } from "@/lib/guest/session";
 
 interface EventExpiredScreenProps {
   eventSlug: string;
+  reason?: "invalid" | "expired";
 }
 
-export function EventExpiredScreen({ eventSlug }: EventExpiredScreenProps) {
+export function EventExpiredScreen({ eventSlug, reason = "expired" }: EventExpiredScreenProps) {
   const [lang, setLang] = useState<Lang>("en");
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
 
+  const isInvalid = reason === "invalid";
+
   const copy = {
     en: {
-      tag: "ACCESS WINDOW CLOSED",
-      title: "Camera Link Expired",
-      desc: "This event camera link has expired or is no longer active. If you attended this event, please contact the couple for an updated link or QR code.",
+      tag: isInvalid ? "CAMERA LINK INVALID" : "ACCESS WINDOW CLOSED",
+      title: isInvalid ? "Camera Link Invalid" : "Camera Link Expired",
+      desc: isInvalid
+        ? "This camera link is unrecognized or incomplete. Please scan the official QR code at the venue or request the active link from the hosts."
+        : "This event camera link has expired or is no longer active. If you attended this event, please contact the couple for an updated link or QR code.",
       privacyAction: "Attended this event? Manage or delete your data",
       privacyModalTitle: "Guest Privacy & Data Management",
       privacyModalDesc: "Under Indonesia UU PDP, you have full control over your local device session and uploaded roll.",
@@ -35,9 +40,11 @@ export function EventExpiredScreen({ eventSlug }: EventExpiredScreenProps) {
       close: "Close",
     },
     id: {
-      tag: "WAKTU AKSES DITUTUP",
-      title: "Tautan Kamera Kedaluwarsa",
-      desc: "Tautan kamera untuk acara ini telah kedaluwarsa atau tidak aktif lagi. Jika kamu tamu acara ini, silakan hubungi kedua mempelai untuk mendapatkan tautan atau kode QR terbaru.",
+      tag: isInvalid ? "TAUTAN KAMERA TIDAK VALID" : "WAKTU AKSES DITUTUP",
+      title: isInvalid ? "Tautan Kamera Tidak Valid" : "Tautan Kamera Kedaluwarsa",
+      desc: isInvalid
+        ? "Tautan kamera ini tidak valid atau tidak lengkap. Silakan scan kode QR resmi di venue acara atau hubungi kedua mempelai untuk tautan aktif."
+        : "Tautan kamera untuk acara ini telah kedaluwarsa atau tidak aktif lagi. Jika kamu tamu acara ini, silakan hubungi kedua mempelai untuk mendapatkan tautan atau kode QR terbaru.",
       privacyAction: "Menghadiri acara ini? Kelola atau hapus data kamu",
       privacyModalTitle: "Kelola Data Pribadi Tamu (UU PDP)",
       privacyModalDesc: "Sesuai UU Pelindungan Data Pribadi (UU PDP), kamu memiliki kendali penuh atas data di HP ini dan roll foto kamu.",
