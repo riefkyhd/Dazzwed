@@ -221,8 +221,8 @@ export function AdminGuideView() {
                 <span>
                   <strong>{lang === "en" ? "No App Store Needed:" : "Tanpa Unduh App Store:"}</strong>{" "}
                   {lang === "en"
-                    ? "Guests open their phone camera, point it at the QR code on the table, and tap the link."
-                    : "Tamu cukup membuka kamera bawaan HP, mengarahkannya ke QR code di meja, dan mengetuk tautan yang muncul."}
+                    ? "Guests open their phone camera, point it at the QR code on the table, and tap the link. The landing page displays how long the access link remains valid ('THIS LINK IS VALID UNTIL [DATE]')."
+                    : "Tamu cukup membuka kamera bawaan HP, mengarahkannya ke QR code di meja, dan mengetuk tautan yang muncul. Halaman awal menampilkan batas masa aktif tautan ('TAUTAN INI BERLAKU HINGGA [TANGGAL]')."}
                 </span>
               </div>
               <div className="flex items-start gap-2">

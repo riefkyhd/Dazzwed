@@ -119,8 +119,8 @@ export function formatExpirationNotice(
 
 /**
  * Editorial, minimal luxury format for the Landing Screen:
- * e.g. "Roll open until Sunday, Oct 18" (or "Closes in 6 hours" if < 24h)
- * or "Kamera dibuka hingga Minggu, 18 Okt" (or "Ditutup dalam 6 jam" if < 24h)
+ * e.g. "This link is valid until Sunday, Oct 18" (or "This link expires in 6 hours" if < 24h)
+ * or "Tautan ini berlaku hingga Minggu, 18 Okt" (or "Tautan ini berakhir dalam 6 jam" if < 24h)
  */
 export function formatEditorialExpiry(
   expiresAt: string | null | undefined,
@@ -135,9 +135,9 @@ export function formatEditorialExpiry(
   const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
   if (diffHours < 24) {
     if (lang === "id") {
-      return diffHours > 0 ? `Ditutup dalam ${diffHours} jam` : "Ditutup dalam waktu kurang dari 1 jam";
+      return diffHours > 0 ? `Tautan ini berakhir dalam ${diffHours} jam` : "Tautan ini berakhir dalam waktu kurang dari 1 jam";
     }
-    return diffHours > 0 ? `Closes in ${diffHours} hour${diffHours > 1 ? "s" : ""}` : "Closes in less than 1 hour";
+    return diffHours > 0 ? `This link expires in ${diffHours} hour${diffHours > 1 ? "s" : ""}` : "This link expires in less than 1 hour";
   }
 
   const locale = lang === "id" ? "id-ID" : "en-US";
@@ -148,6 +148,6 @@ export function formatEditorialExpiry(
   }).format(expDate);
 
   return lang === "id"
-    ? `Kamera dibuka hingga ${dateStr}`
-    : `Roll open until ${dateStr}`;
+    ? `Tautan ini berlaku hingga ${dateStr}`
+    : `This link is valid until ${dateStr}`;
 }

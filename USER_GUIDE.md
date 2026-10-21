@@ -53,7 +53,7 @@
 ### Phase 3: During the Wedding
 - **Guest Flow:**
   1. Guest scans QR code with standard iOS or Android camera app.
-  2. Bilingual consent gate opens (EN / ID). Guest enters optional name and checks required album consent.
+  2. Bilingual consent gate opens (EN / ID). The guest sees the active link validity status ("THIS LINK IS VALID UNTIL [DATE]" / "THIS LINK EXPIRES IN [HOURS]"), enters an optional name, and checks required album consent.
   3. Camera viewfinder launches with a 15-shot analog film roll.
   4. Guest captures candid moments. On their first kept photo, a brief **Sync Indicator tooltip** explains that uploads happen automatically in the background.
   5. Once all 15 shots are taken, the guest is transitioned to the celebratory **Thank You** screen.

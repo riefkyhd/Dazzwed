@@ -3,6 +3,7 @@ import {
   generateEventToken,
   validateEventToken,
   formatExpirationNotice,
+  formatEditorialExpiry,
 } from "@/lib/event-token";
 
 describe("Event Token Utilities", () => {
@@ -115,6 +116,44 @@ describe("Event Token Utilities", () => {
       const noticeId = formatExpirationNotice(undefined, "id", fixedNow);
       expect(noticeId.isExpired).toBe(false);
       expect(noticeId.relativeRemaining).toBe("aktif");
+    });
+  });
+
+  describe("formatEditorialExpiry", () => {
+    const fixedNow = new Date("2026-10-15T10:00:00.000Z");
+
+    it("formats multi-day future expiration as 'This link is valid until...' in English", () => {
+      // 3 days later
+      const future = new Date(fixedNow.getTime() + 3 * 24 * 3600 * 1000).toISOString();
+      const str = formatEditorialExpiry(future, "en", fixedNow);
+      expect(str).toMatch(/^This link is valid until /);
+      expect(str).toContain("Oct 18");
+    });
+
+    it("formats multi-day future expiration as 'Tautan ini berlaku hingga...' in Indonesian", () => {
+      const future = new Date(fixedNow.getTime() + 3 * 24 * 3600 * 1000).toISOString();
+      const str = formatEditorialExpiry(future, "id", fixedNow);
+      expect(str).toMatch(/^Tautan ini berlaku hingga /);
+      expect(str).toContain("18 Okt");
+    });
+
+    it("formats less than 24 hours remaining as 'This link expires in...' in English", () => {
+      const future = new Date(fixedNow.getTime() + 5 * 3600 * 1000).toISOString();
+      const str = formatEditorialExpiry(future, "en", fixedNow);
+      expect(str).toBe("This link expires in 5 hours");
+    });
+
+    it("formats less than 24 hours remaining as 'Tautan ini berakhir dalam...' in Indonesian", () => {
+      const future = new Date(fixedNow.getTime() + 5 * 3600 * 1000).toISOString();
+      const str = formatEditorialExpiry(future, "id", fixedNow);
+      expect(str).toBe("Tautan ini berakhir dalam 5 jam");
+    });
+
+    it("returns null for expired or null expiration dates", () => {
+      const past = new Date(fixedNow.getTime() - 1000).toISOString();
+      expect(formatEditorialExpiry(past, "en", fixedNow)).toBeNull();
+      expect(formatEditorialExpiry(null, "en", fixedNow)).toBeNull();
+      expect(formatEditorialExpiry(undefined, "en", fixedNow)).toBeNull();
     });
   });
 });
