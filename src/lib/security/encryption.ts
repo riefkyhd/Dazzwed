@@ -1,4 +1,11 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12; // 96 bits for GCM
@@ -56,5 +63,62 @@ export function decryptToken(encryptedOrPlain: string): string {
   } catch (err) {
     console.error("Token decryption failed:", err);
     return encryptedOrPlain;
+  }
+}
+
+/**
+ * Creates an HMAC-SHA256 signed OAuth state token containing event slug,
+ * random nonce, and a 10-minute expiration timestamp.
+ * Format: `<base64url(payload)>.<signature_hex>`
+ */
+export function createOAuthStateToken(slug: string): string {
+  const nonce = randomBytes(24).toString("hex");
+  const exp = Date.now() + 10 * 60 * 1000; // 10 minutes
+  const payloadStr = JSON.stringify({ slug, nonce, exp });
+  const payloadB64 = Buffer.from(payloadStr, "utf8").toString("base64url");
+
+  const key = getDerivedKey();
+  const signature = createHmac("sha256", key).update(payloadB64).digest("hex");
+
+  return `${payloadB64}.${signature}`;
+}
+
+/**
+ * Verifies and decodes an HMAC-SHA256 signed OAuth state token.
+ * Returns { slug, nonce } if valid, unexpired, and authentic; otherwise null.
+ */
+export function verifyOAuthStateToken(token: string): { slug: string; nonce: string } | null {
+  if (!token || typeof token !== "string") return null;
+
+  const dotIdx = token.indexOf(".");
+  if (dotIdx === -1) return null;
+
+  const payloadB64 = token.slice(0, dotIdx);
+  const providedSig = token.slice(dotIdx + 1);
+
+  if (!payloadB64 || !providedSig) return null;
+
+  try {
+    const key = getDerivedKey();
+    const expectedSig = createHmac("sha256", key).update(payloadB64).digest("hex");
+
+    const providedBuf = Buffer.from(providedSig, "hex");
+    const expectedBuf = Buffer.from(expectedSig, "hex");
+
+    if (providedBuf.length !== expectedBuf.length || !timingSafeEqual(providedBuf, expectedBuf)) {
+      return null;
+    }
+
+    const payloadJson = Buffer.from(payloadB64, "base64url").toString("utf8");
+    const payload = JSON.parse(payloadJson);
+
+    if (!payload || typeof payload !== "object") return null;
+    if (typeof payload.exp !== "number" || Date.now() > payload.exp) return null;
+    if (typeof payload.slug !== "string" || !payload.slug) return null;
+    if (typeof payload.nonce !== "string" || !payload.nonce) return null;
+
+    return { slug: payload.slug, nonce: payload.nonce };
+  } catch {
+    return null;
   }
 }

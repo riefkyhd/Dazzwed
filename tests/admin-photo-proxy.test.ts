@@ -26,6 +26,25 @@ import { Readable } from "node:stream";
 describe("GET /api/admin/photos/[id] Image Proxy", () => {
   beforeEach(() => {
     vi.resetAllMocks();
+
+    const maybeSingleMock = vi.fn().mockImplementation(() =>
+      Promise.resolve({
+        data: {
+          id: "11111111-1111-1111-1111-111111111111",
+          shot_id: "shot-1",
+          drive_file_id: "drive-abc",
+          original_drive_file_id: "drive-abc",
+          status: "confirmed",
+          event_id: "event-1",
+          events: { client_id: null },
+        },
+        error: null,
+      })
+    );
+    const orMock = vi.fn().mockReturnValue({ maybeSingle: maybeSingleMock });
+    const selectMock = vi.fn().mockReturnValue({ or: orMock });
+    const fromMock = vi.fn().mockReturnValue({ select: selectMock });
+    vi.mocked(supabaseAdmin).mockReturnValue({ from: fromMock } as any);
   });
 
   it("returns 401 if user is not authenticated as admin", async () => {

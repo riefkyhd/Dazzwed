@@ -682,6 +682,21 @@ export function AdminGuideView() {
                   : "Menghilangkan kedipan penghitung roll awal saat tamu yang kembali mengunjungi atau memuat ulang /e/[slug]. Server component mengambil data jumlah foto terverifikasi dan menghitung sisa jepretan langsung dari cookie sesi pada respons awal SSR, meneruskan initialGuest ke aplikasi klien sehingga layar kamera dan penghitung roll langsung menampilkan angka akurat pada frame 1 tanpa berkedip ke kapasitas maksimal."}
               </p>
             </div>
+
+            {/* Control 26: Security Audit Hardening: OAuth CSRF, Photo Proxy Scoping & Bounded LUTs */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 26: OAuth CSRF Protection, Photo Proxy Scoping & Bounded LUTs" : "Kontrol 26: Proteksi CSRF OAuth, Otorisasi Proxy Foto & Manajemen LUT Aman"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Incorporates 3 security audit mitigations: (1) OAuth 2.0 CSRF Protection: Google Drive callback enforces superadmin authentication and verifies cryptographic HMAC-SHA256 session-bound state tokens, blocking unauthorized account binding. (2) Strict Photo Proxy Scoping: All image requests to /api/admin/photos/[id] (both UUIDs and Google Drive IDs) are verified against the database and caller's tenant ownership, eliminating unauthorized file streaming. (3) Bounded & Protected LUT Management: /api/admin/luts enforces a 2 MB ceiling, protects built-in stock presets from being overwritten, and isolates client uploads with tenant-specific namespaces."
+                  : "Menerapkan 3 mitigasi audit keamanan: (1) Perlindungan CSRF OAuth 2.0: Callback Google Drive mewajibkan otentikasi superadmin dan memverifikasi token status kriptografis HMAC-SHA256 yang terikat sesi, mencegah pembajakan akun vault. (2) Otorisasi Ketat Proxy Foto: Seluruh permintaan gambar ke /api/admin/photos/[id] (baik UUID maupun ID Drive) diverifikasi terhadap database dan kepemilikan tenant pemanggil, mencegah streaming file tanpa izin. (3) Manajemen LUT Aman & Terisolasi: /api/admin/luts menerapkan batas ukuran 2 MB, melindungi preset bawaan dari penimpaan, dan mengisolasi unggahan kustom klien dengan namespace tenant khusus."}
+              </p>
+            </div>
           </div>
         </div>
       )}

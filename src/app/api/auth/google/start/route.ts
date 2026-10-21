@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOAuth2Client } from "@/lib/drive/client";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { createOAuthStateToken } from "@/lib/security/encryption";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ export async function GET(req: Request) {
     .eq("slug", eventSlug)
     .maybeSingle();
 
+  const targetSlug = event?.slug || "our-wedding";
+  const stateToken = createOAuthStateToken(targetSlug);
+
   const redirectUri = `${url.origin}/api/auth/google/callback`;
   const oauth2Client = getOAuth2Client(redirectUri);
 
@@ -28,8 +32,17 @@ export async function GET(req: Request) {
     access_type: "offline",
     prompt: "consent",
     scope: ["https://www.googleapis.com/auth/drive.file"],
-    state: event?.slug || "our-wedding",
+    state: stateToken,
   });
 
-  return NextResponse.redirect(authUrl);
+  const res = NextResponse.redirect(authUrl);
+  res.cookies.set("dazzwed_oauth_state", stateToken, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/api/auth/google/callback",
+    maxAge: 600, // 10 minutes
+  });
+
+  return res;
 }

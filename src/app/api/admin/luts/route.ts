@@ -45,6 +45,9 @@ export async function GET() {
   }
 }
 
+const MAX_LUT_SIZE = 2 * 1024 * 1024; // 2 MB
+const PROTECTED_STOCK_PRESETS = new Set(Object.keys(LUT_FRIENDLY_NAMES));
+
 /**
  * POST /api/admin/luts
  * Accepts a multipart/form-data upload of a .cube file and saves it to public/luts
@@ -67,19 +70,53 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Only .cube LUT files are accepted" }, { status: 400 });
     }
 
+    // 1. Enforce strict 2 MB payload size limit before processing
+    if (file.size > MAX_LUT_SIZE) {
+      return NextResponse.json({ error: "File exceeds 2 MB limit" }, { status: 413 });
+    }
+
     // Sanitize filename: alphanumeric, dashes, dots, underscores
-    const safeName = file.name.toLowerCase().replace(/[^a-z0-9._-]/g, "-");
+    const rawSafeName = file.name.toLowerCase().replace(/[^a-z0-9._-]/g, "-");
+
+    // 2. Prevent overwriting built-in stock system presets
+    if (PROTECTED_STOCK_PRESETS.has(rawSafeName)) {
+      return NextResponse.json({ error: "Cannot overwrite system stock LUT preset" }, { status: 403 });
+    }
+
+    // 3. Namespace tenant custom uploads
+    const { getAuthSession } = await import("@/lib/auth/session");
+    const session = await getAuthSession();
+
+    let finalFileName = rawSafeName;
+    if (session && session.role === "client") {
+      const clientPrefix = `client-${session.clientId.slice(0, 8)}-`;
+      if (!rawSafeName.startsWith(clientPrefix)) {
+        finalFileName = `${clientPrefix}${rawSafeName}`;
+      }
+    }
+
+    // 4. Content validation: ensure valid text, no null bytes, and valid LUT headers
+    const text = await file.text();
+    if (text.includes("\0")) {
+      return NextResponse.json({ error: "Invalid LUT file: binary content detected" }, { status: 400 });
+    }
+
+    const upperText = text.toUpperCase();
+    if (!upperText.includes("LUT_3D_SIZE") && !upperText.includes("LUT_1D_SIZE")) {
+      return NextResponse.json({ error: "Invalid LUT file: missing LUT_3D_SIZE or LUT_1D_SIZE declaration" }, { status: 400 });
+    }
+
     const lutsDir = path.join(process.cwd(), "public", "luts");
     await fs.mkdir(lutsDir, { recursive: true });
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    const filePath = path.join(lutsDir, safeName);
+    const buffer = Buffer.from(text, "utf8");
+    const filePath = path.join(lutsDir, finalFileName);
     await fs.writeFile(filePath, buffer);
 
     return NextResponse.json({
       ok: true,
-      fileName: safeName,
-      url: `/luts/${safeName}`,
+      fileName: finalFileName,
+      url: `/luts/${finalFileName}`,
     });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 });

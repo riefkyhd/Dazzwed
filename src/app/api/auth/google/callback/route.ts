@@ -8,12 +8,44 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
+
+  // 1. Enforce superadmin session authorization
+  const { getAuthSession } = await import("@/lib/auth/session");
+  const session = await getAuthSession();
+  if (!session || session.role !== "superadmin") {
+    return NextResponse.redirect(
+      `${url.origin}/admin/login?error=${encodeURIComponent("Unauthorized: Superadmin access required to bind Drive vault")}`
+    );
+  }
+
+  // 2. Validate cryptographic session-bound state token (CSRF protection)
+  const { cookies } = await import("next/headers");
+  const cookieStore = await cookies();
+  const cookieState = cookieStore.get("dazzwed_oauth_state")?.value;
+  const queryState = url.searchParams.get("state");
+
+  if (!queryState || !cookieState || cookieState !== queryState) {
+    return NextResponse.redirect(
+      `${url.origin}/admin/connect-drive?error=${encodeURIComponent("Invalid OAuth state (CSRF verification failed)")}`
+    );
+  }
+
+  const { verifyOAuthStateToken } = await import("@/lib/security/encryption");
+  const verifiedState = verifyOAuthStateToken(queryState);
+  if (!verifiedState) {
+    return NextResponse.redirect(
+      `${url.origin}/admin/connect-drive?error=${encodeURIComponent("OAuth state expired or tampered")}`
+    );
+  }
+
+  const eventSlug = verifiedState.slug;
   const code = url.searchParams.get("code");
-  const eventSlug = url.searchParams.get("state") || "our-wedding";
 
   if (!code) {
     const errorDesc = url.searchParams.get("error_description") || url.searchParams.get("error") || "No code provided";
-    return NextResponse.redirect(`${url.origin}/admin/connect-drive?error=${encodeURIComponent(errorDesc)}`);
+    const res = NextResponse.redirect(`${url.origin}/admin/connect-drive?error=${encodeURIComponent(errorDesc)}`);
+    res.cookies.delete("dazzwed_oauth_state");
+    return res;
   }
 
   try {
@@ -67,10 +99,14 @@ export async function GET(req: Request) {
       coupleNames: event.couple_names,
     });
 
-    return NextResponse.redirect(`${url.origin}/admin/connect-drive?${redirectParams.toString()}`);
+    const res = NextResponse.redirect(`${url.origin}/admin/connect-drive?${redirectParams.toString()}`);
+    res.cookies.delete("dazzwed_oauth_state");
+    return res;
   } catch (err) {
     console.error("Google OAuth callback error:", err);
     const msg = err instanceof Error ? err.message : String(err);
-    return NextResponse.redirect(`${url.origin}/admin/connect-drive?error=${encodeURIComponent(msg)}`);
+    const res = NextResponse.redirect(`${url.origin}/admin/connect-drive?error=${encodeURIComponent(msg)}`);
+    res.cookies.delete("dazzwed_oauth_state");
+    return res;
   }
 }

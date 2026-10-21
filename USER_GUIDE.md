@@ -587,6 +587,25 @@ Following a full live reception audit on `https://dazzwed.vercel.app`, the platf
    - **Instant Frame 1 Counter Rendering:** On `/e/[slug]`, the server component evaluates the guest's session cookie and queries their verified photos count and remaining rolls during the initial SSR render.
    - **Eliminates Capacity Flash:** Injects `initialGuest` into the client camera app, allowing the top bar and welcome back toast to immediately display the true remaining shots (e.g. 9 remaining) on frame 1 instead of briefly flashing maximum capacity (e.g. 24) before syncing.
 
+## 19. Security Audit Run-3 Hardening: OAuth CSRF Vault Protection, Photo Proxy Scoping & Bounded LUT Management
+
+Following an independent automated security audit (`run-3`) adhering to Cloudflare's `security-audit` standard profile, three defense-in-depth mitigations were implemented across authentication, media proxying, and file management:
+
+1. **OAuth 2.0 CSRF Protection & Superadmin Callback Enforcement:**
+   - **Superadmin Session Gate:** `GET /api/auth/google/callback` enforces `getAuthSession()` with role verification (`session.role === "superadmin"`). Unauthenticated or client-role requests are rejected immediately with 401/403 before exchanging any authorization codes or updating database credentials.
+   - **Cryptographic Session-Bound State Token:** `GET /api/auth/google/start` generates an HMAC-SHA256 signed state token containing the event slug, a 24-byte random cryptographic nonce, and a 10-minute expiration timestamp. This token is written to an `HttpOnly`, `SameSite=Lax`, `Secure` cookie (`dazzwed_oauth_state`) and verified upon callback via constant-time signature comparison (`crypto.timingSafeEqual`). If the cookie is absent, mismatched, or expired, the request is aborted with a CSRF error and the cookie is purged.
+
+2. **Unified Photo Proxy Database Resolution & Tenant Isolation:**
+   - **Elimination of Raw Drive ID Fallback:** In `GET /api/admin/photos/[id]`, the handler eliminates arbitrary raw Drive file streaming. All identifiers (whether UUIDs or Google Drive file IDs) are strictly resolved against `public.photos` joined with `public.events(client_id)`.
+   - **Strict Multi-Tenant Scoping:** If a client host accesses `/api/admin/photos/[id]`, the server validates that `photo.events.client_id === session.clientId`. Requests for unmapped Drive file IDs return `404 Not Found`, and cross-tenant requests return `403 Forbidden: Access denied to photos of another client`.
+
+3. **Memory-Safe Bounded LUT Uploads & Stock Preset Protection:**
+   - **Strict 2 MB Payload Ceiling:** `POST /api/admin/luts` enforces `file.size <= 2 * 1024 * 1024` bytes before reading the file into memory, returning `413 Payload Too Large` if exceeded to protect against memory/disk exhaustion.
+   - **Protected System Stock Presets:** Built-in film simulation profiles (`warm-portrait-400.cube`, `classic-neg-400.cube`, `tungsten-800t.cube`, etc.) cannot be overwritten. Any upload matching a protected preset returns `403 Cannot overwrite system stock LUT preset`.
+   - **Client Tenant Namespace Isolation:** Custom LUT files uploaded by client hosts are automatically prefixed with their tenant identifier (`client-${session.clientId.slice(0, 8)}-${name}.cube`), ensuring multiple wedding organizers cannot overwrite each other's custom color profiles.
+   - **Content Verification:** The handler verifies the text content is free of binary null bytes and contains valid `LUT_3D_SIZE` or `LUT_1D_SIZE` declarations before saving.
+
+
 
 
 

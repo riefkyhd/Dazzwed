@@ -7,6 +7,7 @@ import { getDriveClient, getOAuth2Client, getDriveAccessToken, resolveDriveToken
 export const dynamic = "force-dynamic";
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DRIVE_FILE_ID_REGEX = /^[a-zA-Z0-9_-]{3,128}$/;
 
 export async function GET(
   req: Request,
@@ -24,57 +25,64 @@ export async function GET(
       return NextResponse.json({ error: "Missing photo identifier" }, { status: 400 });
     }
 
+    const isUuid = UUID_REGEX.test(id);
+    const isDriveId = DRIVE_FILE_ID_REGEX.test(id);
+
+    if (!isUuid && !isDriveId) {
+      return NextResponse.json({ error: "Invalid photo identifier format" }, { status: 400 });
+    }
+
     const url = new URL(req.url);
     const size = url.searchParams.get("size") || "grid"; // 'grid' | 'lightbox' | 'original'
     const type = url.searchParams.get("type") || "filtered"; // 'filtered' | 'original'
     const isDownload = url.searchParams.get("download") === "1" || url.searchParams.get("download") === "true";
 
-    // 2. Resolve target Google Drive fileId
+    // 2. Resolve target Google Drive fileId via unified DB lookup & tenant authorization
+    const sb = supabaseAdmin();
+
+    // Check tenant ownership if caller is a client
+    let clientScopeId: string | null = null;
+    try {
+      const { getAuthSession } = await import("@/lib/auth/session");
+      const session = await getAuthSession();
+      if (session && session.role === "client") {
+        clientScopeId = session.clientId;
+      }
+    } catch {}
+
+    let query = sb
+      .from("photos")
+      .select("id, shot_id, drive_file_id, original_drive_file_id, status, event_id, events(client_id)");
+
+    if (isUuid) {
+      query = query.or(`id.eq.${id},shot_id.eq.${id}`);
+    } else {
+      query = query.or(`drive_file_id.eq.${id},original_drive_file_id.eq.${id}`);
+    }
+
+    const { data: photo } = await query.maybeSingle();
+
+    if (!photo) {
+      return NextResponse.json({ error: "Photo not found" }, { status: 404 });
+    }
+
+    // Security Check 1: Tenant Ownership Verification for all photo lookups
+    if (clientScopeId) {
+      const photoClientId = (photo as any)?.events?.client_id;
+      if (photoClientId !== clientScopeId) {
+        return NextResponse.json({ error: "Access denied to photos of another client" }, { status: 403 });
+      }
+    }
+
     let targetDriveFileId: string | null = null;
     let filename = `photo-${id}.jpg`;
 
-    if (UUID_REGEX.test(id)) {
-      const sb = supabaseAdmin();
-
-      // Check tenant ownership if caller is a client
-      let clientScopeId: string | null = null;
-      try {
-        const { getAuthSession } = await import("@/lib/auth/session");
-        const session = await getAuthSession();
-        if (session && session.role === "client") {
-          clientScopeId = session.clientId;
-        }
-      } catch {}
-
-      const { data: photo } = await sb
-        .from("photos")
-        .select("id, shot_id, drive_file_id, original_drive_file_id, status, event_id, events(client_id)")
-        .or(`id.eq.${id},shot_id.eq.${id}`)
-        .maybeSingle();
-
-      if (!photo) {
-        return NextResponse.json({ error: "Photo not found" }, { status: 404 });
-      }
-
-      // Security Check 1: Tenant Ownership Verification
-      if (clientScopeId) {
-        const photoClientId = (photo as any)?.events?.client_id;
-        if (photoClientId !== clientScopeId) {
-          return NextResponse.json({ error: "Access denied to photos of another client" }, { status: 403 });
-        }
-      }
-
-      if (type === "original") {
-        targetDriveFileId = photo.original_drive_file_id || photo.drive_file_id;
-        filename = `original-${photo.shot_id || id}.jpg`;
-      } else {
-        targetDriveFileId = photo.drive_file_id;
-        filename = `photo-${photo.shot_id || id}.jpg`;
-      }
+    if (type === "original") {
+      targetDriveFileId = photo.original_drive_file_id || photo.drive_file_id;
+      filename = `original-${photo.shot_id || photo.id || id}.jpg`;
     } else {
-      // Treat directly as Drive fileId
-      targetDriveFileId = id;
-      filename = `drive-${id}.jpg`;
+      targetDriveFileId = photo.drive_file_id;
+      filename = `photo-${photo.shot_id || photo.id || id}.jpg`;
     }
 
     if (!targetDriveFileId) {
