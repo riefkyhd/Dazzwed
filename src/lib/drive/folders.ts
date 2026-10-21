@@ -57,7 +57,7 @@ export async function ensureGuestFolder(
   // First check if already cached in Supabase
   const { data: currentGuest, error: fetchErr } = await sb
     .from("guests")
-    .select("drive_folder_id")
+    .select("drive_folder_id, display_name")
     .eq("id", guestId)
     .maybeSingle();
 
@@ -68,7 +68,8 @@ export async function ensureGuestFolder(
 
   // Create subfolder in Drive with unique roll code: e.g. "Dhifa (7K9X2B)" or "Roll 7K9X2B"
   const rollCode = computeRollCodeFromGuestId(guestId);
-  const cleanName = displayName?.trim().replace(/[/\\?%*:|"<>]/g, "");
+  const effectiveName = displayName || currentGuest?.display_name || null;
+  const cleanName = effectiveName?.trim().replace(/[/\\?%*:|"<>]/g, "");
   const folderName = cleanName ? `${cleanName} (${rollCode})` : `Roll ${rollCode}`;
 
   const res = await withDriveRetry(

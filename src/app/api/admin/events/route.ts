@@ -140,6 +140,22 @@ export async function POST(req: Request) {
       slug = `${slug}-${Date.now().toString(36).slice(-4)}`;
     }
 
+    // Auto-provision Google Drive root folder under the master vault if available
+    let driveRootFolderId = body.drive_root_folder_id || null;
+    if (!driveRootFolderId) {
+      try {
+        const { resolveDriveTokens, getDriveClient } = await import("@/lib/drive/client");
+        const { refreshToken } = await resolveDriveTokens();
+        if (refreshToken) {
+          const { createRootFolder } = await import("@/lib/drive/folders");
+          const drive = getDriveClient(refreshToken);
+          driveRootFolderId = await createRootFolder(drive, coupleNames);
+        }
+      } catch (driveErr) {
+        console.warn("Could not pre-create drive root folder during event creation:", driveErr);
+      }
+    }
+
     const { data: newEvent, error } = await sb
       .from("events")
       .insert({
@@ -154,7 +170,7 @@ export async function POST(req: Request) {
         access_token: accessToken,
         token_expires_at: tokenExpiresAt,
         token_duration_hours: tokenDurationHours,
-        drive_root_folder_id: body.drive_root_folder_id || null,
+        drive_root_folder_id: driveRootFolderId,
         client_id: clientScopeId || (body as any).client_id || null,
         theme: {
           accentColor: "#f59e0b",
