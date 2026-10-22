@@ -5,6 +5,8 @@ globs: src/components/**/*.{tsx,ts,jsx,js}, src/app/**/*.{tsx,ts,jsx,js}
 
 # Dazzwed Luxury Editorial Design System (`/luxury-ui`)
 
+> **Master Aesthetic Specification:** All positive design tokens, verified WCAG contrast matrices, typography pairing rules, liveliness dials (`ENERGY`, `RHYTHM`, `MOTION`), and stationery blueprints are authoritatively defined in [`DESIGN.md`](../../DESIGN.md).
+
 Follow these strict rules whenever designing, modifying, or reviewing UI in Dazzwed.
 
 ---

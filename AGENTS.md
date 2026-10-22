@@ -17,7 +17,9 @@ Whenever any feature, UI flow, admin control, or privacy behavior is added, upda
 in the same commit so that the host guide and buyer documentation are always 100% accurate, complete, and synchronized with the actual codebase implementation.
 
 <!-- antislop:start -->
-## antislop
+## antislop & Design System
+The single source of aesthetic truth for Dazzwed / UNVEILED is [`DESIGN.md`](./DESIGN.md). While `antislop` acts as the negative slop filter, `DESIGN.md` provides the positive design specifications (identity, mood, liveliness dials `ENERGY`/`RHYTHM`/`MOTION`, verified WCAG contrast tokens, typography scale, component tokens, print stationery, and microcopy standards).
+
 For UI, copy, people, mobile layout, or code comments work, read these installed skill files directly (use these paths even if a same-named global skill exists):
 - Core filter, always on: `antislop`: `.agents/skills/antislop/SKILL.md`
 - UI / visual: `antislop-ui`: `.agents/skills/antislop-ui/SKILL.md`
