@@ -90,13 +90,13 @@ export function ThankYouScreen({
                 if (!window.confirm(confirmMsg)) return;
                 await onDeleteRoll();
               }}
-              className="text-[11px] text-zinc-500 hover:text-rose-400 underline underline-offset-4 transition cursor-pointer"
+              className="text-[11px] text-zinc-400 hover:text-rose-400 underline underline-offset-4 transition cursor-pointer"
             >
               {lang === "id" ? "Tarik persetujuan & hapus roll saya" : "Withdraw consent & delete my roll"}
             </button>
           </div>
         )}
-        <div className="text-xs text-zinc-600 font-mono tracking-wider uppercase">
+        <div className="text-xs text-zinc-400 font-mono tracking-wider uppercase">
           {coupleNames}
         </div>
       </footer>

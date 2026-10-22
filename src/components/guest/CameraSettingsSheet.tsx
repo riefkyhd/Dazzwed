@@ -553,10 +553,10 @@ export function CameraSettingsSheet({
           {onDeleteRoll && (
             <div className="pt-3 border-t border-zinc-800">
               <details className="group">
-                <summary className="text-[11px] text-zinc-500 hover:text-zinc-400 cursor-pointer list-none flex items-center justify-between transition-colors select-none py-1">
+                <summary className="text-[11px] text-zinc-400 hover:text-zinc-200 cursor-pointer list-none flex items-center justify-between transition-colors select-none py-1">
                   <span>{lang === "id" ? "Hak privasi & data" : "Privacy & data rights"}</span>
                   <svg
-                    className="w-3.5 h-3.5 transition-transform duration-200 group-open:rotate-180 text-zinc-600"
+                    className="w-3.5 h-3.5 transition-transform duration-200 group-open:rotate-180 text-zinc-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"

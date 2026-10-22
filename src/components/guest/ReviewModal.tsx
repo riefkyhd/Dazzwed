@@ -274,7 +274,7 @@ export function ReviewModal({
           <span className="font-mono text-[11px] font-bold tracking-wider uppercase text-zinc-300">
             {lookName}
           </span>
-          <span className="font-mono text-[10px] text-zinc-500 font-semibold px-1.5 py-0.5 rounded bg-zinc-850 border border-zinc-700/60">
+          <span className="font-mono text-[10px] text-zinc-400 font-semibold px-1.5 py-0.5 rounded bg-zinc-850 border border-zinc-700/60">
             {isLandscapeMode && aspect === "3:4" ? "4:3" : aspect}
           </span>
         </div>

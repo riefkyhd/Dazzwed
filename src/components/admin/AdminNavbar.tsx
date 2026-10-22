@@ -341,7 +341,7 @@ export function AdminNavbar({
                   {/* Signed-in User Info Header */}
                   <div className="px-3 py-2.5 border-b border-zinc-800/80">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
                         Signed in as
                       </span>
                       <span
@@ -645,7 +645,7 @@ export function AdminNavbar({
             </div>
 
             <div className="pt-2 border-t border-zinc-800 flex items-center justify-between">
-              <span className="text-[11px] font-mono text-zinc-500 truncate max-w-[200px]">
+              <span className="text-[11px] font-mono text-zinc-400 truncate max-w-[200px]">
                 {userEmail}
               </span>
               <form action="/api/auth/logout" method="POST">

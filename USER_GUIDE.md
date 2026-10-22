@@ -185,7 +185,7 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
      - **`0.5x`:** Routes to the true optical Ultra-Wide sensor (`camera2 2`).
      - **`1x`:** Routes to the Primary Wide sensor (`camera2 0`), enabling continuous autofocus and hardware torch flash.
      - **`2x`:** Applies native browser zoom constraints or clean digital sensor crop on the primary sensor.
-     - **`3x`:** Seamlessly switches to the 3x optical telephoto lens (`camera2 3`) or hardware zoom.
+     - **`3x`:** Directly switches to the 3x optical telephoto lens (`camera2 3`) or hardware zoom.
    - **Logical Multi-Cameras (Google Pixel):** Supports smooth native track zoom across `[0.5x, 8.0x]`, dynamically switching between sensor levels without restarting the camera stream.
    - **Startup Self-Correction:** When launching the camera at 1x, the engine verifies sensor capabilities (e.g. continuous focus and torch support) to ensure the 1x viewfinder never accidentally opens the ultra-wide lens.
 
@@ -347,7 +347,7 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - Automatically detects landscape dimensions (`width > height` or `aspect === "4:3"`).
    - Adapts the hero print container to `aspectRatio: "4 / 3"` or `"16 / 9"` with `max-w-xl`, presenting photos with zero letterboxing or distortion.
    - **Container-Aligned Action Buttons:** Action buttons ("Retake" & "Keep Photo") always follow their horizontal bottom dock without rotating, preserving clean typography, full touch targets, and natural horizontal reading alignment.
-   - **Unified Shutter Transition:** The tactile shutter curtain stays closed during the brief 160ms archival development and opens seamlessly to the final developed photo with zero unrotated preview jumps or black frames.
+   - **Unified Shutter Transition:** The tactile shutter curtain stays closed during the brief 160ms archival development and opens directly to the final developed photo with zero unrotated preview jumps or black frames.
 
 ---
 
@@ -409,7 +409,7 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Strict Event Scoping:** `getActiveAdminEvent()` and `listAdminEvents()` query strictly by `WHERE client_id = session.clientId`. Client hosts cannot view, query, or switch into events belonging to other clients or unassigned owner events.
    - **Tailored Event Switcher:**
      - If a client has only 1 event and `max_events === 1`, the switcher displays a clean static event title and status badge with no dropdown or unauthorized `+ New Event` button.
-     - If a client holds a multi-event package (`max_events > 1`), they can seamlessly toggle between their own events, while new event creation is strictly capped by their package limit.
+     - If a client holds a multi-event package (`max_events > 1`), they can toggle between their own events, while new event creation is strictly capped by their package limit.
    - **Owner-Only Route & Navigation Shielding:**
      - System infrastructure controls (`/admin/connect-drive`, `/admin/health`, `/api/admin/drive/**`, `/api/admin/drive-health`) are completely stripped from client navigation bars and mobile drawers.
      - Direct HTTP requests to infrastructure and superadmin routes are rejected with `403 Forbidden: Superadmin access required`.
@@ -504,7 +504,7 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
      1. *Event Identity & Theme:* Event subtitle, couple names, exposures per roll (with package entitlement lock), theme accent/background hex pickers, and welcome note.
      2. *Schedule & Camera Control:* Manual shutter toggle and automated open/close scheduling.
      3. *Event Link & Access Window:* Camera URL with 1-click copy, duration presets (12h, 24h, 48h, 7d), exact expiration display, and cryptographic token rotation modal.
-     4. *Active Film Simulation & 3D LUT Recipe:* Clean optgroup presets without emojis and seamless `.cube` 3D LUT file importer.
+     4. *Active Film Simulation & 3D LUT Recipe:* Clean optgroup presets without emojis and direct `.cube` 3D LUT file importer.
      5. *Guest Device Sessions & Maintenance:* Active session counter and safe reset confirmation modal.
    - **Standardized Form Controls:** Uniform dark inputs (`bg-zinc-900/80 border border-zinc-800 text-sm rounded-lg focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30`).
    - **Zero Cartoon Emojis:** Replaced all emojis (`✨`, `📁`, `⚡`, `⚠️`, `✓`) across alerts, modals, and dropdowns with crisp `1.75px` stroke Lucide vector icons.
@@ -590,7 +590,7 @@ Following a full live reception audit on `https://dazzwed.vercel.app`, the platf
 
 10. **Multi-Session Guest Roll Gallery & Quota Parity:**
    - **Mathematical Roll Alignment:** Solves discrepancies where guests captured photos across multiple sessions, tabs, or devices. The private "My Photos" modal calculates roll progress using true shots taken (`totalShots - shotsLeft`), matching the camera shutter counter.
-   - **Seamless Cloud Album Synced Cards:** For photos confirmed in Google Drive whose local device thumbnails were taken in an earlier tab or before browser cache was refreshed, the contact sheet grid pads the display with elegant `SAVED IN ALBUM` cards (marked `✓ Synced`), ensuring all taken shots are accounted for in the guest's view.
+   - **Cloud Album Synced Cards:** For photos confirmed in Google Drive whose local device thumbnails were taken in an earlier tab or before browser cache was refreshed, the contact sheet grid pads the display with clean `SAVED IN ALBUM` cards, ensuring all taken shots are accounted for in the guest's view.
 
 ## 19. Security Audit Run-3 Hardening: OAuth CSRF Vault Protection, Photo Proxy Scoping & Bounded LUT Management
 

@@ -273,9 +273,7 @@ void main() {
   bool hasNaN = false;
   bool isOutOfRange = false;
 
-  // ==========================================
-  // STAGE 1: LENS MODEL
-  // ==========================================
+  // Stage 1: Lens model
   vec2 p = uv - 0.5;
   float rho2 = dot(p, p) * 4.0; // 0 at center, 1 at edges
 
@@ -335,9 +333,7 @@ void main() {
     return;
   }
 
-  // ==========================================
-  // STAGE 2: CAPTURE / FILM RESPONSE
-  // ==========================================
+  // Stage 2: Capture / film response
   vec3 linRgb = srgbToLinear(rgb);
 
   // 2a. Linear Exposure EV
@@ -418,9 +414,7 @@ void main() {
     return;
   }
 
-  // ==========================================
-  // STAGE 3: OKLCH COLOR GRADING & GAMUT
-  // ==========================================
+  // Stage 3: OKLCH color grading & gamut
   vec3 linForOklab = srgbToLinear(clamp(rgb, 0.0, 1.0));
   vec3 lab = linearSrgbToOklab(linForOklab);
   float L = lab.x;
@@ -528,9 +522,7 @@ void main() {
     return;
   }
 
-  // ==========================================
-  // STAGE 4: EMULSION OPTICS & GRAIN
-  // ==========================================
+  // Stage 4: Emulsion optics & grain
   // 4a. Bloom & Halation (Screen Blend: s + d - s*d)
   if (u_bloom.y > 0.0 && luma > u_bloom.x) {
     float bIntensity = smoothstep(u_bloom.x, 1.0, luma) * u_bloom.y;
@@ -606,9 +598,7 @@ void main() {
     rgb = clamp(rgb * exp2(expFactorClamped), 0.0, 1.0);
   }
 
-  // ==========================================
-  // STAGE 5: INTENSITY BLEND & DIAGNOSTICS
-  // ==========================================
+  // Stage 5: Intensity blend & diagnostics
   float intensity = clamp(u_intensity, 0.0, 1.0);
   rgb = mix(origRgb, rgb, intensity);
 

@@ -354,7 +354,7 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
             <h2 className="text-xs font-semibold text-white uppercase tracking-wider font-mono">
               1. Event Identity & Theme
             </h2>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
               Front Cover & Prints
             </span>
           </div>
@@ -371,7 +371,7 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
               maxLength={80}
               className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-zinc-100 text-sm focus:border-amber-400/60 focus:outline-none placeholder:text-zinc-600 transition-colors"
             />
-            <p className="text-[11px] text-zinc-500 mt-1 font-sans">
+            <p className="text-[11px] text-zinc-400 mt-1 font-sans">
               Displayed above names on the guest front camera screen and printable poster.
             </p>
           </div>
@@ -407,7 +407,7 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
                 Package Tier Quota: Max {initialEvent.package_max_shots_per_guest || 100} shots ({initialEvent.package_tier || "owner_unlimited"})
               </span>
             </div>
-            <p className="text-[11px] text-zinc-500 mt-1 font-sans">
+            <p className="text-[11px] text-zinc-400 mt-1 font-sans">
               Standard disposable rolls provide 15 or 27 exposures. Capped by your client package tier.
             </p>
           </div>
@@ -507,7 +507,7 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
             <h2 className="text-xs font-semibold text-white uppercase tracking-wider font-mono">
               2. Schedule & Camera Control
             </h2>
-            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-500">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
               Access Windows
             </span>
           </div>
@@ -589,7 +589,7 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
                 </svg>
                 <span>Event Guest URL (Includes Active Token)</span>
               </label>
-              <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider">
+              <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider">
                 Locked &bull; Read-Only
               </span>
             </div>

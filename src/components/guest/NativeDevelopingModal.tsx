@@ -83,7 +83,7 @@ export function NativeDevelopingModal({
 
           {/* Bottom Card Text / LCD Counter */}
           <div className="w-full flex items-center justify-between px-1">
-            <span className="font-mono text-[10px] text-zinc-500 tracking-wider">DISPOSABLE CAM</span>
+            <span className="font-mono text-[10px] text-zinc-400 tracking-wider">DISPOSABLE CAM</span>
             <span className="font-mono text-xs text-amber-400 font-bold tracking-widest">
               {state === "developing" ? "DEV..." : state === "saving" ? "SAVE" : state === "saved" ? "DONE" : "ERR"}
             </span>

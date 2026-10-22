@@ -139,12 +139,12 @@ export function ConnectDriveView({
                 href={`https://drive.google.com/drive/folders/${folderId}`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline font-medium"
+                className="inline-flex items-center gap-1.5 text-xs text-amber-400 hover:underline font-medium"
               >
                 Open Root Folder in Google Drive &rarr;
               </a>
               <span className="text-[11px] text-zinc-400">
-                💡 <b>Partner Tip:</b> Right-click this folder in Drive &rarr; <i>Share</i> with your partner so both can view the photos live.
+                <strong className="text-zinc-300 font-medium">Partner Tip:</strong> Right-click this folder in Drive &rarr; <i>Share</i> with your partner so both can view the photos live.
               </span>
             </div>
           </div>

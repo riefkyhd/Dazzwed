@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { IconCheck, IconAlertTriangle } from "@/components/ui/Icons";
 
 type GuideLang = "en" | "id";
 
@@ -118,7 +119,7 @@ export function AdminGuideView() {
 
             <div className="space-y-2.5 text-xs sm:text-sm text-zinc-300 pl-1 sm:pl-11 leading-relaxed">
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "Connect Google Drive:" : "Hubungkan Google Drive:"}</strong>{" "}
                   {lang === "en"
@@ -127,7 +128,7 @@ export function AdminGuideView() {
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "Test Camera & Color Recipes:" : "Uji Coba Kamera & Resep Film:"}</strong>{" "}
                   {lang === "en"
@@ -136,7 +137,7 @@ export function AdminGuideView() {
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-rose-400 font-bold shrink-0">★</span>
+                <IconAlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
                 <span className="text-amber-200">
                   <strong>{lang === "en" ? "MANDATORY CLEANUP BEFORE PRINTING:" : "WAJIB BERSIHKAN SEBELUM CETAK:"}</strong>{" "}
                   {lang === "en"
@@ -179,7 +180,7 @@ export function AdminGuideView() {
               </div>
 
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "Vertical A4 Portrait Poster:" : "Poster Vertikal A4 Portrait:"}</strong>{" "}
                   {lang === "en"
@@ -188,7 +189,7 @@ export function AdminGuideView() {
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "Bare QR Export for Stationery Designers:" : "Ekspor QR Polos untuk Desainer Undangan:"}</strong>{" "}
                   {lang === "en"
@@ -217,7 +218,7 @@ export function AdminGuideView() {
 
             <div className="space-y-2.5 text-xs sm:text-sm text-zinc-300 pl-1 sm:pl-11 leading-relaxed">
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "No App Store Needed:" : "Tanpa Unduh App Store:"}</strong>{" "}
                   {lang === "en"
@@ -226,7 +227,7 @@ export function AdminGuideView() {
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "Offline Resilience on Spotty Wi-Fi:" : "Tahan Sinyal Lemah / Venue Padat:"}</strong>{" "}
                   {lang === "en"
@@ -235,7 +236,7 @@ export function AdminGuideView() {
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "15-Shot Film Limit:" : "Batas 15 Foto per Tamu:"}</strong>{" "}
                   {lang === "en"
@@ -264,7 +265,7 @@ export function AdminGuideView() {
 
             <div className="space-y-2.5 text-xs sm:text-sm text-zinc-300 pl-1 sm:pl-11 leading-relaxed">
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "Guest Folders in Google Drive:" : "Folder Tamu di Google Drive:"}</strong>{" "}
                   {lang === "en"
@@ -273,7 +274,7 @@ export function AdminGuideView() {
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "Processed Film + Clean Originals:" : "Hasil Simulasi Film + File Asli:"}</strong>{" "}
                   {lang === "en"
@@ -282,7 +283,7 @@ export function AdminGuideView() {
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "One-Click Bulk ZIP Export:" : "Unduh Masal Satu Klik (.ZIP):"}</strong>{" "}
                   {lang === "en"
@@ -291,7 +292,7 @@ export function AdminGuideView() {
                 </span>
               </div>
               <div className="flex items-start gap-2">
-                <span className="text-amber-400 font-bold shrink-0">✓</span>
+                <IconCheck className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
                 <span>
                   <strong>{lang === "en" ? "Automatic 30-Day Cleanup:" : "Pembersihan Otomatis 30 Hari:"}</strong>{" "}
                   {lang === "en"
@@ -588,7 +589,7 @@ export function AdminGuideView() {
               </div>
               <p className="text-xs text-zinc-300 leading-relaxed">
                 {lang === "en"
-                  ? "End-to-end luxury darkroom design system applied across all administrative surfaces. Replaces all cartoon emojis with precision 1.75px stroke Lucide vector icons. Superadmin features a 3-zone header matching the top navigation bar, quiet KPI metric strips with 32x32px icon wells, clean client cards with 1-click DZ-XXXXXX access code copy and emoji-free WhatsApp invitation generator, and interactive tier radio cards. Event Dashboard introduces refined display serif titles, a 6px camera status dot, monospace slug links, compact h-8 quick-action clusters (Print QR, Download All, Guest Camera), and a quiet uploads table. Settings is restructured into 5 calm darkroom sections with standardized inputs and seamless 3D LUT recipe management."
+                  ? "End-to-end luxury darkroom design system applied across all administrative surfaces. Replaces all cartoon emojis with precision 1.75px stroke Lucide vector icons. Superadmin features a 3-zone header matching the top navigation bar, quiet KPI metric strips with 32x32px icon wells, clean client cards with 1-click DZ-XXXXXX access code copy and emoji-free WhatsApp invitation generator, and interactive tier radio cards. Event Dashboard introduces refined display serif titles, a 6px camera status dot, monospace slug links, compact h-8 quick-action clusters (Print QR, Download All, Guest Camera), and a quiet uploads table. Settings is restructured into 5 calm darkroom sections with standardized inputs and direct 3D LUT recipe management."
                   : "Sistem desain darkroom mewah ujung-ke-ujung yang diterapkan di seluruh antarmuka administratif. Menggantikan seluruh emoji kartun dengan ikon vektor Lucide berpresisi stroke 1.75px. Superadmin dilengkapi header 3-zona yang selaras dengan bilah navigasi atas, strip KPI tenang dengan wadah ikon 32x32px, kartu klien rapi dengan salin kode akses DZ-XXXXXX 1-klik dan generator undangan WhatsApp bebas emoji, serta kartu radio tingkat paket yang interaktif. Dashboard Acara menghadirkan tipografi display serif yang elegan, titik status kamera 6px, tautan slug monospace, kluster aksi cepat h-8 yang ringkas (Cetak QR, Unduh Semua, Kamera Tamu), dan tabel unggahan yang tenang. Pengaturan disusun ulang menjadi 5 bagian darkroom yang tenang dengan input standar dan manajemen resep 3D LUT yang mulus."}
               </p>
             </div>
@@ -603,7 +604,7 @@ export function AdminGuideView() {
               </div>
               <p className="text-xs text-zinc-300 leading-relaxed">
                 {lang === "en"
-                  ? "Unified editorial darkroom polish across Photo Gallery moderation, A4 Print Signage Studio, and Look Lab film curation. Photo Gallery and Lightbox feature zero cartoon emojis, replacing raw text symbols with precision 1.75px Lucide vector icons (Sparkles for Film, Circle for RAW Original, Eye/EyeOff for moderation, and Chevron navigation) on dark glass action docks with preserved 44px touch targets. QR & Print Studio introduces a 1-click URL copy action, primary Gold Printer CTA, and darkroom preview mat framing while keeping 100% of @media print layout rules pixel-perfect for physical A4 printing. Look Lab eliminates raw emoji badges in favor of Lucide Film and Sparkles icons, providing refined stage bisection controls, standardized sliders, and seamless JSON/LUT curation."
+                  ? "Unified editorial darkroom polish across Photo Gallery moderation, A4 Print Signage Studio, and Look Lab film curation. Photo Gallery and Lightbox feature zero cartoon emojis, replacing raw text symbols with precision 1.75px Lucide vector icons (Sparkles for Film, Circle for RAW Original, Eye/EyeOff for moderation, and Chevron navigation) on dark glass action docks with preserved 44px touch targets. QR & Print Studio introduces a 1-click URL copy action, primary Gold Printer CTA, and darkroom preview mat framing while keeping 100% of @media print layout rules pixel-perfect for physical A4 printing. Look Lab eliminates raw emoji badges in favor of Lucide Film and Sparkles icons, providing refined stage bisection controls, standardized sliders, and direct JSON/LUT curation."
                   : "Penyelarasan editorial darkroom mewah yang menyeluruh di seluruh moderasi Galeri Foto, Studio Cetak Poster A4, dan kurasi film Look Lab. Galeri Foto dan Lightbox bebas emoji kartun, menggantikan simbol teks dengan ikon vektor Lucide 1.75px (Sparkles untuk Film, Circle untuk RAW Original, Eye/EyeOff untuk moderasi, dan navigasi Chevron) di atas dock aksi kaca gelap dengan target sentuh 44px yang terjaga. QR & Print Studio menghadirkan aksi salin URL 1-klik, tombol cetak utama Gold Printer, dan pembingkaian mat darkroom sembari menjaga 100% aturan tata letak @media print agar hasil cetak fisik A4 tetap presisi. Look Lab meniadakan lencana emoji untuk digantikan ikon vektor Lucide Film dan Sparkles, menyediakan kontrol biseksi tahapan yang rapi, slider standar, serta kurasi JSON/LUT yang mulus."}
               </p>
             </div>
@@ -898,7 +899,7 @@ export function AdminGuideView() {
           </Link>
         </div>
 
-        <div className="text-[11px] font-mono text-zinc-500">
+        <div className="text-[11px] font-mono text-zinc-400">
           Unveiled Platform • Engineered for Moments That Matter
         </div>
       </div>

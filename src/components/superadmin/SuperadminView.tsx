@@ -404,7 +404,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
             </div>
           </div>
           <div className="text-2xl font-mono font-semibold text-zinc-100 tracking-tight">
-            {activeClients} <span className="text-xs text-zinc-500 font-sans font-normal">/ {clients.length} total</span>
+            {activeClients} <span className="text-xs text-zinc-400 font-sans font-normal">/ {clients.length} total</span>
           </div>
         </div>
 
@@ -465,7 +465,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
         <div className="flex items-center justify-between">
           <h2 className="text-base sm:text-lg font-serif font-normal text-zinc-100 flex items-center gap-2">
             <span>Client Accounts & Assigned Weddings</span>
-            <span className="text-xs font-mono font-normal text-zinc-500">
+            <span className="text-xs font-mono font-normal text-zinc-400">
               ({filteredClients.length})
             </span>
           </h2>
@@ -517,7 +517,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
                       <div className="text-xs font-mono text-zinc-400 flex items-center gap-2">
                         <span>{client.email}</span>
                         {client.notes && (
-                          <span className="text-zinc-500 italic text-[11px]">
+                          <span className="text-zinc-400 italic text-[11px]">
                             • {client.notes}
                           </span>
                         )}
@@ -527,7 +527,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
                     {/* Quick Access Credentials & Action Buttons */}
                     <div className="flex items-center gap-2 flex-wrap">
                       <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-zinc-900/90 border border-zinc-800 text-xs font-mono">
-                        <span className="text-zinc-500">Code:</span>
+                        <span className="text-zinc-400">Code:</span>
                         <span className="text-amber-300 font-bold tracking-wider">
                           {client.access_code}
                         </span>
@@ -590,11 +590,11 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
 
                   {/* Assigned Events for this Client */}
                   <div className="pt-4 space-y-2.5">
-                    <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-500 font-semibold">
+                    <div className="text-[11px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
                       Assigned Wedding Rolls ({client.events.length})
                     </div>
                     {client.events.length === 0 ? (
-                      <p className="text-xs text-zinc-500 italic">
+                      <p className="text-xs text-zinc-400 italic">
                         No events assigned yet. Create an event in Wedding Admin or assign an unassigned event below.
                       </p>
                     ) : (
@@ -712,9 +712,9 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
                     <span>Client Account Created Successfully</span>
                   </div>
                   <div className="text-xs font-mono text-zinc-300 space-y-1">
-                    <div><span className="text-zinc-500">Name:</span> {createdClientResult.name}</div>
-                    <div><span className="text-zinc-500">Email:</span> {createdClientResult.email}</div>
-                    <div><span className="text-zinc-500">Access Code:</span> <span className="text-amber-300 font-bold">{createdClientResult.accessCode}</span></div>
+                    <div><span className="text-zinc-400">Name:</span> {createdClientResult.name}</div>
+                    <div><span className="text-zinc-400">Email:</span> {createdClientResult.email}</div>
+                    <div><span className="text-zinc-400">Access Code:</span> <span className="text-amber-300 font-bold">{createdClientResult.accessCode}</span></div>
                   </div>
                 </div>
 
@@ -796,7 +796,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
                     onChange={(e) => setClientForm({ ...clientForm, maxEvents: parseInt(e.target.value, 10) || 1 })}
                     className="w-full px-3.5 py-2 rounded-lg bg-zinc-900/80 border border-zinc-800 text-white text-sm focus:border-amber-400/60 focus:outline-none transition-colors"
                   />
-                  <p className="text-[10px] text-zinc-500 mt-1">
+                  <p className="text-[10px] text-zinc-400 mt-1">
                     Default 1. Supports any package size (e.g. 5, 20, 100 event rolls for wedding planners).
                   </p>
                 </div>
@@ -813,7 +813,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
                       Create initial Event Roll for this client (Recommended)
                     </span>
                   </label>
-                  <p className="text-[10px] text-zinc-500 ml-6.5 mt-0.5">
+                  <p className="text-[10px] text-zinc-400 ml-6.5 mt-0.5">
                     Automatically provisions an active starter event so the client avoids empty-state confusion on first sign-in.
                   </p>
                 </div>
@@ -890,7 +890,7 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
                           })()
                         : "(Unassigned / Platform Owner)"}
                     </span>
-                    <span className="text-[10px] font-mono text-zinc-500 uppercase tracking-wider flex items-center gap-1">
+                    <span className="text-[10px] font-mono text-zinc-400 uppercase tracking-wider flex items-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-zinc-400">
                         <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
                         <path d="M7 11V7a5 5 0 0 1 10 0v4" />

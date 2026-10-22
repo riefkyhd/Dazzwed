@@ -185,7 +185,7 @@ export function EventSwitcher({
                   + New Event
                 </button>
               ) : (
-                <span className="text-[10px] font-mono text-zinc-500">
+                <span className="text-[10px] font-mono text-zinc-400">
                   Plan Quota ({allEvents.length}/{maxEvents})
                 </span>
               )}
@@ -291,7 +291,7 @@ export function EventSwitcher({
                   onChange={(e) => setShotsPerGuest(Number(e.target.value))}
                   className="w-full px-3 py-2 rounded-xl bg-zinc-900 border border-zinc-700 text-white text-sm focus:border-amber-400 focus:outline-none"
                 />
-                <p className="text-[10px] text-zinc-500 mt-1">Default 25 shots (standard single-use camera roll).</p>
+                <p className="text-[10px] text-zinc-400 mt-1">Default 25 shots (standard single-use camera roll).</p>
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3">

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { IconX } from "@/components/ui/Icons";
 import { type Lang, t } from "@/lib/i18n";
 import { normalizeRollCode } from "@/lib/guest/session";
 import { saveLocalConsent } from "@/lib/guest/consent";
@@ -142,7 +143,7 @@ export function RestoreRollModal({
           aria-label="Close"
           className="absolute top-2 right-2 w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center text-zinc-400 hover:text-white cursor-pointer touch-manipulation"
         >
-          ✕
+          <IconX className="w-4 h-4" />
         </button>
 
         <h3 className="text-lg font-bold mb-1 text-amber-300 font-mono">

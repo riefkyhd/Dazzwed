@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import { IconFilm, IconX, IconCheck } from "@/components/ui/Icons";
 import { type Lang, t } from "@/lib/i18n";
 import { getGuestGalleryPhotos, type GalleryPhoto } from "@/lib/queue/store";
 
@@ -170,14 +171,14 @@ export function GuestGalleryModal({
             aria-label="Close"
             className="w-11 h-11 min-w-[44px] min-h-[44px] sm:w-8 sm:h-8 sm:min-w-[32px] sm:min-h-[32px] rounded-full bg-zinc-800 hover:bg-zinc-700 flex items-center justify-center text-zinc-400 hover:text-white transition cursor-pointer touch-manipulation"
           >
-            ✕
+            <IconX className="w-4 h-4" />
           </button>
         </div>
 
         {/* Restore Link Strip */}
         <div className="px-5 py-2.5 bg-zinc-900/40 border-b border-zinc-800/60 flex items-center justify-between text-xs">
           <div className="text-zinc-400 truncate pr-2">
-            <span className="text-zinc-500">{t(lang, "yourRollCode")}: </span>
+            <span className="text-zinc-400">{t(lang, "yourRollCode")}: </span>
             <span className="font-mono font-bold text-zinc-200 tracking-wider">{rollCode}</span>
           </div>
           <button
@@ -192,16 +193,16 @@ export function GuestGalleryModal({
         {/* Contact Sheet / Photos Grid */}
         <div className="flex-1 overflow-y-auto p-4 overscroll-contain">
           {loading ? (
-            <div className="h-full flex items-center justify-center text-zinc-500 font-mono text-xs">
+            <div className="h-full flex items-center justify-center text-zinc-400 font-mono text-xs">
               Loading roll…
             </div>
           ) : displayPhotos.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-500">
-              <div className="w-12 h-12 rounded-full border border-dashed border-zinc-700 flex items-center justify-center mb-3 text-zinc-600">
-                🎞️
+            <div className="h-full flex flex-col items-center justify-center text-center p-6 text-zinc-400">
+              <div className="w-12 h-12 rounded-full border border-dashed border-zinc-700 flex items-center justify-center mb-3 text-zinc-400">
+                <IconFilm className="w-5 h-5 text-zinc-400" />
               </div>
-              <p className="text-sm font-medium text-zinc-400 mb-1">{t(lang, "galleryEmpty")}</p>
-              <p className="text-xs text-zinc-500">{t(lang, "step1", { n: totalShots })}</p>
+              <p className="text-sm font-medium text-zinc-300 mb-1">{t(lang, "galleryEmpty")}</p>
+              <p className="text-xs text-zinc-400">{t(lang, "step1", { n: totalShots })}</p>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -220,17 +221,17 @@ export function GuestGalleryModal({
                     />
                   ) : (
                     <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-900/90 text-zinc-400 text-[10px] p-2 text-center font-mono gap-1">
-                      <span className="text-xs">🎞️</span>
+                      <IconFilm className="w-4 h-4 text-zinc-400" />
                       <span className="font-semibold text-zinc-300">SAVED IN ALBUM</span>
-                      <span className="text-[9px] text-zinc-500">Synced to Drive</span>
+                      <span className="text-[9px] text-zinc-400">Synced to Drive</span>
                     </div>
                   )}
 
                   {/* Sync Status Overlay Pill */}
                   <div className="absolute bottom-1.5 left-1.5 right-1.5 flex justify-between items-center text-[9px] font-mono px-1.5 py-0.5 rounded bg-black/70 backdrop-blur-sm text-zinc-300">
                     <span>#{displayPhotos.length - idx}</span>
-                    <span className={photo.status === "synced" ? "text-emerald-400" : "text-amber-400"}>
-                      {photo.status === "synced" ? "✓" : "…"}
+                    <span className={photo.status === "synced" ? "text-emerald-400 flex items-center" : "text-amber-400"}>
+                      {photo.status === "synced" ? <IconCheck className="w-2.5 h-2.5 stroke-[2.5]" /> : "…"}
                     </span>
                   </div>
                 </div>
@@ -253,7 +254,7 @@ export function GuestGalleryModal({
                 onClick={() => setSelectedPhoto(null)}
                 className="w-8 h-8 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-400 hover:text-white"
               >
-                ✕
+                <IconX className="w-4 h-4" />
               </button>
             </div>
 
@@ -268,8 +269,8 @@ export function GuestGalleryModal({
                 />
               ) : (
                 <div className="text-center p-6 max-w-xs flex flex-col items-center">
-                  <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-3 text-2xl">
-                    ✓
+                  <div className="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 flex items-center justify-center mb-3">
+                    <IconCheck className="w-6 h-6 stroke-[2]" />
                   </div>
                   <h4 className="font-semibold text-zinc-100 text-sm mb-1.5 font-sans">
                     {lang === "id" ? "Foto Aman di Album Cloud" : "Photo Saved in Cloud Album"}

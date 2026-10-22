@@ -625,7 +625,7 @@ export function PhotosManagementView({
 
         {/* Bottom Row: Film Recipe Pills (Single-line horizontal scroll row, never wraps) */}
         <div className="pt-2 border-t border-zinc-800/60 flex items-center gap-2">
-          <span className="text-[11px] font-mono text-zinc-500 uppercase shrink-0">Recipe:</span>
+          <span className="text-[11px] font-mono text-zinc-400 uppercase shrink-0">Recipe:</span>
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
             <button
               type="button"
@@ -668,7 +668,7 @@ export function PhotosManagementView({
           {filteredPhotos.length === 0 ? (
             <div className="p-16 text-center rounded-2xl bg-white/[0.02] border border-white/[0.07] text-zinc-400">
               <p className="text-sm font-serif text-zinc-200">No photos match the selected filters.</p>
-              <p className="text-xs text-zinc-500 font-mono mt-1">Try switching your roll or recipe filters above.</p>
+              <p className="text-xs text-zinc-400 font-mono mt-1">Try switching your roll or recipe filters above.</p>
             </div>
           ) : (
             <>
@@ -697,7 +697,7 @@ export function PhotosManagementView({
                       {hasDriveId ? (
                         <>
                           {isFailed ? (
-                            <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-zinc-950 text-zinc-500 text-xs">
+                            <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center bg-zinc-950 text-zinc-400 text-xs">
                               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 mb-1 text-amber-400/60">
                                 <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
                                 <circle cx="9" cy="9" r="2" />
@@ -709,7 +709,7 @@ export function PhotosManagementView({
                             <>
                               {!isLoaded && (
                                 <div className="absolute inset-0 bg-zinc-900/80 animate-pulse flex items-center justify-center">
-                                  <span className="text-[10px] font-mono text-zinc-600">Loading…</span>
+                                  <span className="text-[10px] font-mono text-zinc-400">Loading…</span>
                                 </div>
                               )}
                               <img
@@ -738,7 +738,7 @@ export function PhotosManagementView({
                           )}
                         </>
                       ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center text-zinc-500 text-xs">
+                        <div className="w-full h-full flex flex-col items-center justify-center p-3 text-center text-zinc-400 text-xs">
                           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 mb-1 text-zinc-400">
                             <circle cx="12" cy="12" r="10" />
                             <polyline points="12 6 12 12 16 14" />
@@ -815,7 +815,7 @@ export function PhotosManagementView({
             </h2>
 
             {guestsWithStats.length === 0 ? (
-              <p className="text-xs text-zinc-500 font-mono py-4">No guests registered yet.</p>
+              <p className="text-xs text-zinc-400 font-mono py-4">No guests registered yet.</p>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs">
@@ -839,7 +839,7 @@ export function PhotosManagementView({
                             Roll {guest.roll_code}
                           </td>
                           <td className="py-3 px-3 text-zinc-200 font-sans">
-                            {guest.display_name || <span className="text-zinc-500 italic">Guest</span>}
+                            {guest.display_name || <span className="text-zinc-400 italic">Guest</span>}
                           </td>
                           <td className="py-3 px-3">
                             <span
@@ -855,7 +855,7 @@ export function PhotosManagementView({
                           <td className="py-3 px-3 text-zinc-400">
                             {completed ? "Completed Roll" : `${shotsPerGuest - (guest.totalShots || 0)} left`}
                           </td>
-                          <td className="py-3 px-3 text-zinc-500">
+                          <td className="py-3 px-3 text-zinc-400">
                             {new Date(guest.last_seen_at).toLocaleTimeString([], {
                               hour: "2-digit",
                               minute: "2-digit",
@@ -877,7 +877,7 @@ export function PhotosManagementView({
                                 </svg>
                               </a>
                             ) : (
-                              <span className="text-zinc-600">—</span>
+                              <span className="text-zinc-400">—</span>
                             )}
                           </td>
                           <td className="py-3 px-3 text-right">
@@ -968,10 +968,10 @@ export function PhotosManagementView({
                               {photo.drive_file_id.slice(0, 10)}…
                             </a>
                           ) : (
-                            <span className="text-stone-600">—</span>
+                            <span className="text-zinc-400">—</span>
                           )}
                         </td>
-                        <td className="py-3 px-3 text-stone-500">
+                        <td className="py-3 px-3 text-zinc-400">
                           {new Date(photo.created_at).toLocaleTimeString([], {
                             hour: "2-digit",
                             minute: "2-digit",

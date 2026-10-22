@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { IconChevronDown } from "@/components/ui/Icons";
 import { type Lang, t } from "@/lib/i18n";
 import { CONSENT_COPY, CONSENT_VERSION } from "@/constants/consentCopy";
 import { formatEditorialExpiry } from "@/lib/event-token";
@@ -207,7 +208,7 @@ export function LandingScreen({
                 className="block text-xs font-medium text-zinc-400"
               >
                 {t(lang, "yourName")}{" "}
-                <span className="text-zinc-500 font-normal">
+                <span className="text-zinc-400 font-normal">
                   ({lang === "id" ? "opsional" : "optional"})
                 </span>
               </label>
@@ -274,9 +275,7 @@ export function LandingScreen({
               <span className="underline underline-offset-4 decoration-zinc-700">
                 {copy.detailsTitle}
               </span>
-              <span className="text-zinc-500 group-open:rotate-180 transition-transform text-[10px]">
-                ▼
-              </span>
+              <IconChevronDown className="w-3.5 h-3.5 text-zinc-400 group-open:rotate-180 transition-transform" />
             </summary>
             <div className="mt-2.5 space-y-2.5 pt-2 border-t border-zinc-800 leading-relaxed text-zinc-300 bg-zinc-950/60 p-3.5 rounded-xl border border-zinc-800/60">
               <p className="text-zinc-400 italic text-[11px]">{copy.detailsIntro}</p>

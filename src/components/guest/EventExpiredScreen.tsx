@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
+import { IconX } from "@/components/ui/Icons";
 import { type Lang } from "@/lib/i18n";
 import { clearLocalConsent } from "@/lib/guest/consent";
 import { clearSessionTriple } from "@/lib/guest/session";
@@ -200,7 +201,7 @@ export function EventExpiredScreen({ eventSlug, reason = "expired" }: EventExpir
             setStatusMsg(null);
             setShowPrivacyModal(true);
           }}
-          className="text-[11px] font-mono text-zinc-500 hover:text-zinc-300 transition-colors underline underline-offset-4 cursor-pointer"
+          className="text-[11px] font-mono text-zinc-400 hover:text-zinc-200 transition-colors underline underline-offset-4 cursor-pointer"
         >
           {copy.privacyAction}
         </button>
@@ -219,7 +220,7 @@ export function EventExpiredScreen({ eventSlug, reason = "expired" }: EventExpir
                 onClick={() => setShowPrivacyModal(false)}
                 className="text-zinc-400 hover:text-white p-1"
               >
-                ✕
+                <IconX className="w-4 h-4" />
               </button>
             </div>
 

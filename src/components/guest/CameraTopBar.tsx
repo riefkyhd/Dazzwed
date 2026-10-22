@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { IconCheck } from "@/components/ui/Icons";
 import type { CameraAspect } from "@/lib/imaging/geometry";
 import { triggerHaptic } from "@/lib/camera/haptics";
 import type { Lang } from "@/lib/i18n";
@@ -201,8 +202,8 @@ export function CameraTopBar({
                 {pendingCount}
               </span>
             ) : justSynced ? (
-              <span className="font-mono text-[10px] font-medium text-emerald-400 animate-in fade-in duration-300">
-                ✓
+              <span className="font-mono text-[10px] font-medium text-emerald-400 animate-in fade-in duration-300 inline-flex items-center">
+                <IconCheck className="w-2.5 h-2.5 stroke-[2.5]" />
               </span>
             ) : null}
           </div>

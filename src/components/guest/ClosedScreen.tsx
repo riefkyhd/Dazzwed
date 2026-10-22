@@ -22,7 +22,7 @@ export function ClosedScreen({ coupleNames, status, opensAt, lang }: ClosedScree
 
   return (
     <div className="flex flex-col min-h-dvh max-w-md mx-auto px-6 py-12 justify-center items-center text-center">
-      <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-500 flex items-center justify-center mb-6">
+      <div className="w-16 h-16 rounded-full bg-zinc-900 border border-zinc-800 text-zinc-400 flex items-center justify-center mb-6">
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 24 24"
@@ -37,7 +37,7 @@ export function ClosedScreen({ coupleNames, status, opensAt, lang }: ClosedScree
         </svg>
       </div>
 
-      <h1 className="font-serif text-3xl text-zinc-300 font-normal mb-3">
+      <h1 className="font-serif text-3xl text-zinc-100 font-normal mb-3">
         {t(lang, "closedTitle")}
       </h1>
 

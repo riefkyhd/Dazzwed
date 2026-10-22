@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
+import { IconFilm } from "@/components/ui/Icons";
 import { useSearchParams } from "next/navigation";
 import { type Lang, t } from "@/lib/i18n";
 import { useCamera } from "@/lib/camera/useCamera";
@@ -767,7 +768,7 @@ export function CameraScreen({
         <ViewfinderFrame visible={mode === "banded"} />
 
 
-        {/* Starting Spinner (initial entry only, silent seamless switch on flip) */}
+        {/* Starting Spinner (initial entry only, silent switch on flip) */}
         {!hasInitialized && starting && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/60 backdrop-blur-xs text-white">
             <div className="w-8 h-8 rounded-full border-2 border-amber-400 border-t-transparent animate-spin mb-3" />
@@ -900,7 +901,7 @@ export function CameraScreen({
               className="w-13 h-13 rounded-2xl bg-zinc-900 border border-zinc-700/80 hover:border-amber-400/80 flex flex-col items-center justify-center text-zinc-300 hover:text-white transition active:scale-95 shadow-md relative overflow-hidden group cursor-pointer"
             >
               <div style={controlRotStyle} className="flex flex-col items-center justify-center">
-                <span className="text-base">🎞️</span>
+                <IconFilm className="w-5 h-5 text-amber-300" strokeWidth={1.75} />
                 {/* Single Clean Film Shots Counter Badge */}
                 <span className="absolute bottom-1 px-1.5 py-0.2 rounded-full bg-amber-400 text-black font-mono font-bold text-[9px] leading-tight shadow-sm">
                   {shotsLeft}

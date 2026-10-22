@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import { IconLock } from "@/components/ui/Icons";
 import { type Lang, t } from "@/lib/i18n";
 import type { CameraErrorKind } from "@/lib/camera/constraints";
 import { NativeCameraInput } from "./NativeCameraInput";
@@ -80,7 +81,7 @@ export function CameraRecoveryOverlay({
                 ) : (
                   <>
                     <p className="font-semibold text-amber-300">Chrome Android:</p>
-                    <p>1. Tap the lock/tune icon <b className="text-white">🔒</b> left of the URL</p>
+                    <p>1. Tap the lock/tune icon <IconLock className="w-3.5 h-3.5 inline text-zinc-300 align-sub" /> left of the URL</p>
                     <p>2. Tap <b className="text-white">Permissions</b> &rarr; <b className="text-white">Camera</b> &rarr; <b className="text-emerald-400">Allow</b></p>
                   </>
                 )}
