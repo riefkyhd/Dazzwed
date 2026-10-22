@@ -1034,7 +1034,7 @@ export function PhotosManagementView({
                     </div>
                     <h2 className="text-xl font-serif font-normal text-zinc-100 tracking-tight mt-1">Download All Photos (.ZIP)</h2>
                     <p className="text-xs text-zinc-400 mt-1">
-                      Download full-resolution wedding captures directly in your browser without compression degradation.
+                      Download all event photos as a ZIP file.
                     </p>
                   </div>
                   <button
@@ -1183,9 +1183,7 @@ export function PhotosManagementView({
                           </span>
                         </div>
                         <p className="text-[11px] text-zinc-400 mt-0.5">
-                          {exportOrganization === "guest"
-                            ? "Film photos inside each guest folder, with clean captures in an originals/ subfolder (just like Google Drive)."
-                            : "Organized cleanly into Film/ and Original/ subfolders inside the ZIP archive."}
+                          Includes both filtered photos and original camera captures.
                         </p>
                       </div>
                     </button>
@@ -1207,7 +1205,7 @@ export function PhotosManagementView({
                       <div className="flex-1">
                         <span className="font-semibold text-xs text-white">Film Developed Photos Only</span>
                         <p className="text-[11px] text-zinc-400 mt-0.5">
-                          Analog color graded photos with film recipes, emulsion grain, and vintage date stamps.
+                          Photos with the selected film look applied.
                         </p>
                       </div>
                     </button>
@@ -1227,9 +1225,9 @@ export function PhotosManagementView({
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <span className="font-semibold text-xs text-white">Clean RAW Sensor Originals Only</span>
+                        <span className="font-semibold text-xs text-white">Original Photos Only</span>
                         <p className="text-[11px] text-zinc-400 mt-0.5">
-                          Unfiltered camera sensor captures before any recipe processing or date stamp.
+                          Original photos directly from the camera without filters.
                         </p>
                       </div>
                     </button>

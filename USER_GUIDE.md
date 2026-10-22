@@ -413,8 +413,8 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Owner-Only Route & Navigation Shielding:**
      - System infrastructure controls (`/admin/connect-drive`, `/admin/health`, `/api/admin/drive/**`, `/api/admin/drive-health`) are completely stripped from client navigation bars and mobile drawers.
      - Direct HTTP requests to infrastructure and superadmin routes are rejected with `403 Forbidden: Superadmin access required`.
-   - **Reassuring Storage Vault Card:**
-     - Replaces technical Drive OAuth buttons with a sleek "Cloud Storage Vault: Connected" card, confirming that high-resolution photos are safely backed up in real time to the dedicated event drive vault.
+   - **Clear Storage Status Card:**
+     - Replaces technical Drive OAuth details with a straightforward "Google Drive Storage: Connected" card, confirming that guest photos are safely saved in real time to the event drive folder.
 
 4. **Tenant Ownership Enforcement on Photos (`/api/admin/photos/[id]/**`):**
    - Individual photo routes (streaming `/image`, deletion `/delete`, hide `/hide`, unhide `/unhide`, and bulk `.ZIP` exports) verify tenant ownership before returning or mutating data.

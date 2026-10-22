@@ -305,7 +305,7 @@ export function QrGeneratorView({ event }: QrGeneratorViewProps) {
         <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-zinc-400 font-medium">Printables & Stationary</span>
         <h1 className="text-2xl sm:text-3xl font-serif font-normal text-zinc-100 tracking-tight mt-1">QR Code & Vertical A4 Poster</h1>
         <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl leading-relaxed">
-          High-resolution vertical A4 portrait printable poster with Unveiled branding and guest camera instructions.
+          Printable A4 table sign with event QR code and guest instructions.
         </p>
       </div>
 

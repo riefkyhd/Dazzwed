@@ -455,7 +455,7 @@ export function LookLabView() {
           <span className="text-[11px] font-mono uppercase tracking-[0.14em] text-zinc-400 font-medium">Color Calibration Studio</span>
           <h1 className="text-2xl sm:text-3xl font-serif font-normal text-zinc-100 tracking-tight mt-1">Look Lab & Film Curation</h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xl leading-relaxed">
-            Physically modeled camera systems: Lens Model → Film Response → OKLCH Grading → Emulsion Optics.
+            Preview and customize film recipes for your camera.
           </p>
         </div>
 

@@ -72,7 +72,7 @@ export function EmptyEventOnboardingView({
       </h1>
 
       <p className="text-xs sm:text-sm text-zinc-400 leading-relaxed max-w-md mb-8">
-        Your client account is active and verified. Create your first wedding or event roll to configure guest camera limits, choose film recipes, and generate A4 print posters.
+        Create your first event to configure guest shot limits, choose a film look, and print your table QR code.
       </p>
 
       {isSuperadmin ? (

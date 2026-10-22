@@ -290,7 +290,7 @@ export function AdminPhotoLightbox({
                 <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
               </svg>
             </div>
-            <p className="text-sm font-semibold text-zinc-200">File Removed from Cloud Vault</p>
+            <p className="text-sm font-semibold text-zinc-200">File Removed from Google Drive</p>
             <p className="text-xs text-zinc-400 mt-1 leading-relaxed">This photo was moved or deleted from the event Google Drive folder.</p>
           </div>
         ) : (

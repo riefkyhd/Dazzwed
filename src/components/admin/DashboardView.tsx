@@ -322,10 +322,10 @@ export function DashboardView({
           <div>
             <h2 className="text-base font-semibold text-white flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-amber-400" />
-              <span>Google Drive Health & Storage Vault</span>
+              <span>Google Drive Storage</span>
             </h2>
             <p className="text-xs text-zinc-400 mt-0.5">
-              Live OAuth status and root wedding folder verification
+              Connection status and event folder verification
             </p>
           </div>
 
@@ -336,7 +336,7 @@ export function DashboardView({
               disabled={checkingHealth}
               className="h-8 px-3 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 text-xs font-medium text-zinc-200 transition-colors cursor-pointer"
             >
-              {checkingHealth ? "Testing Connection…" : "Run Live Health Check"}
+              {checkingHealth ? "Testing Connection…" : "Test Connection"}
             </button>
             {event.drive_root_folder_id && (
               <a
@@ -365,7 +365,7 @@ export function DashboardView({
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
-                    <span>DRIVE VAULT OPERATIONAL</span>
+                    <span>CONNECTED</span>
                   </>
                 ) : (
                   <>

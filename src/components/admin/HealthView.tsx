@@ -86,7 +86,7 @@ export function HealthView({
       <div className="flex flex-wrap items-center justify-between gap-4 border-b border-zinc-800 pb-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold font-serif text-white tracking-tight">System Health & Telemetry</h1>
-          <p className="text-xs sm:text-sm text-zinc-400">Live error reporting, queue telemetry & Google Drive quotas</p>
+          <p className="text-xs sm:text-sm text-zinc-400">Upload queue status, error logs, and storage diagnostics.</p>
         </div>
 
         <button

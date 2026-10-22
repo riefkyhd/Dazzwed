@@ -480,13 +480,13 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
               </div>
               <div>
                 <div className="text-xs font-medium text-zinc-200 flex items-center gap-2">
-                  <span>Cloud Storage Vault</span>
+                  <span>Google Drive Storage</span>
                   <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                     CONNECTED
                   </span>
                 </div>
                 <div className="text-[11px] text-zinc-400">
-                  Full-resolution guest photos are securely archived in real time.
+                  Guest photos are saved automatically in real time.
                 </div>
               </div>
             </div>
@@ -746,12 +746,12 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
               4. Active Film Simulation & 3D LUT Recipe
             </h2>
             <span className="text-[10px] font-mono uppercase tracking-widest text-amber-400/90 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded">
-              GPU Color Science
+              Default Look
             </span>
           </div>
 
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Choose the default photo recipe applied to all guest captures. The camera automatically renders analog film colors, optical halation bloom, and organic silver-halide grain.
+            Choose the default film look applied to guest photos.
           </p>
 
           <div>
@@ -843,7 +843,7 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
           </div>
 
           <p className="text-xs text-zinc-400 leading-relaxed">
-            Reset active cookies and session storage across all guest phones. When guests have reached their shot limit or you want to start a new round, resetting immediately issues everyone a brand new camera roll with {shotsPerGuest} fresh exposures without requiring guests to clear their browser cache or history.
+            Reset guest rolls to give everyone {shotsPerGuest} fresh shots. Existing uploaded photos remain safe.
           </p>
 
           <div className="p-4 rounded-xl bg-zinc-900/60 border border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -934,7 +934,7 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
                 Reset All Guest Device Sessions?
               </h3>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                This will invalidate cookies and session storage on every connected guest phone. When guests refresh or reopen the app, they will automatically receive a fresh camera roll with all {shotsPerGuest} shots remaining.
+                Connected guest phones will receive a fresh roll of {shotsPerGuest} shots upon refreshing.
               </p>
               <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-300 text-left flex items-start gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5">
@@ -984,7 +984,7 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
                 Rotate Token & Invalidate Old Links?
               </h3>
               <p className="text-xs text-zinc-400 leading-relaxed">
-                This will generate a brand-new 8-character token and immediately invalidate the current guest link and all previously printed QR codes.
+                Generates a new token and immediately invalidates previous links and printed QR codes.
               </p>
               <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] text-zinc-300 text-left space-y-1">
                 <div><span className="font-medium text-amber-400">New Window:</span> Set for {tokenDurationHours} hours from right now.</div>
