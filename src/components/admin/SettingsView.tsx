@@ -764,24 +764,24 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
               className="w-full px-3.5 py-2.5 rounded-lg bg-zinc-900/80 border border-zinc-800 focus:border-amber-400/60 focus:outline-none text-sm text-zinc-100 font-medium"
             >
               <optgroup label="Calibrated Film & Camera Recipes">
-                <option value="cpm-35">Rangefinder 35 (Classic 35mm Rangefinder — Golden Warmth)</option>
+                <option value="fuji-eterna-250d">Cinema 250D (Soft Cinema Motion-Picture & Muted Highlights)</option>
+                <option value="classic-chrome">Classic Chrome (Documentary Kodachrome 64 Warmth & Teal Sky)</option>
                 <option value="portra-400">Warm Portrait 400 (Pastel Warmth & Flattering Skin Tones)</option>
+                <option value="cpm-35">Rangefinder 35 (Classic 35mm Rangefinder — Golden Warmth)</option>
+                <option value="reala-ace">Reala Ace 100 (Fujicolor Reala 4th-Layer Cyan & Luminous Skin)</option>
                 <option value="editorial-flash">Editorial Flash (High-Fashion Vogue Direct Flash & Obsidian Blacks)</option>
-                <option value="airy-romantic">Airy Romantic 400H (Fuji Pro 400H Pastel Mint & Highlight Bloom)</option>
                 <option value="warm-vintage">Warm Vintage Heritage (Destination Golden Warmth & Honey Skin)</option>
                 <option value="retro-90s-flash">Retro 90s Flash (Point-and-Shoot Xenon Falloff & Chartreuse)</option>
-                <option value="classic-chrome">Classic Chrome (Documentary Kodachrome 64 Warmth & Teal Sky)</option>
-                <option value="reala-ace">Reala Ace 100 (Fujicolor Reala 4th-Layer Cyan & Luminous Skin)</option>
-                <option value="cinestill-800t">Tungsten 800T (Night Tungsten & Red Halation Glow)</option>
-                <option value="fuji-eterna-250d">Cinema 250D (Soft Cinema Motion-Picture)</option>
                 <option value="classic-neg">Classic Neg 400 (Deep Teal Foliage & Crimson)</option>
-                <option value="tri-x-400">Panchromatic B&W 400 (High-Contrast Black & White — Silver Grain)</option>
-                <option value="ilford-hp5-plus">Mono Street 400 (High-Contrast Street B&W)</option>
-                <option value="kodak-ektar-100">Vivid 100 (Ultra-Vivid Daylight Landscape)</option>
-                <option value="super-8mm-vintage">Super 8mm Vintage (1970s Warm Celluloid Home Movie)</option>
                 <option value="golden-200">Golden 200 (Warm Sunny Wedding Nostalgia)</option>
                 <option value="disposable-400">Disposable 400 (Authentic 90s Disposable)</option>
                 <option value="ccd-flash">Digicam Flash (2000s CCD Digicam Vibe)</option>
+                <option value="airy-romantic">Airy Romantic 400H (Fuji Pro 400H Soft Matte & Luminous Skin)</option>
+                <option value="cinestill-800t">Tungsten 800T (Night Tungsten & Red Halation Glow)</option>
+                <option value="kodak-ektar-100">Vivid 100 (Ultra-Fine Grain Daylight Landscape)</option>
+                <option value="super-8mm-vintage">Super 8mm Vintage (1970s Warm Celluloid Home Movie)</option>
+                <option value="tri-x-400">Panchromatic B&W 400 (High-Contrast Black & White — Silver Grain)</option>
+                <option value="ilford-hp5-plus">Mono Street 400 (High-Contrast Street B&W)</option>
                 <option value="instant">Instant Square (Milky Blacks & Square Framing)</option>
               </optgroup>
 
