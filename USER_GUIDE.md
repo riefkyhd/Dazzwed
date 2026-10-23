@@ -504,12 +504,13 @@ This safely removes rate limit hashes older than 24 hours and telemetry events o
    - **Recent Photo Uploads Table:** Clean darkroom table with status dots, monospace timestamps, and ghost action buttons.
 
 3. **Event Settings (`SettingsView.tsx`):**
-   - **5 Calm Darkroom Sections:**
+   - **6 Calm Darkroom Sections:**
      1. *Event Identity & Theme:* Event subtitle, couple names, exposures per roll (with package entitlement lock), theme accent/background hex pickers, and welcome note.
      2. *Schedule & Camera Control:* Manual shutter toggle and automated open/close scheduling.
      3. *Event Link & Access Window:* Camera URL with 1-click copy, duration presets (12h, 24h, 48h, 7d), exact expiration display, and cryptographic token rotation modal.
      4. *Active Film Simulation & 3D LUT Recipe:* Clean optgroup presets without emojis and direct `.cube` 3D LUT file importer.
      5. *Guest Device Sessions & Maintenance:* Active session counter and safe reset confirmation modal.
+     6. *Account Security & Password Management:* In-app password rotation for authenticated hosts and superadmins with constant-time scrypt verification (`crypto.timingSafeEqual`), minimum 8-character validation, and dual-sync with Supabase Auth.
    - **Standardized Form Controls:** Uniform dark inputs (`bg-zinc-900/80 border border-zinc-800 text-sm rounded-lg focus:border-amber-400/60 focus:ring-1 focus:ring-amber-400/30`).
    - **Zero Cartoon Emojis:** Replaced all emojis (`✨`, `📁`, `⚡`, `⚠️`, `✓`) across alerts, modals, and dropdowns with crisp `1.75px` stroke Lucide vector icons.
 
@@ -612,7 +613,9 @@ Following an independent automated security audit (`run-3`) adhering to Cloudfla
    - **Strict 2 MB Payload Ceiling:** `POST /api/admin/luts` enforces `file.size <= 2 * 1024 * 1024` bytes before reading the file into memory, returning `413 Payload Too Large` if exceeded to protect against memory/disk exhaustion.
    - **Protected System Stock Presets:** Built-in film simulation profiles (`warm-portrait-400.cube`, `classic-neg-400.cube`, `tungsten-800t.cube`, etc.) cannot be overwritten. Any upload matching a protected preset returns `403 Cannot overwrite system stock LUT preset`.
    - **Client Tenant Namespace Isolation:** Custom LUT files uploaded by client hosts are automatically prefixed with their tenant identifier (`client-${session.clientId.slice(0, 8)}-${name}.cube`), ensuring multiple wedding organizers cannot overwrite each other's custom color profiles.
-   - **Content Verification:** The handler verifies the text content is free of binary null bytes and contains valid `LUT_3D_SIZE` or `LUT_1D_SIZE` declarations before saving.## 20. Event-Day Pre-Flight: Mandatory Guest Names & 4-Way Return Resilience
+   - **Content Verification:** The handler verifies the text content is free of binary null bytes and contains valid `LUT_3D_SIZE` or `LUT_1D_SIZE` declarations before saving.
+
+## 20. Event-Day Pre-Flight: Mandatory Guest Names & 4-Way Return Resilience
 
 In preparation for live event execution, the guest onboarding flow and return mechanism have been hardened with zero-defect guarantees:
 
@@ -626,5 +629,22 @@ In preparation for live event execution, the guest onboarding flow and return me
    - **Pathway 2 — Browser Navigation to Home (`/`) or `/e/[slug]` without `?t=`:** If a guest returns to the root domain (`/`), the server detects their active `dc_g_[slug]` cookie and renders a prominent `"Active Film Roll Detected: Return to Camera →"` card. Accessing `/e/[slug]` directly without query parameters recognizes the authenticated session cookie and allows immediate camera access.
    - **Pathway 3 — Corrupted Token Rejection (`/e/[slug]?t=[tampered_token]`):** Even if an active session cookie exists, passing a corrupted or mutated token in the URL strictly blocks access, rendering `"Camera Link Invalid"` with zero metadata leakage to safeguard couple privacy.
    - **Pathway 4 — Cross-Browser Roll Recovery Code (`"Continue my roll"`):** If a guest initiates their roll inside a social in-app browser (e.g. Instagram or LINE) and switches to native Safari or Chrome, they can tap `"Already took photos? Continue my roll"`, enter their deterministic 6-character roll code (e.g. `7EGE9X`), and immediately resume shooting with their remaining exposure quota intact.
+
+## 21. Self-Service Account Security & Darkroom Password Management
+
+To empower client hosts and platform administrators while removing manual database maintenance, Dazzwed incorporates an in-app password rotation engine:
+
+1. **Self-Service Password Mutation (`PATCH /api/admin/settings/password`):**
+   - **Authenticated Access Required:** Only active authenticated sessions (`role: 'client'` or `role: 'superadmin'`) can trigger password modifications.
+   - **Timing-Attack Resistant Verification:** The caller's current password is authenticated against their stored scrypt hash using `crypto.timingSafeEqual`, preventing side-channel timing leaks.
+   - **Length & Complexity Validation:** New passwords must be at least 8 characters in length.
+   - **Dual Database & Auth Synchronization:** When updated, the new password is hashed using production-grade scrypt (`N=16384, r=8, p=1`) and written to `public.clients.password_hash`. Concurrently, if a corresponding user exists in Supabase Auth (`auth.users`), the admin API synchronizes the credential using `supabase.auth.admin.updateUserById`, guaranteeing uninterrupted single sign-on parity across both authentication paths.
+   - **Brute-Force Rate Limiting:** Mutation attempts are rate-limited per client IP address (maximum 5 attempts per 15-minute sliding window) to thwart brute-force password guessing.
+
+2. **Luxury Editorial UI (`PasswordChangeCard.tsx`):**
+   - **Unified Darkroom Card:** Housed in `bg-white/[0.02] border border-white/[0.07] rounded-xl p-6` adhering strictly to `DESIGN.md`.
+   - **Tactile Inputs:** Features show/hide visibility toggles with eye icons, monospace character counters (`x / 8 min`), inline validation badges, and tactile state transitions.
+   - **Seamless Dual Integration:** Accessible in `/admin/settings` (Section 6: Account Security) for client hosts, and directly inside `/superadmin` via the Zone 3 "Security" navigation action for Platform Owners.
+
 
 

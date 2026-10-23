@@ -70,13 +70,24 @@ export async function POST(req: Request) {
 
     // 2. Check if email matches a Client Host account (clients table)
     const sb = supabaseAdmin();
-    const { data: client, error: clientErr } = await sb
+    const { data: rawClient, error: clientErr } = await sb
       .from("clients")
-      .select("id, name, email, password_hash, access_code, status")
+      .select("id, name, email, password_hash, access_code, status, notes")
       .eq("email", normalizedEmail)
       .maybeSingle();
 
-    if (!clientErr && client) {
+    if (!clientErr && rawClient) {
+      const client = rawClient as {
+        id: string;
+        name: string;
+        email: string;
+        password_hash: string | null;
+        access_code: string;
+        status: string;
+        notes?: string | null;
+        role?: string | null;
+      };
+
       // Check account suspension
       if (client.status === "suspended") {
         return NextResponse.json(
@@ -91,12 +102,25 @@ export async function POST(req: Request) {
         (client.password_hash && verifyClientPassword(password, client.password_hash));
 
       if (isPasswordMatch) {
-        const session: AuthSession = {
-          role: "client",
-          clientId: client.id,
-          email: client.email,
-          name: client.name,
-        };
+        const isSuperadmin =
+          client.role === "superadmin" ||
+          client.notes === "superadmin" ||
+          client.notes === "Platform Owner / Superadmin" ||
+          env.ADMIN_EMAILS.includes(normalizedEmail);
+
+        const session: AuthSession = isSuperadmin
+          ? {
+              role: "superadmin",
+              email: client.email,
+              userId: client.id,
+              name: client.name || "Platform Owner",
+            }
+          : {
+              role: "client",
+              clientId: client.id,
+              email: client.email,
+              name: client.name,
+            };
         const token = signSessionToken(session);
         cookieStore.set(SESSION_COOKIE_NAME, token, {
           path: "/",
@@ -108,8 +132,8 @@ export async function POST(req: Request) {
 
         return NextResponse.json({
           ok: true,
-          role: "client",
-          redirectTo: "/admin",
+          role: session.role,
+          redirectTo: isSuperadmin ? "/superadmin" : "/admin",
           user: { id: client.id, email: client.email, name: client.name },
         });
       }

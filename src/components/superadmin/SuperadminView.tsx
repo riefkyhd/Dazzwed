@@ -5,6 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { triggerHaptic } from "@/lib/camera/haptics";
+import { IconLock } from "@/components/ui/Icons";
+import { PasswordChangeCard } from "@/components/admin/PasswordChangeCard";
 
 export interface SuperadminEvent {
   id: string;
@@ -93,6 +95,7 @@ export function SuperadminView({
   const [isUpdatingEvent, setIsUpdatingEvent] = useState(false);
   const [clientFilter, setClientFilter] = useState<"all" | "active" | "suspended">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
 
   // Summary Metrics
   const totalPhotos = allEvents.reduce((acc, ev) => acc + (ev.photo_count || 0), 0);
@@ -323,6 +326,15 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
 
         {/* Zone 3: Actions */}
         <div className="flex items-center gap-2.5 shrink-0">
+          <button
+            type="button"
+            onClick={() => setShowSecurityModal(true)}
+            className="h-8 px-3 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
+            title="Account Security & Password"
+          >
+            <IconLock className="w-3.5 h-3.5 text-amber-400" />
+            <span>Security</span>
+          </button>
           <Link
             href="/admin"
             className="h-8 px-3 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-xs font-medium text-zinc-300 hover:text-white transition-colors flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
@@ -1017,6 +1029,29 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Security & Password Change Modal */}
+      {showSecurityModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="relative max-w-lg w-full">
+            <button
+              type="button"
+              onClick={() => setShowSecurityModal(false)}
+              className="absolute -top-3 -right-3 z-10 w-7 h-7 rounded-full bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            <PasswordChangeCard
+              sectionNumber=""
+              title="Superadmin Account Security"
+              className="bg-zinc-950 border border-zinc-800 shadow-2xl"
+            />
           </div>
         </div>
       )}

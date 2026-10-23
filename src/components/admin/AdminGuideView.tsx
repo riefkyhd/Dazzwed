@@ -758,6 +758,21 @@ export function AdminGuideView() {
                   : "Pre-Flight Hari-H menjamin nol foto anonim dan ketahanan mekanisme kembali bagi tamu: (1) Gerbang Nama Wajib: Tamu wajib mengisi nama (minimal 2 karakter) sebelum membuka roll film; folder anonim 'Roll #...' sepenuhnya dieliminasi di Google Drive dan galeri admin. (2) Ketahanan 4 Jalur Kembali: (a) Pindai ulang QR langsung mengenali tamu tanpa kedipan kuota; (b) Mengunjungi halaman beranda (/) atau /e/[slug] tanpa token menyediakan tombol instan 'Kembali ke Kamera'; (c) Token rusak/dimanipulasi diblokir total demi privasi; (d) Tamu yang berganti browser (misal dari in-app browser Instagram ke Safari) dapat mengetuk 'Lanjutkan roll film' dan memasukkan kode 6-karakter untuk memulihkan roll film mereka."}
               </p>
             </div>
+
+            {/* Control 30: Self-Service Account Security & Darkroom Password Management */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 30: Self-Service Account Security & Darkroom Password Management" : "Kontrol 30: Keamanan Akun Mandiri & Manajemen Kata Sandi Darkroom"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "In-app self-service password rotation for client hosts and platform administrators: (1) Accessible directly in /admin/settings (Section 6: Account Security) and /superadmin (Zone 3 Security modal). (2) Timing-Safe Verification: Current password validated using constant-time crypto.timingSafeEqual comparison against scrypt hash. (3) Dual Sync: Automatically synchronizes new scrypt hash with Supabase Auth (auth.users) for seamless single sign-on parity. (4) Rate-Limited: Maximum 5 attempts per 15 minutes per IP to guard against brute-force attacks."
+                  : "Rotasi kata sandi mandiri dalam aplikasi untuk klien tuan rumah dan administrator platform: (1) Dapat diakses langsung di /admin/settings (Bagian 6: Keamanan Akun) dan /superadmin (Modal Keamanan Zona 3). (2) Verifikasi Bebas Kebocoran Waktu: Kata sandi saat ini divalidasi dengan perbandingan waktu konstan crypto.timingSafeEqual terhadap hash scrypt. (3) Sinkronisasi Ganda: Secara otomatis menyelaraskan hash scrypt baru dengan Supabase Auth (auth.users) demi kelancaran masuk akun. (4) Batas Percobaan: Maksimal 5 percobaan per 15 menit per IP untuk mencegah serangan brute-force."}
+              </p>
+            </div>
           </div>
         </div>
       )}

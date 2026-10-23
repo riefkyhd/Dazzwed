@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatExpirationNotice } from "@/lib/event-token";
+import { PasswordChangeCard } from "@/components/admin/PasswordChangeCard";
 
 interface SettingsViewProps {
   initialEvent: {
@@ -916,6 +917,9 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
           </button>
         </div>
       </form>
+
+      {/* Section 6: Account Security & Credentials */}
+      <PasswordChangeCard sectionNumber="6" />
 
       {/* Confirmation Modal: Reset Sessions */}
       {showResetModal && (
