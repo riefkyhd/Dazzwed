@@ -269,8 +269,8 @@ export function AdminGuideView() {
                 <span>
                   <strong>{lang === "en" ? "Guest Folders in Google Drive:" : "Folder Tamu di Google Drive:"}</strong>{" "}
                   {lang === "en"
-                    ? "Photos are organized into folders labeled `Guest Name (RollCode)` (e.g., `Dhifa (7EGE9X)`). If no name was entered, it is labeled `Roll 7EGE9X`."
-                    : "Foto diorganisasi dalam folder bernama `Nama Tamu (KodeRoll)` (contoh: `Dhifa (7EGE9X)`). Jika tamu tidak mengisi nama, folder bernama `Roll 7EGE9X`."}
+                    ? "Photos are organized into folders labeled `Guest Name (RollCode)` (e.g., `Dhifa (7EGE9X)`). Guest names are strictly mandatory upon onboarding, guaranteeing 100% human-readable folder names with zero anonymous `Roll #...` fallbacks."
+                    : "Foto diorganisasi dalam folder bernama `Nama Tamu (KodeRoll)` (contoh: `Dhifa (7EGE9X)`). Nama tamu bersifat wajib diisi saat onboarding, menjamin 100% nama folder jelas tanpa folder anonim `Roll #...`."}
                 </span>
               </div>
               <div className="flex items-start gap-2">
@@ -741,6 +741,21 @@ export function AdminGuideView() {
                 {lang === "en"
                   ? "Guarantees robust guest session preservation and zero-friction cloud vaulting: (1) Global Master Vault Auto-Provisioning: Once the platform owner authorizes Google Drive, all newly created and existing events automatically auto-provision their dedicated root folders on-the-fly upon the first capture, eliminating the need to re-authorize for every event or client. (2) Guest Display Name Integrity: Session refresh and telemetry synchronization requests protect existing guest names from being wiped back to 'Guest' on page reloads or camera resumption."
                   : "Menjamin integritas sesi tamu dan kemudahan integrasi vault cloud tanpa hambatan: (1) Auto-Provisioning Vault Master Global: Setelah pemilik platform mengotorisasi Google Drive, seluruh event baru maupun yang sudah ada akan otomatis membuat folder root khusus saat pengambilan foto pertama tanpa perlu otorisasi ulang per event. (2) Integritas Nama Tamu: Sinkronisasi sesi latar belakang melindungi nama tamu yang telah dimasukkan agar tidak terhapus kembali menjadi 'Guest' saat muat ulang halaman atau membuka kembali kamera."}
+              </p>
+            </div>
+
+            {/* Control 29: Mandatory Guest Name & 4-Way Return Mechanism */}
+            <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider font-mono">
+                  {lang === "en" ? "Control 29: Mandatory Guest Name & 4-Way Return Resilience" : "Kontrol 29: Nama Tamu Wajib & Ketahanan 4 Jalur Kembali"}
+                </h4>
+              </div>
+              <p className="text-xs text-zinc-300 leading-relaxed">
+                {lang === "en"
+                  ? "Event-Day Pre-Flight guarantees zero anonymous captures and bulletproof guest return mechanisms: (1) Mandatory Name Gate: Guests must provide a verified name (>= 2 characters) before claiming a film roll; anonymous 'Roll #...' entries are completely eliminated across Google Drive and admin contact sheets. (2) 4-Way Return Resilience: (a) Venue QR re-scan immediately recognizes returning guests via cookie/localStorage with zero shot-counter flicker; (b) Visiting root (/) or /e/[slug] without token provides an instant 'Return to Camera' path; (c) Tampered tokens are strictly blocked to protect couple privacy; (d) Guests switching browsers (e.g. from Instagram in-app browser to Safari) can tap 'Continue my roll' and enter their 6-character roll code to restore their exact exposures."
+                  : "Pre-Flight Hari-H menjamin nol foto anonim dan ketahanan mekanisme kembali bagi tamu: (1) Gerbang Nama Wajib: Tamu wajib mengisi nama (minimal 2 karakter) sebelum membuka roll film; folder anonim 'Roll #...' sepenuhnya dieliminasi di Google Drive dan galeri admin. (2) Ketahanan 4 Jalur Kembali: (a) Pindai ulang QR langsung mengenali tamu tanpa kedipan kuota; (b) Mengunjungi halaman beranda (/) atau /e/[slug] tanpa token menyediakan tombol instan 'Kembali ke Kamera'; (c) Token rusak/dimanipulasi diblokir total demi privasi; (d) Tamu yang berganti browser (misal dari in-app browser Instagram ke Safari) dapat mengetuk 'Lanjutkan roll film' dan memasukkan kode 6-karakter untuk memulihkan roll film mereka."}
               </p>
             </div>
           </div>

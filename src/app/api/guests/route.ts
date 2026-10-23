@@ -28,8 +28,8 @@ const clean = (s?: string | null) => {
 };
 
 /**
- * Create or resume an anonymous guest with explicit Indonesia UU PDP consent.
- * Guest name is optional. Consent is strictly enforced.
+ * Create or resume a guest with explicit Indonesia UU PDP consent.
+ * Guest name is mandatory (>= 2 chars) for new registrations. Consent is strictly enforced.
  */
 export async function POST(req: Request) {
   const ip = getClientIp(req);
@@ -153,8 +153,11 @@ export async function POST(req: Request) {
       };
 
       if (name !== undefined && name !== null) {
-        patchWithConsent.display_name = name;
-        guest.display_name = name;
+        const trimmed = name.trim().slice(0, 50);
+        if (trimmed.length >= 2) {
+          patchWithConsent.display_name = trimmed;
+          guest.display_name = trimmed;
+        }
       }
       guest.consent_version = consentVersion;
       guest.consent_at = nowIso;
@@ -169,12 +172,26 @@ export async function POST(req: Request) {
   }
 
   if (!guest) {
+    const trimmedName = (name ?? "").trim();
+    if (trimmedName.length < 2) {
+      return NextResponse.json(
+        { error: "Guest name is required (at least 2 characters) to start a film roll", code: "GUEST_NAME_REQUIRED" },
+        { status: 400 }
+      );
+    }
+    if (trimmedName.length > 50) {
+      return NextResponse.json(
+        { error: "Guest name must be at most 50 characters", code: "GUEST_NAME_TOO_LONG" },
+        { status: 400 }
+      );
+    }
+
     const nowIso = new Date().toISOString();
     const insertRes = await sb
       .from("guests")
       .insert({
         event_id: ev.id,
-        display_name: name || null,
+        display_name: trimmedName,
         consent_version: consentVersion,
         consent_at: nowIso,
         consent_telemetry: consentTelemetry,

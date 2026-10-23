@@ -45,6 +45,7 @@ export function LandingScreen({
   onRestoreSuccess,
 }: LandingScreenProps) {
   const [name, setName] = useState("");
+  const [nameError, setNameError] = useState(false);
   const [consentAlbum, setConsentAlbum] = useState(false);
   const [consentTelemetry, setConsentTelemetry] = useState(false);
   const [consentError, setConsentError] = useState(false);
@@ -54,9 +55,17 @@ export function LandingScreen({
 
   const copy = CONSENT_COPY[lang];
   const editorialExpiry = formatEditorialExpiry(tokenExpiresAt, lang);
+  const isNameValid = name.trim().length >= 2;
 
   const handleStart = (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmed = name.trim();
+    if (trimmed.length < 2) {
+      setNameError(true);
+      return;
+    }
+    setNameError(false);
+
     if (!consentAlbum) {
       setConsentError(true);
       return;
@@ -72,7 +81,7 @@ export function LandingScreen({
       }
     }
 
-    onStartCamera(name.trim(), {
+    onStartCamera(trimmed, {
       album: consentAlbum,
       telemetry: consentTelemetry,
       version: CONSENT_VERSION,
@@ -198,30 +207,43 @@ export function LandingScreen({
 
         {!editorialExpiry && <div className="mb-4" />}
 
-        {/* Form: Optional Name + Un-boxed Checkboxes */}
+        {/* Form: Mandatory Name + Un-boxed Checkboxes */}
         <form onSubmit={handleStart} className="w-full space-y-3.5 text-left">
-          {/* Optional Guest Name */}
+          {/* Mandatory Guest Name */}
           <div>
             <div className="flex items-center justify-between mb-1 ml-0.5">
               <label
                 htmlFor="guest-name"
-                className="block text-xs font-medium text-zinc-400"
+                className="block text-[11px] font-mono uppercase tracking-[0.14em] text-zinc-400 font-medium"
               >
-                {t(lang, "yourName")}{" "}
-                <span className="text-zinc-400 font-normal">
-                  ({lang === "id" ? "opsional" : "optional"})
-                </span>
+                {lang === "id" ? "NAMA ANDA" : "YOUR NAME"}{" "}
+                <span className="text-amber-400 font-bold">*</span>
               </label>
             </div>
             <input
               id="guest-name"
               type="text"
+              required
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => {
+                setName(e.target.value);
+                if (nameError && e.target.value.trim().length >= 2) {
+                  setNameError(false);
+                }
+              }}
               placeholder={t(lang, "yourNamePlaceholder")}
-              maxLength={60}
-              className="w-full px-4 py-3 rounded-xl bg-zinc-900 border border-zinc-700/80 focus:border-accent text-white placeholder-zinc-500 focus:outline-none text-sm transition-colors"
+              maxLength={50}
+              className={`w-full px-4 py-3 rounded-xl bg-zinc-900 border ${
+                nameError
+                  ? "border-rose-400/80 focus:border-rose-400"
+                  : "border-zinc-700/80 focus:border-accent"
+              } text-white placeholder-zinc-500 focus:outline-none text-sm transition-colors`}
             />
+            {nameError && (
+              <p className="text-xs text-rose-300 font-medium mt-1.5 leading-relaxed">
+                {t(lang, "nameValidationMin")}
+              </p>
+            )}
           </div>
 
           {/* Un-boxed Consent Checkboxes */}
@@ -333,7 +355,7 @@ export function LandingScreen({
           {/* Primary Gold CTA: Start camera */}
           <button
             type="submit"
-            disabled={!consentAlbum}
+            disabled={!consentAlbum || !isNameValid}
             className="w-full py-3.5 px-6 rounded-xl bg-accent text-accent-fg font-bold text-base shadow-lg shadow-amber-950/40 hover:brightness-110 active:scale-[0.99] transition-all touch-manipulation cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {t(lang, "startCamera")}
@@ -344,7 +366,12 @@ export function LandingScreen({
         <div className="w-full mt-2.5">
           <NativeCameraInput
             eventSlug={eventSlug}
+            disabled={!consentAlbum || !isNameValid}
             beforeClick={() => {
+              if (!isNameValid) {
+                setNameError(true);
+                return false;
+              }
               if (!consentAlbum) {
                 setConsentError(true);
                 return false;
@@ -352,8 +379,8 @@ export function LandingScreen({
               return true;
             }}
             onFileSelected={(file, quickThumb) => {
-              if (!consentAlbum) return;
-              onNativePhoto(file, name.trim() || null, quickThumb, {
+              if (!consentAlbum || !isNameValid) return;
+              onNativePhoto(file, name.trim(), quickThumb, {
                 album: consentAlbum,
                 telemetry: consentTelemetry,
                 version: CONSENT_VERSION,

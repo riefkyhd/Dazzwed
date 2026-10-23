@@ -74,7 +74,7 @@
    - In `/admin/photos` (or via the dashboard quick action button), click **"Download All (.ZIP)"**.
    - Select scope (**All Event Photos** or **Current Filtered View**).
    - Select folder categorization:
-     - **📁 Per Guest Folders (Google Drive Structure)** (default & recommended) — When unzipped, photos are neatly organized into folders for each guest: `Guest Name (RollCode)/` (or `Roll RollCode/`) with clean captures placed in an `originals/` subfolder, exactly matching your Google Drive hierarchy.
+     - **📁 Per Guest Folders (Google Drive Structure)** (default & recommended) — When unzipped, photos are neatly organized into folders for each guest: `Guest Name (RollCode)/` with clean captures placed in an `originals/` subfolder, exactly matching your Google Drive hierarchy. Guest names are mandatory upon onboarding, ensuring 100% human-readable folder names.
      - **📦 By Variant** — Groups photos into top-level `Film/` and `Original/` folders across all guests.
    - Select your export variant:
      - **✦+◯ Both Film & Originals (.ZIP)** (recommended).
@@ -608,11 +608,19 @@ Following an independent automated security audit (`run-3`) adhering to Cloudfla
    - **Strict 2 MB Payload Ceiling:** `POST /api/admin/luts` enforces `file.size <= 2 * 1024 * 1024` bytes before reading the file into memory, returning `413 Payload Too Large` if exceeded to protect against memory/disk exhaustion.
    - **Protected System Stock Presets:** Built-in film simulation profiles (`warm-portrait-400.cube`, `classic-neg-400.cube`, `tungsten-800t.cube`, etc.) cannot be overwritten. Any upload matching a protected preset returns `403 Cannot overwrite system stock LUT preset`.
    - **Client Tenant Namespace Isolation:** Custom LUT files uploaded by client hosts are automatically prefixed with their tenant identifier (`client-${session.clientId.slice(0, 8)}-${name}.cube`), ensuring multiple wedding organizers cannot overwrite each other's custom color profiles.
-   - **Content Verification:** The handler verifies the text content is free of binary null bytes and contains valid `LUT_3D_SIZE` or `LUT_1D_SIZE` declarations before saving.
+   - **Content Verification:** The handler verifies the text content is free of binary null bytes and contains valid `LUT_3D_SIZE` or `LUT_1D_SIZE` declarations before saving.## 20. Event-Day Pre-Flight: Mandatory Guest Names & 4-Way Return Resilience
 
+In preparation for live event execution, the guest onboarding flow and return mechanism have been hardened with zero-defect guarantees:
 
+1. **Mandatory Guest Name Gate (Zero Anonymous Rolls):**
+   - **Enforced UI Validation:** On the welcome screen (`LandingScreen`), the guest name field is strictly required (`YOUR NAME *` / `NAMA ANDA *`). Both the primary `"Start camera"` action and `"Use my phone's camera app"` fallback remain disabled until a valid name ($\ge 2$ characters, max 50) is entered.
+   - **Server-Side API Rejection:** `POST /api/guests` strictly enforces that new guest roll creations include a valid non-empty `name` ($\ge 2$ characters). Anonymous requests are rejected with `400 Bad Request` (`GUEST_NAME_REQUIRED`), ensuring zero generic `"Roll #..."` folders are ever created in Google Drive or admin galleries.
+   - **Backwards Compatibility:** Returning guests with established sessions are preserved across reloads and background telemetry syncs without overwriting their registered name.
 
-
-
+2. **4-Way Guest Return Resilience:**
+   - **Pathway 1 — Re-Scanning Venue QR Code (`/e/[slug]?t=[valid_token]`):** Returning guests who scan the physical A4 print table cards are immediately recognized via cookie and `localStorage` snapshot, bypassing registration and pre-hydrating their remaining exposures without counter flicker.
+   - **Pathway 2 — Browser Navigation to Home (`/`) or `/e/[slug]` without `?t=`:** If a guest returns to the root domain (`/`), the server detects their active `dc_g_[slug]` cookie and renders a prominent `"Active Film Roll Detected: Return to Camera →"` card. Accessing `/e/[slug]` directly without query parameters recognizes the authenticated session cookie and allows immediate camera access.
+   - **Pathway 3 — Corrupted Token Rejection (`/e/[slug]?t=[tampered_token]`):** Even if an active session cookie exists, passing a corrupted or mutated token in the URL strictly blocks access, rendering `"Camera Link Invalid"` with zero metadata leakage to safeguard couple privacy.
+   - **Pathway 4 — Cross-Browser Roll Recovery Code (`"Continue my roll"`):** If a guest initiates their roll inside a social in-app browser (e.g. Instagram or LINE) and switches to native Safari or Chrome, they can tap `"Already took photos? Continue my roll"`, enter their deterministic 6-character roll code (e.g. `7EGE9X`), and immediately resume shooting with their remaining exposure quota intact.
 
 
