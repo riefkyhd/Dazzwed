@@ -75,7 +75,7 @@ Guests access the camera directly via their mobile browser using the event slug 
 - **Slug:** `our-wedding`
 - **Access Token:** `103685F6`
 - **Token Validity:** Valid until **November 20, 2026** (`2026-11-20T01:35:10Z`)
-- **Roll Limit:** 27 shots per guest
+- **Roll Limit:** 30 shots per guest
 - **Package Tier:** Classic 35mm
 - **Dual Master Vault:** Enabled (Connected to Google Drive Folder `1k0aWNMPddFUUA6XthlvhFZriRstwwzIf`)
 
