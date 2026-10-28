@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -96,6 +96,17 @@ export function SuperadminView({
   const [clientFilter, setClientFilter] = useState<"all" | "active" | "suspended">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [showSecurityModal, setShowSecurityModal] = useState(false);
+
+  // Lock body scrolling when any modal is open on small screens
+  useEffect(() => {
+    if (showCreateClientModal || editingEvent || showSecurityModal) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [showCreateClientModal, editingEvent, showSecurityModal]);
 
   // Summary Metrics
   const totalPhotos = allEvents.reduce((acc, ev) => acc + (ev.photo_count || 0), 0);
@@ -705,8 +716,13 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
 
       {/* Modal: Create Client */}
       {showCreateClientModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl relative text-left">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowCreateClientModal(false);
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl relative text-left my-auto max-h-[min(90vh,720px)] overflow-y-auto overscroll-contain">
             <h2 className="text-lg font-serif font-bold text-white mb-1">
               Create Client Account
             </h2>
@@ -868,8 +884,13 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
 
       {/* Modal: Edit Event & Quota Override */}
       {editingEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-lg rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl relative text-left">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isUpdatingEvent) setEditingEvent(null);
+          }}
+        >
+          <div className="w-full max-w-lg rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl relative text-left my-auto max-h-[min(90vh,760px)] overflow-y-auto overscroll-contain">
             <h2 className="text-lg font-serif font-bold text-white mb-1">
               Edit Event: {editingEvent.couple_names}
             </h2>
@@ -1035,8 +1056,13 @@ Silakan buka tautan di atas dan masukkan Email serta Access Code untuk mulai men
 
       {/* Security & Password Change Modal */}
       {showSecurityModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="relative max-w-lg w-full">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowSecurityModal(false);
+          }}
+        >
+          <div className="relative max-w-lg w-full my-auto max-h-[min(90vh,740px)] overflow-y-auto overscroll-contain">
             <button
               type="button"
               onClick={() => setShowSecurityModal(false)}

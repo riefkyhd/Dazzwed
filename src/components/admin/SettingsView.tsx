@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { formatExpirationNotice } from "@/lib/event-token";
 import { PasswordChangeCard } from "@/components/admin/PasswordChangeCard";
@@ -80,6 +80,17 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
   const [rotatingToken, setRotatingToken] = useState(false);
   const [updatingToken, setUpdatingToken] = useState(false);
   const [tokenSuccessMsg, setTokenSuccessMsg] = useState<string | null>(null);
+
+  // Lock body scrolling when modal is open to prevent background scrolling
+  useEffect(() => {
+    if (showResetModal || showRotateModal) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [showResetModal, showRotateModal]);
 
   async function handleCopyLink() {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
@@ -923,8 +934,13 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
 
       {/* Confirmation Modal: Reset Sessions */}
       {showResetModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !resettingSessions) setShowResetModal(false);
+          }}
+        >
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl my-auto max-h-[min(90vh,680px)] overflow-y-auto overscroll-contain">
             <div className="w-10 h-10 rounded-full bg-rose-950/40 border border-rose-800/60 flex items-center justify-center text-rose-400 mx-auto">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                 <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
@@ -972,8 +988,13 @@ export function SettingsView({ initialEvent, userRole = "superadmin" }: Settings
 
       {/* Confirmation Modal: Rotate Token */}
       {showRotateModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+        <div
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain animate-in fade-in duration-200"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !rotatingToken) setShowRotateModal(false);
+          }}
+        >
+          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl my-auto max-h-[min(90vh,680px)] overflow-y-auto overscroll-contain">
             <div className="w-10 h-10 rounded-full bg-amber-950/40 border border-amber-800/60 flex items-center justify-center text-amber-400 mx-auto">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
                 <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />

@@ -240,6 +240,17 @@ export function PhotosManagementView({
     }
   }, []);
 
+  // Lock body scrolling when export modal is open to prevent background page wheel scrolling
+  useEffect(() => {
+    if (isExportModalOpen) {
+      const prevOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prevOverflow;
+      };
+    }
+  }, [isExportModalOpen]);
+
   const cancelBulkExport = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -1056,12 +1067,19 @@ export function PhotosManagementView({
 
       {/* BULK EXPORT MODAL & LIVE PROGRESS DIALOG */}
       {isExportModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-          <div className="bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-lg p-6 shadow-2xl text-zinc-200 space-y-6">
+        <div
+          className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-md p-3 sm:p-6 flex items-center justify-center overscroll-contain"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !exportProgress) {
+              setIsExportModalOpen(false);
+            }
+          }}
+        >
+          <div className="relative bg-zinc-950 border border-zinc-800 rounded-2xl w-full max-w-lg shadow-2xl text-zinc-200 flex flex-col max-h-[min(88vh,750px)] my-auto overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             {!exportProgress ? (
               <>
-                {/* Modal Header */}
-                <div className="flex items-start justify-between border-b border-zinc-800 pb-4">
+                {/* Modal Header (Fixed, non-scrolling) */}
+                <div className="flex items-start justify-between border-b border-zinc-800 p-5 sm:p-6 pb-4 shrink-0 bg-zinc-950">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-mono uppercase tracking-widest text-amber-400">Bulk Photo Export</span>
@@ -1086,193 +1104,196 @@ export function PhotosManagementView({
                   </button>
                 </div>
 
-                {/* Scope Selection */}
-                <div className="space-y-2">
-                  <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
-                    1. Select Photo Scope
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setExportScope("all")}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        exportScope === "all"
-                          ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
-                          : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-xs text-white">All Event Photos</span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-amber-300">
-                          {photos.filter((p) => !!p.drive_file_id).length} shots
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 mt-1">Every uploaded photo across all guest rolls.</p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setExportScope("filtered")}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        exportScope === "filtered"
-                          ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
-                          : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-xs text-white">Current Filter</span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-amber-300">
-                          {filteredPhotos.filter((p) => !!p.drive_file_id).length} shots
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 mt-1">
-                        {statusFilter !== "all" || guestFilter !== "all" || presetFilter !== "all"
-                          ? "Filtered by active view selection."
-                          : "Matches current view (same as all)."}
-                      </p>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Folder Organization Selection */}
-                <div className="space-y-2">
-                  <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
-                    2. Folder Categorization
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setExportOrganization("guest")}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        exportOrganization === "guest"
-                          ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
-                          : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-xs text-white flex items-center gap-1.5">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-amber-400">
-                            <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
-                          </svg>
-                          <span>Per Guest Folders</span>
-                        </span>
-                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">
-                          Drive Style
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 mt-1 leading-tight">
-                        When unzipped, stored in folders per guest: <code className="text-zinc-300">Name (RollCode)/</code> with <code className="text-zinc-300">originals/</code>.
-                      </p>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setExportOrganization("flat")}
-                      className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                        exportOrganization === "flat"
-                          ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
-                          : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-xs text-white flex items-center gap-1.5">
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-400">
-                            <polygon points="12 2 2 7 12 12 22 7 12 2" />
-                            <polyline points="2 17 12 22 22 17" />
-                            <polyline points="2 12 12 17 22 12" />
-                          </svg>
-                          <span>By Variant</span>
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-zinc-400 mt-1 leading-tight">
-                        All guest photos grouped into top-level <code className="text-zinc-300">Film/</code> and <code className="text-zinc-300">Original/</code> folders.
-                      </p>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Variant Selection Cards */}
-                <div className="space-y-2">
-                  <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
-                    3. Select Photo Variant
-                  </label>
+                {/* Modal Scrollable Body */}
+                <div className="p-5 sm:p-6 overflow-y-auto space-y-5 flex-1 overscroll-contain">
+                  {/* Scope Selection */}
                   <div className="space-y-2">
-                    <button
-                      type="button"
-                      onClick={() => setExportVariant("both")}
-                      className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                        exportVariant === "both"
-                          ? "bg-amber-400/10 border-amber-400/60 text-amber-200"
-                          : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-400">
-                          <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
-                          <path d="m17 4 3 3" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
+                    <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
+                      1. Select Photo Scope
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setExportScope("all")}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          exportScope === "all"
+                            ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
+                            : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
+                        }`}
+                      >
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-xs text-white">Both Film & Clean Originals</span>
-                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">
-                            Recommended
+                          <span className="font-semibold text-xs text-white">All Event Photos</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-amber-300">
+                            {photos.filter((p) => !!p.drive_file_id).length} shots
                           </span>
                         </div>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">
-                          Includes both filtered photos and original camera captures.
-                        </p>
-                      </div>
-                    </button>
+                        <p className="text-[11px] text-zinc-400 mt-1">Every uploaded photo across all guest rolls.</p>
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setExportVariant("film")}
-                      className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                        exportVariant === "film"
-                          ? "bg-amber-400/10 border-amber-400/60 text-amber-200"
-                          : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-400">
-                          <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <span className="font-semibold text-xs text-white">Film Developed Photos Only</span>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">
-                          Photos with the selected film look applied.
+                      <button
+                        type="button"
+                        onClick={() => setExportScope("filtered")}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          exportScope === "filtered"
+                            ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
+                            : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-xs text-white">Current Filter</span>
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-amber-300">
+                            {filteredPhotos.filter((p) => !!p.drive_file_id).length} shots
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-1">
+                          {statusFilter !== "all" || guestFilter !== "all" || presetFilter !== "all"
+                            ? "Filtered by active view selection."
+                            : "Matches current view (same as all)."}
                         </p>
-                      </div>
-                    </button>
+                      </button>
+                    </div>
+                  </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setExportVariant("original")}
-                      className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
-                        exportVariant === "original"
-                          ? "bg-amber-400/10 border-amber-400/60 text-amber-200"
-                          : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
-                      }`}
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-zinc-400">
-                          <circle cx="12" cy="12" r="9" />
-                        </svg>
-                      </div>
-                      <div className="flex-1">
-                        <span className="font-semibold text-xs text-white">Original Photos Only</span>
-                        <p className="text-[11px] text-zinc-400 mt-0.5">
-                          Original photos directly from the camera without filters.
+                  {/* Folder Organization Selection */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
+                      2. Folder Categorization
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setExportOrganization("guest")}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          exportOrganization === "guest"
+                            ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
+                            : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-xs text-white flex items-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-amber-400">
+                              <path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" />
+                            </svg>
+                            <span>Per Guest Folders</span>
+                          </span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">
+                            Drive Style
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-1 leading-tight">
+                          When unzipped, stored in folders per guest: <code className="text-zinc-300">Name (RollCode)/</code> with <code className="text-zinc-300">originals/</code>.
                         </p>
-                      </div>
-                    </button>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setExportOrganization("flat")}
+                        className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                          exportOrganization === "flat"
+                            ? "bg-amber-400/10 border-amber-400/50 text-amber-200"
+                            : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-xs text-white flex items-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-400">
+                              <polygon points="12 2 2 7 12 12 22 7 12 2" />
+                              <polyline points="2 17 12 22 22 17" />
+                              <polyline points="2 12 12 17 22 12" />
+                            </svg>
+                            <span>By Variant</span>
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-zinc-400 mt-1 leading-tight">
+                          All guest photos grouped into top-level <code className="text-zinc-300">Film/</code> and <code className="text-zinc-300">Original/</code> folders.
+                        </p>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Variant Selection Cards */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-mono text-zinc-400 uppercase tracking-wider block">
+                      3. Select Photo Variant
+                    </label>
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        onClick={() => setExportVariant("both")}
+                        className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                          exportVariant === "both"
+                            ? "bg-amber-400/10 border-amber-400/60 text-amber-200"
+                            : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
+                        }`}
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-400">
+                            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+                            <path d="m17 4 3 3" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-xs text-white">Both Film & Clean Originals</span>
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold">
+                              Recommended
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            Includes both filtered photos and original camera captures.
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setExportVariant("film")}
+                        className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                          exportVariant === "film"
+                            ? "bg-amber-400/10 border-amber-400/60 text-amber-200"
+                            : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
+                        }`}
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-amber-400">
+                            <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-semibold text-xs text-white">Film Developed Photos Only</span>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            Photos with the selected film look applied.
+                          </p>
+                        </div>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setExportVariant("original")}
+                        className={`w-full p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3 ${
+                          exportVariant === "original"
+                            ? "bg-amber-400/10 border-amber-400/60 text-amber-200"
+                            : "bg-zinc-900/60 border-zinc-800 text-zinc-400 hover:border-zinc-700 hover:text-zinc-300"
+                        }`}
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white/[0.04] border border-white/10 flex items-center justify-center shrink-0 mt-0.5">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4 text-zinc-400">
+                            <circle cx="12" cy="12" r="9" />
+                          </svg>
+                        </div>
+                        <div className="flex-1">
+                          <span className="font-semibold text-xs text-white">Original Photos Only</span>
+                          <p className="text-[11px] text-zinc-400 mt-0.5">
+                            Original photos directly from the camera without filters.
+                          </p>
+                        </div>
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {/* Modal Footer */}
-                <div className="flex items-center justify-end gap-3 pt-3 border-t border-zinc-800">
+                {/* Modal Footer (Fixed, non-scrolling - always accessible) */}
+                <div className="flex items-center justify-end gap-3 p-4 sm:p-5 pt-3 border-t border-zinc-800 shrink-0 bg-zinc-950/95 backdrop-blur-sm">
                   <button
                     type="button"
                     onClick={() => setIsExportModalOpen(false)}
@@ -1296,7 +1317,7 @@ export function PhotosManagementView({
               </>
             ) : (
               /* Live Progress View */
-              <div className="space-y-6 py-2">
+              <div className="p-6 space-y-6 overflow-y-auto max-h-[min(88vh,750px)]">
                 <div className="text-center space-y-2">
                   <div className="w-12 h-12 mx-auto rounded-xl bg-amber-400/10 border border-amber-400/20 flex items-center justify-center text-amber-400">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 animate-pulse">

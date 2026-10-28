@@ -38,6 +38,17 @@ export function EventSwitcher({
     setMounted(true);
   }, []);
 
+  // Lock body scrolling when Create New Event modal is open
+  useEffect(() => {
+    if (showNewModal) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [showNewModal]);
+
   // New Event Form State
   const [coupleNames, setCoupleNames] = useState("");
   const [slug, setSlug] = useState("");
@@ -230,8 +241,13 @@ export function EventSwitcher({
 
       {/* New Event Modal rendered via createPortal so it escapes header stacking context */}
       {showNewModal && mounted && createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="w-full max-w-md rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl relative text-left">
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm overflow-y-auto overscroll-contain animate-in fade-in duration-150"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isCreating) setShowNewModal(false);
+          }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-2xl relative text-left my-auto max-h-[min(90vh,700px)] overflow-y-auto overscroll-contain">
             <h2 className="text-xl font-serif font-bold text-white mb-1">Create New Wedding / Event</h2>
             <p className="text-xs text-zinc-400 mb-5">
               Set up an isolated event with its own QR codes, photo stream, and guest roll.
