@@ -65,11 +65,11 @@ export async function GET(req: Request) {
     oauth2Client.setCredentials(tokens);
     const drive = google.drive({ version: "v3", auth: oauth2Client });
 
-    // 2. Fetch event couple names
+    // 2. Fetch event couple names and existing root folder
     const sb = supabaseAdmin();
     const { data: event, error: eventErr } = await sb
       .from("events")
-      .select("id, couple_names")
+      .select("id, couple_names, drive_root_folder_id")
       .eq("slug", eventSlug)
       .single();
 
@@ -77,11 +77,24 @@ export async function GET(req: Request) {
       throw new Error(`Event ${eventSlug} not found in database`);
     }
 
-    // 3. Create root folder in Google Drive
-    const rootFolderId = await createRootFolder(drive, event.couple_names);
+    // 3. Preserve existing root folder if still valid in Drive, else create new
+    let rootFolderId = event.drive_root_folder_id;
+    if (rootFolderId) {
+      try {
+        const existing = await drive.files.get({ fileId: rootFolderId, fields: "id, trashed" });
+        if (existing.data.trashed) {
+          rootFolderId = await createRootFolder(drive, event.couple_names);
+        }
+      } catch {
+        rootFolderId = await createRootFolder(drive, event.couple_names);
+      }
+    } else {
+      rootFolderId = await createRootFolder(drive, event.couple_names);
+    }
 
     // 4. Cache drive_root_folder_id and encrypted google_refresh_token on event
     const { encryptToken } = await import("@/lib/security/encryption");
+    const { invalidateDriveTokenCache } = await import("@/lib/drive/client");
     const storedToken = refreshToken ? encryptToken(refreshToken) : null;
 
     await sb
@@ -91,6 +104,9 @@ export async function GET(req: Request) {
         google_refresh_token: storedToken,
       })
       .eq("id", event.id);
+
+    // Invalidate in-memory token cache so active serverless workers switch immediately
+    invalidateDriveTokenCache();
 
     // Redirect to connect-drive page with details (without leaking refreshToken in URL)
     const redirectParams = new URLSearchParams({

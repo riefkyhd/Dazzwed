@@ -646,5 +646,24 @@ To empower client hosts and platform administrators while removing manual databa
    - **Tactile Inputs:** Features show/hide visibility toggles with eye icons, monospace character counters (`x / 8 min`), inline validation badges, and tactile state transitions.
    - **Seamless Dual Integration:** Accessible in `/admin/settings` (Section 6: Account Security) for client hosts, and directly inside `/superadmin` via the Zone 3 "Security" navigation action for Platform Owners.
 
+## 22. Google Drive Vault Lifecycle, 7-Day Expiration Defense & Gallery Resilience
+
+To safeguard long-term wedding archives and eliminate host alarm when tokens expire, Dazzwed incorporates self-healing Drive telemetry:
+
+1. **Google Cloud OAuth Publishing Status (7-Day Expiration vs. Permanent Production):**
+   - **Testing Mode Behavior:** In Google Cloud Console, OAuth consent screens left in "Testing" mode have their refresh tokens revoked by Google after exactly 7 days, resulting in `invalid_grant` errors.
+   - **Production Mode Solution:** Setting the Google Cloud OAuth Consent Screen publishing status to **"In production"** makes refresh tokens permanent, eliminating 7-day expirations forever.
+   - **Data Integrity Assurance:** When a token expires, photos on Google Drive are never deleted or affected. They remain 100% intact in their respective guest subfolders.
+
+2. **Root Folder Preservation During OAuth Reconnection:**
+   - **Zero Duplicate Folders:** When reconnecting Drive via `/admin/connect-drive` and `/api/auth/google/callback`, the handler inspects `event.drive_root_folder_id`. If the folder already exists in Drive, it is preserved instead of generating a new empty root folder.
+   - **In-Memory Cache Invalidation:** Reconnecting Drive immediately calls `invalidateDriveTokenCache()`, clearing stale serverless worker caches so thumbnail streaming and health telemetry recover instantly without waiting for TTL expirations.
+
+3. **Gallery Preview Resilience & Tactile Recovery:**
+   - **Accurate Error Demarcation:** Replaced alarming "Drive file removed" fallback copy with accurate "Preview unavailable" labeling when image stream requests fail due to network or authentication interruptions.
+   - **Individual Retry Action:** Each failed card features an inline "Retry" button that clears failed state and re-fetches the thumbnail stream on demand.
+   - **Bulk "Reload Previews" Control:** Top gallery toolbar includes a 1-click "Reload Previews" button to reset all failed states across the contact sheet.
+
+
 
 

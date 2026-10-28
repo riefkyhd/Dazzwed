@@ -541,6 +541,28 @@ export function PhotosManagementView({
             </svg>
             <span>{isReconciling ? "Reconciling…" : "Sync Drive"}</span>
           </button>
+
+          {/* Reload Gallery Images */}
+          <button
+            type="button"
+            onClick={() => {
+              setFailedImages({});
+              setImageRetries({});
+              setLoadedImages({});
+              setNotification("Reloading gallery images from Google Drive…");
+              setTimeout(() => setNotification(null), 3000);
+            }}
+            className="h-8 px-3 rounded-lg bg-zinc-900/80 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 text-zinc-300 hover:text-white font-medium text-xs transition-colors flex items-center gap-1.5 shrink-0 whitespace-nowrap cursor-pointer"
+            title="Reload images from Google Drive"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-zinc-400">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+              <path d="M16 21h5v-5" />
+            </svg>
+            <span>Reload Previews</span>
+          </button>
         </div>
       </div>
 
@@ -703,7 +725,22 @@ export function PhotosManagementView({
                                 <circle cx="9" cy="9" r="2" />
                                 <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
                               </svg>
-                              <span className="font-mono text-[10px] text-zinc-400">Drive file removed</span>
+                              <span className="font-mono text-[10px] text-zinc-400">Preview unavailable</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setFailedImages((prev) => {
+                                    const next = { ...prev };
+                                    delete next[photo.id];
+                                    return next;
+                                  });
+                                  setImageRetries((prev) => ({ ...prev, [photo.id]: (prev[photo.id] || 0) + 1 }));
+                                }}
+                                className="mt-2 px-2.5 py-1 rounded-md bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-[10px] font-mono text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                              >
+                                Retry
+                              </button>
                             </div>
                           ) : (
                             <>

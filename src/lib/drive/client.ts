@@ -23,6 +23,15 @@ let cachedTokens: {
 } | null = null;
 
 /**
+ * Invalidates in-memory Drive token and access token caches (e.g. after OAuth reconnection).
+ */
+export function invalidateDriveTokenCache(): void {
+  cachedTokens = null;
+  cachedAccessToken = null;
+  tokenRefreshPromise = null;
+}
+
+/**
  * Resolves the Google Drive refresh token and root folder ID,
  * checking in-memory cache first, then database events record, then environment variables.
  */

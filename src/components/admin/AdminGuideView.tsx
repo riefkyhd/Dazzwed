@@ -861,6 +861,19 @@ export function AdminGuideView() {
           <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
             <h4 className="text-sm font-bold text-white">
               {lang === "en"
+                ? "Q: Why does Google Drive show 'invalid_grant' after 7 days, and are photos safe?"
+                : "T: Mengapa Google Drive menampilkan 'invalid_grant' setelah 7 hari, dan apakah foto aman?"}
+            </h4>
+            <p className="text-xs text-zinc-300 leading-relaxed">
+              {lang === "en"
+                ? "Your photos on Google Drive are 100% safe and intact. In Google Cloud Console, if the OAuth Consent Screen publishing status is set to 'Testing', Google automatically expires refresh tokens after exactly 7 days. When this happens, gallery previews show 'Preview unavailable' until Drive is reconnected. To make credentials permanent so they never expire, set the OAuth Consent Screen Publishing Status to 'In production'. When reconnecting Drive, Dazzwed automatically preserves your existing root wedding folder and purges in-memory token caches. You can click 'Reload Previews' or individual photo 'Retry' buttons to reload the gallery."
+                : "Foto Anda di Google Drive 100% aman dan tidak terhapus. Di Google Cloud Console, jika status OAuth Consent Screen masih 'Testing', Google secara otomatis mencabut token setelah 7 hari. Hal ini menyebabkan pratinjau galeri menampilkan 'Preview unavailable' hingga Drive dihubungkan ulang. Agar token bersifat permanen dan tidak pernah kedaluwarsa, ubah status Publishing ke 'In production'. Saat menghubungkan ulang Drive, Dazzwed otomatis mempertahankan folder utama acara yang sudah ada dan memperbarui cache. Anda dapat mengetuk 'Reload Previews' atau tombol 'Retry' pada foto untuk memuat ulang pratinjau."}
+            </p>
+          </div>
+
+          <div className="p-5 rounded-2xl bg-zinc-950 border border-zinc-800 space-y-2">
+            <h4 className="text-sm font-bold text-white">
+              {lang === "en"
                 ? "Q: Why do some photos have date stamps while others do not?"
                 : "T: Mengapa sebagian foto memiliki cap tanggal (timestamp) dan sebagian tidak?"}
             </h4>
